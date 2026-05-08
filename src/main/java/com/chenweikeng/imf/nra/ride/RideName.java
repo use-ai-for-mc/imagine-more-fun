@@ -8,98 +8,114 @@ import java.util.Map;
 
 public enum RideName {
   // Disneyland rides
-  ALICE_IN_WONDERLAND("Alice in Wonderland", "alice", 206),
-  ASTRO_ORBITOR("Astro Orbitor", "astro", 88),
-  AUTOPIA("Autopia", "autopia", 246),
-  BIG_THUNDER_MOUNTAIN_RAILROAD("Big Thunder Mountain Railroad", "btm", 201),
-  BUZZ_LIGHTYEAR_ASTRO_BLASTERS("Buzz Lightyear Astro Blasters", "buzz", 258),
-  CASEY_JR_CIRCUS_TRAIN("Casey Jr. Circus Train", "casey", 152),
+  ALICE_IN_WONDERLAND("Alice in Wonderland", "alice", 206, "Fantasyland"),
+  ASTRO_ORBITOR("Astro Orbitor", "astro", 88, "Tomorrowland"),
+  AUTOPIA("Autopia", "autopia", 246, "Tomorrowland"),
+  BIG_THUNDER_MOUNTAIN_RAILROAD("Big Thunder Mountain Railroad", "btm", 201, "Frontierland"),
+  BUZZ_LIGHTYEAR_ASTRO_BLASTERS("Buzz Lightyear Astro Blasters", "buzz", 258, "Tomorrowland"),
+  CASEY_JR_CIRCUS_TRAIN("Casey Jr. Circus Train", "casey", 152, "Fantasyland"),
   CHIP_N_DALES_GADGET_COASTER(
-      "Chip 'N' Dale's Gadget Coaster", "Chip 'n' Dale's GADGETcoaster", "gadget", 44),
-  DAVY_CROCKETTS_EXPLORER_CANOES("Davy Crockett's Explorer Canoes", "canoe", 150),
-  DISNEYLAND_MONORAIL("Disneyland Monorail", "monorail", 485),
-  DISNEYLAND_RAILROAD("Disneyland Railroad", "dlrr", 1008),
-  DUMBO_THE_FLYING_ELEPHANT("Dumbo the Flying Elephant", "dumbo", 105),
-  ENCHANTED_TIKI_ROOM("Enchanted Tiki Room", "Walt Disney's Enchanted Tiki Room", "tiki", 750),
-  FINDING_NEMO_SUBMARINE_VOYAGE("Finding Nemo Submarine Voyage", "nemo", 790),
-  GREAT_MOMENTS_WITH_MR_LINCOLN("Great Moments with Mr. Lincoln", "lincoln", 372),
-  HAUNTED_MANSION("Haunted Mansion", "hm", 445),
-  INDIANA_JONES_ADVENTURE("Indiana Jones Adventure", "Indiana Jones Adventure", "indy", 225),
-  JUNGLE_CRUISE("Jungle Cruise", "jungle", 431),
-  KING_ARTHUR_CARROUSEL("King Arthur Carrousel", "kac", 130),
-  MAD_TEA_PARTY("Mad Tea Party", "madtea", 90),
-  MAIN_STREET_CARRIAGES("Main Street Carriages", "Main Street Vehicles", "mainst", 381),
-  MATTERHORN_BOBSLEDS("Matterhorn Bobsleds", "matterhorn", 120),
-  MICKEY_AND_FRIENDS_PARKING_TRAM("Mickey & Friends Parking Tram", "parking", 550),
-  MR_TOADS_WILD_RIDE("Mr Toad's Wild Ride", "mrtoads", 109),
-  PEOPLEMOVER("Peoplemover", "PeopleMover", "pm", 717),
-  PETER_PANS_FLIGHT("Peter Pan's Flight", "peterpan", 139),
-  PINOCCHIOS_DARING_JOURNEY("Pinocchio's Daring Journey", "pinocchio", 168),
-  PIRATES_OF_THE_CARIBBEAN("Pirates of the Caribbean", "potc", 841),
+      "Chip 'N' Dale's Gadget Coaster", "Chip 'n' Dale's GADGETcoaster", "gadget", 44, "Toontown"),
+  DAVY_CROCKETTS_EXPLORER_CANOES(
+      "Davy Crockett's Explorer Canoes", "canoe", 150, "Critter Country"),
+  DISNEYLAND_MONORAIL("Disneyland Monorail", "monorail", 485, "Tomorrowland"),
+  DISNEYLAND_RAILROAD("Disneyland Railroad", "dlrr", 1008, "Mainstreet USA"),
+  DUMBO_THE_FLYING_ELEPHANT("Dumbo the Flying Elephant", "dumbo", 105, "Fantasyland"),
+  ENCHANTED_TIKI_ROOM(
+      "Enchanted Tiki Room", "Walt Disney's Enchanted Tiki Room", "tiki", 750, "Adventureland"),
+  FINDING_NEMO_SUBMARINE_VOYAGE("Finding Nemo Submarine Voyage", "nemo", 790, "Tomorrowland"),
+  GREAT_MOMENTS_WITH_MR_LINCOLN("Great Moments with Mr. Lincoln", "lincoln", 372, "Mainstreet USA"),
+  HAUNTED_MANSION("Haunted Mansion", "hm", 445, "New Orleans Square"),
+  INDIANA_JONES_ADVENTURE(
+      "Indiana Jones Adventure", "Indiana Jones Adventure", "indy", 225, "Adventureland"),
+  JUNGLE_CRUISE("Jungle Cruise", "jungle", 431, "Adventureland"),
+  KING_ARTHUR_CARROUSEL("King Arthur Carrousel", "kac", 130, "Fantasyland"),
+  MAD_TEA_PARTY("Mad Tea Party", "madtea", 90, "Fantasyland"),
+  MAIN_STREET_CARRIAGES(
+      "Main Street Carriages", "Main Street Vehicles", "mainst", 381, "Mainstreet USA"),
+  MATTERHORN_BOBSLEDS("Matterhorn Bobsleds", "matterhorn", 120, "Fantasyland"),
+  MICKEY_AND_FRIENDS_PARKING_TRAM("Mickey & Friends Parking Tram", "parking", 550, "Esplanade"),
+  MR_TOADS_WILD_RIDE("Mr Toad's Wild Ride", "mrtoads", 109, "Fantasyland"),
+  PEOPLEMOVER("Peoplemover", "PeopleMover", "pm", 717, "Tomorrowland"),
+  PETER_PANS_FLIGHT("Peter Pan's Flight", "peterpan", 139, "Fantasyland"),
+  PINOCCHIOS_DARING_JOURNEY("Pinocchio's Daring Journey", "pinocchio", 168, "Fantasyland"),
+  PIRATES_OF_THE_CARIBBEAN("Pirates of the Caribbean", "potc", 841, "New Orleans Square"),
   ROGER_RABBITS_CAR_TOON_SPIN(
-      "Roger Rabbit's Car-Toon Spin", "Roger Rabbit's Car Toon Spin", "roger", 168),
-  SNOW_WHITES_ENCHANTED_WISH("Snow White's Enchanted Wish", "snowwhite", 122),
-  SPACE_MOUNTAIN("Space Mountain", "space", 180),
-  SPLASH_MOUNTAIN("Splash Mountain", "splash", 484),
-  STAR_WARS_RISE_OF_THE_RESISTANCE("Star Wars: Rise of the Resistance", "rotr", 294),
-  STORYBOOK_LAND_CANAL_BOATS("Storybook Land Canal Boats", "storybook", 303),
-  THE_MANY_ADVENTURES_OF_WINNIE_THE_POOH("The Many Adventures of Winnie the Pooh", "pooh", 200),
+      "Roger Rabbit's Car-Toon Spin", "Roger Rabbit's Car Toon Spin", "roger", 168, "Toontown"),
+  SNOW_WHITES_ENCHANTED_WISH("Snow White's Enchanted Wish", "snowwhite", 122, "Fantasyland"),
+  SPACE_MOUNTAIN("Space Mountain", "space", 180, "Tomorrowland"),
+  SPLASH_MOUNTAIN("Splash Mountain", "splash", 484, "Critter Country"),
+  STAR_WARS_RISE_OF_THE_RESISTANCE(
+      "Star Wars: Rise of the Resistance", "rotr", 294, "Galaxy's Edge"),
+  STORYBOOK_LAND_CANAL_BOATS("Storybook Land Canal Boats", "storybook", 303, "Fantasyland"),
+  THE_MANY_ADVENTURES_OF_WINNIE_THE_POOH(
+      "The Many Adventures of Winnie the Pooh", "pooh", 200, "Critter Country"),
   TOM_SAWYER_ISLAND_RAFTS(
-      "Tom Sawyer Island Rafts", "Rafts to Pirate's Lair on Tom Sawyer Island", "tsi", 129),
+      "Tom Sawyer Island Rafts",
+      "Rafts to Pirate's Lair on Tom Sawyer Island",
+      "tsi",
+      129,
+      "New Orleans Square"),
 
   // DCA rides
-  GOLDEN_ZEPHYR("Golden Zephyr", "gz", 108),
-  GOOFYS_SKY_SCHOOL("Goofy's Sky School", "gss", 91),
-  GRIZZLY_RIVER_RUN("Grizzly River Run", "grr", 361),
+  GOLDEN_ZEPHYR("Golden Zephyr", "gz", 108, "Paradise Gardens"),
+  GOOFYS_SKY_SCHOOL("Goofy's Sky School", "gss", 91, "Paradise Gardens"),
+  GRIZZLY_RIVER_RUN("Grizzly River Run", "grr", 361, "Grizzly Peak"),
   GUARDIANS_OF_THE_GALAXY_MISSION_BREAKOUT(
       "Guardians of the Galaxy: Mission Breakout",
       "Guardians of the Galaxy - Mission: BREAKOUT!",
       "gotg",
-      123),
-  INCREDICOASTER("Incredicoaster", "incredi", 135),
-  INSIDE_OUT_EMOTIONAL_WHIRLWIND("Inside Out Emotional Whirlwind", "insideout", 98),
-  JESSIES_CRITTER_CAROUSEL("Jessie's Critter Carousel", "jessie", 120),
-  JUMPIN_JELLYFISH("Jumpin' Jellyfish", "jumpin", 45),
-  LUIGIS_ROLICKIN_ROADSTERS("Luigi's Rollickin' Roadsters", "luigi", 94),
-  MATERS_JUNKYARD_JAMBOREE("Mater's Junkyard Jamboree", "mater", 90),
+      123,
+      "Avenger's Campus"),
+  INCREDICOASTER("Incredicoaster", "incredi", 135, "Pixar Pier"),
+  INSIDE_OUT_EMOTIONAL_WHIRLWIND("Inside Out Emotional Whirlwind", "insideout", 98, "Pixar Pier"),
+  JESSIES_CRITTER_CAROUSEL("Jessie's Critter Carousel", "jessie", 120, "Pixar Pier"),
+  JUMPIN_JELLYFISH("Jumpin' Jellyfish", "jumpin", 45, "Paradise Gardens"),
+  LUIGIS_ROLICKIN_ROADSTERS("Luigi's Rollickin' Roadsters", "luigi", 94, "Cars Land"),
+  MATERS_JUNKYARD_JAMBOREE("Mater's Junkyard Jamboree", "mater", 90, "Cars Land"),
   MONSTERS_INC_MIKE_AND_SULLEY_TO_THE_RESCUE(
       "Monster's Inc. Mike & Sulley to the Rescue!",
       "Monsters, Inc. Mike & Sulley to the Rescue!",
       "monster",
-      230),
-  PIXAR_PAL_AROUND("Pixar Pal-A-Round", "palaround", 551),
-  RADIATOR_SPRINGS_RACERS("Radiator Springs Racers", "rsr", 267),
-  RED_CAR_TROLLEY("Red Car Trolley", "rct", 300),
-  SILLY_SYMPHONY_SWINGS("Silly Symphony Swings", "silly", 87),
+      230,
+      "Hollywood Land"),
+  PIXAR_PAL_AROUND("Pixar Pal-A-Round", "palaround", 551, "Pixar Pier"),
+  RADIATOR_SPRINGS_RACERS("Radiator Springs Racers", "rsr", 267, "Cars Land"),
+  RED_CAR_TROLLEY("Red Car Trolley", "rct", 300, "Buena Vista Street"),
+  SILLY_SYMPHONY_SWINGS("Silly Symphony Swings", "silly", 87, "Paradise Gardens"),
   THE_LITTLE_MERMAID_ARIELS_UNDERSEA_ADVENTURE(
       "The Little Mermaid: Ariel's Undersea Adventure",
       "The Little Mermaid - Ariel's Undersea Adventure",
       "ariel",
-      369),
+      369,
+      "Paradise Gardens"),
 
   // Retro
-  FLIKS_FLYERS("Flik's Flyers", "flik", 98),
-  HEIMLICHS_CHEW_CHEW_TRAIN("Heimlich's Chew Chew Train", "heimlich", 102),
-  THE_TWILIGHT_ZONE_TOWER_OF_TERROR("The Twilight Zone Tower of Terror", "tot", 125),
+  FLIKS_FLYERS("Flik's Flyers", "flik", 98, "A Bug's Land"),
+  HEIMLICHS_CHEW_CHEW_TRAIN("Heimlich's Chew Chew Train", "heimlich", 102, "A Bug's Land"),
+  THE_TWILIGHT_ZONE_TOWER_OF_TERROR(
+      "The Twilight Zone Tower of Terror", "tot", 125, "Hollywood Land"),
 
   // Seasonal
-  HAUNTED_MANSION_HOLIDAY("Haunted Mansion Holiday", "hmh", 445),
+  HAUNTED_MANSION_HOLIDAY("Haunted Mansion Holiday", "hmh", 445, "New Orleans Square"),
   GUARDIANS_OF_THE_GALAXY_MONSTERS_AFTER_DARK(
       "Guardians of the Galaxy: Monsters After Dark",
       "Guardians of the Galaxy - Monsters After Dark",
       "gotgmad",
-      123),
-  THE_SUGARPINE_EXPRESS("The Sugarpine Express", "sugarexpress", 132),
-  THE_SUGARPINE_MERRY_GO_ROUND("The Sugarpine Merry-Go-Round", "sugargoround", 76),
-  HYPERSPACE_MOUNTAIN("Hyperspace Mountain", "hyperspace", 180),
+      123,
+      "Avenger's Campus"),
+  THE_SUGARPINE_EXPRESS("The Sugarpine Express", "sugarexpress", 132, null),
+  THE_SUGARPINE_MERRY_GO_ROUND("The Sugarpine Merry-Go-Round", "sugargoround", 76, null),
+  HYPERSPACE_MOUNTAIN("Hyperspace Mountain", "hyperspace", 180, "Tomorrowland"),
 
   // Unknown ride (for rides not in the enum)
-  UNKNOWN("Unknown", "unknown", 99999);
+  UNKNOWN("Unknown", "unknown", 99999, null);
 
   private final String matchName;
   private final String displayName;
   private final String shortName;
   private final int rideTime; // Ride time in seconds
+  private final String land; // Land name, or null if unknown/none
   private static final Map<String, RideName> BY_MATCH_NAME = new HashMap<>();
 
   static {
@@ -108,15 +124,16 @@ public enum RideName {
     }
   }
 
-  RideName(String matchName, String shortName, int rideTime) {
-    this(matchName, null, shortName, rideTime);
+  RideName(String matchName, String shortName, int rideTime, String land) {
+    this(matchName, null, shortName, rideTime, land);
   }
 
-  RideName(String matchName, String displayName, String shortName, int rideTime) {
+  RideName(String matchName, String displayName, String shortName, int rideTime, String land) {
     this.matchName = matchName;
     this.displayName = displayName;
     this.shortName = shortName;
     this.rideTime = rideTime;
+    this.land = land;
   }
 
   public String getDisplayName() {
@@ -130,6 +147,11 @@ public enum RideName {
   /** Gets the ride time in seconds. */
   public int getRideTime() {
     return rideTime;
+  }
+
+  /** Gets the land this ride belongs to (e.g. "Fantasyland"), or null if none. */
+  public String getLand() {
+    return land;
   }
 
   /**
