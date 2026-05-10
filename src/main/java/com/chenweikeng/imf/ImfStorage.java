@@ -75,6 +75,22 @@ public final class ImfStorage {
     return root().resolve("native");
   }
 
+  /** Directory for the player-simulator subsystem (vehicle catalog, seat samples, etc.). */
+  public static Path simulatorDir() {
+    Path p = root().resolve("simulator");
+    try {
+      Files.createDirectories(p);
+    } catch (IOException e) {
+      // Swallow — caller will surface errors on read/write.
+    }
+    return p;
+  }
+
+  /** Hand-curated catalog of ride-vehicle recognition criteria. */
+  public static Path simulatorVehicles() {
+    return simulatorDir().resolve("vehicles.json");
+  }
+
   /**
    * Marker file written once migration from the old {@code config/not-riding-alert*} paths has run.
    */
