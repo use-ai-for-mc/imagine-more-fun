@@ -22,7 +22,8 @@ public class ServerState {
     }
 
     String serverIp = client.getCurrentServer().ip.toLowerCase();
-    isImagineFunServer = serverIp.endsWith(".imaginefun.net");
+    String host = serverIp.split(":")[0];
+    isImagineFunServer = host.endsWith(".imaginefun.net");
 
     if (isImagineFunServer) {
       muteMusicVolume(client);

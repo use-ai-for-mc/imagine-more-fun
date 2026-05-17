@@ -41,7 +41,8 @@ public class PimClient implements ClientModInitializer {
     }
 
     String serverIp = client.getCurrentServer().ip.toLowerCase();
-    isImagineFunServer = serverIp.endsWith(".imaginefun.net");
+    String host = serverIp.split(":")[0];
+    isImagineFunServer = host.endsWith(".imaginefun.net");
   }
 
   public static void onDisconnect() {
