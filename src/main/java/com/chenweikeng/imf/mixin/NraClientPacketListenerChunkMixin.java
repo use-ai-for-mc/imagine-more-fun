@@ -1,6 +1,5 @@
 package com.chenweikeng.imf.mixin;
 
-import com.chenweikeng.imf.nra.spacemountain.SpaceMountainAnimationRecorder;
 import com.chenweikeng.imf.nra.spacemountain.SpaceMountainBlockOverride;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -39,9 +38,6 @@ public class NraClientPacketListenerChunkMixin {
   @Inject(method = "handleBlockUpdate", at = @At("TAIL"))
   private void imf$sealOnBlockUpdate(ClientboundBlockUpdatePacket packet, CallbackInfo ci) {
     SpaceMountainBlockOverride.sealCellIfNeeded(packet.getPos());
-    if (SpaceMountainAnimationRecorder.isRecording()) {
-      SpaceMountainAnimationRecorder.recordBlockUpdate(packet.getPos(), packet.getBlockState());
-    }
   }
 
   @Inject(method = "handleChunkBlocksUpdate", at = @At("TAIL"))
@@ -50,9 +46,6 @@ public class NraClientPacketListenerChunkMixin {
     packet.runUpdates(
         (BlockPos pos, net.minecraft.world.level.block.state.BlockState state) -> {
           SpaceMountainBlockOverride.sealCellIfNeeded(pos);
-          if (SpaceMountainAnimationRecorder.isRecording()) {
-            SpaceMountainAnimationRecorder.recordSectionUpdate(pos, state);
-          }
         });
   }
 }

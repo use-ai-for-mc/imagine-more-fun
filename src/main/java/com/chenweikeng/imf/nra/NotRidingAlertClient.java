@@ -293,23 +293,7 @@ public class NotRidingAlertClient implements ClientModInitializer {
                                       com.mojang.brigadier.arguments.StringArgumentType.getString(
                                           context, "profileName");
                                   return ProfileCommandHandler.executeProfileSwitch(profileName);
-                                })))
-            .then(
-                ClientCommandManager.literal("dumpchunks")
-                    .executes(
-                        context ->
-                            com.chenweikeng.imf.nra.spacemountain.ChunkDumpCommand.execute(
-                                context.getSource(), 8))
-                    .then(
-                        ClientCommandManager.argument(
-                                "radius",
-                                com.mojang.brigadier.arguments.IntegerArgumentType.integer(1, 32))
-                            .executes(
-                                context ->
-                                    com.chenweikeng.imf.nra.spacemountain.ChunkDumpCommand.execute(
-                                        context.getSource(),
-                                        com.mojang.brigadier.arguments.IntegerArgumentType
-                                            .getInteger(context, "radius"))))));
+                                }))));
   }
 
   private static void registerOaCommand(CommandDispatcher<FabricClientCommandSource> dispatcher) {

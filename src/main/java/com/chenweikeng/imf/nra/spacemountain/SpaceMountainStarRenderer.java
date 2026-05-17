@@ -25,9 +25,7 @@ import org.joml.Vector3f;
 /**
  * Custom starfield renderer for Space and Hyperspace Mountain. Stars are projected onto the dome's
  * actual interior wall faces — the position list is baked from a chunk dump and shipped as a binary
- * resource ({@code /imaginemorefun/dome_borders.bin}). To regenerate after dome changes: place the
- * player inside the dome, run {@code /imf dumpchunks 6}, then {@code python3
- * debug-dumps/bake-borders.py debug-dumps/chunks-*.bin.gz}.
+ * resource ({@code /imaginemorefun/dome_borders.bin}).
  *
  * <p><b>Render type.</b> {@link RenderTypes#eyes} uses {@code RenderPipelines#EYES} which is {@code
  * EMISSIVE} (lightmap bypassed, always full-bright), translucent-blended, depth-test on,
@@ -49,10 +47,8 @@ public final class SpaceMountainStarRenderer {
 
   private static final String BORDERS_RESOURCE = "/imaginemorefun/dome_borders.bin";
   private static final String TRACK_STARS_RESOURCE = "/imaginemorefun/dome_track_stars.bin";
-  private static final String STL_STARS_RESOURCE = "/imaginemorefun/stl_stars.bin";
 
-  // Track-surface stars disabled — superseded by STL-surface stars (see appendStlStars).
-  // The recorded-track files are kept on disk but no longer used.
+  // Track-surface stars disabled — the recorded-track files are kept on disk but no longer used.
   private static final boolean INCLUDE_TRACK_STARS = false;
 
   // Direction.values() ordinal mapping in 1.21: 0=DOWN, 1=UP, 2=NORTH, 3=SOUTH, 4=WEST, 5=EAST.
@@ -65,7 +61,7 @@ public final class SpaceMountainStarRenderer {
   private static double[] starZ = new double[0];
   private static float[] starHalfSize = new float[0];
 
-  // Baked dome-wall + STL stars — off by default; the disco-ball projection is the star effect.
+  // Baked dome-wall stars — off by default; the disco-ball projection is the star effect.
   // Re-enable via the bridge: java.import("...SpaceMountainStarRenderer"):setEnabled(true)
   private static volatile boolean ENABLED = false;
 
@@ -145,15 +141,11 @@ public final class SpaceMountainStarRenderer {
       // Append track-surface stars (rails / spine / V-struts). Pre-baked positions, no shuffle —
       // we always include all of them so the look is consistent run-to-run.
       int trackAdded = INCLUDE_TRACK_STARS ? appendTrackStars(rng) : 0;
-      // Append STL-surface stars (baked by debug-dumps/bake-stl-stars.py).
-      int stlAdded = appendStlStars(rng);
       NotRidingAlertClient.LOGGER.info(
-          "[SpaceMountainStarRenderer] loaded {} dome faces ({} dome stars)"
-              + " + {} track stars + {} STL stars",
+          "[SpaceMountainStarRenderer] loaded {} dome faces ({} dome stars) + {} track stars",
           faceCount,
           n,
-          trackAdded,
-          stlAdded);
+          trackAdded);
     } catch (IOException e) {
       NotRidingAlertClient.LOGGER.error(
           "[SpaceMountainStarRenderer] failed to load borders resource", e);
@@ -199,44 +191,6 @@ public final class SpaceMountainStarRenderer {
     } catch (IOException e) {
       NotRidingAlertClient.LOGGER.error(
           "[SpaceMountainStarRenderer] failed to load track-stars resource", e);
-      return 0;
-    }
-  }
-
-  /**
-   * Read {@link #STL_STARS_RESOURCE} (produced by {@code debug-dumps/bake-stl-stars.py}) and append
-   * each entry to the star arrays. Returns the number appended (0 if the resource is missing).
-   */
-  private static int appendStlStars(Random rng) {
-    try (InputStream in = SpaceMountainStarRenderer.class.getResourceAsStream(STL_STARS_RESOURCE)) {
-      if (in == null) return 0;
-      DataInputStream dis = new DataInputStream(in);
-      byte[] magic = new byte[4];
-      dis.readFully(magic);
-      if (magic[0] != 'I' || magic[1] != 'F' || magic[2] != 'S' || magic[3] != 'S') {
-        throw new IOException("bad STL-stars magic: " + new String(magic));
-      }
-      int version = dis.readUnsignedByte();
-      if (version != 1) throw new IOException("unsupported STL-stars version: " + version);
-      int count = dis.readInt();
-      if (count <= 0) return 0;
-      int oldLen = starX.length;
-      int newLen = oldLen + count;
-      starX = java.util.Arrays.copyOf(starX, newLen);
-      starY = java.util.Arrays.copyOf(starY, newLen);
-      starZ = java.util.Arrays.copyOf(starZ, newLen);
-      starHalfSize = java.util.Arrays.copyOf(starHalfSize, newLen);
-      for (int i = 0; i < count; i++) {
-        starX[oldLen + i] = dis.readDouble();
-        starY[oldLen + i] = dis.readDouble();
-        starZ[oldLen + i] = dis.readDouble();
-        float scale = STAR_SIZE_MIN + (STAR_SIZE_MAX - STAR_SIZE_MIN) * rng.nextFloat();
-        starHalfSize[oldLen + i] = scale * 0.5f;
-      }
-      return count;
-    } catch (IOException e) {
-      NotRidingAlertClient.LOGGER.error(
-          "[SpaceMountainStarRenderer] failed to load STL-stars resource", e);
       return 0;
     }
   }

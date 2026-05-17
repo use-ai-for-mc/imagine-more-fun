@@ -77,32 +77,6 @@ public final class ImfRenderPipelines {
 
   private ImfRenderPipelines() {}
 
-  /**
-   * Translucent triangles with no texture, no cull, depth test on, depth write off. For overlay
-   * geometry rendered via {@link DefaultVertexFormat#POSITION_COLOR} — STL surfaces, debug shapes.
-   */
-  public static final RenderPipeline TRANSLUCENT_TRIANGLES =
-      RenderPipeline.builder()
-          .withLocation(
-              Identifier.fromNamespaceAndPath("imaginemorefun", "pipeline/translucent_triangles"))
-          .withVertexShader("core/position_color")
-          .withFragmentShader("core/position_color")
-          .withUniform("DynamicTransforms", UniformType.UNIFORM_BUFFER)
-          .withUniform("Projection", UniformType.UNIFORM_BUFFER)
-          .withUniform("Fog", UniformType.UNIFORM_BUFFER)
-          .withBlend(BlendFunction.TRANSLUCENT)
-          .withCull(false)
-          .withDepthWrite(false)
-          .withVertexFormat(DefaultVertexFormat.POSITION_COLOR, VertexFormat.Mode.TRIANGLES)
-          .build();
-
-  /** Render type wrapping {@link #TRANSLUCENT_TRIANGLES} (no texture). */
-  public static RenderType translucentTriangles() {
-    return RenderType.create(
-        "imf_translucent_triangles",
-        RenderSetup.builder(TRANSLUCENT_TRIANGLES).createRenderSetup());
-  }
-
   /** Render type wrapping {@link #OPAQUE_SCREEN} with the given texture. */
   public static RenderType opaqueScreen(Identifier texture) {
     return RenderType.create(

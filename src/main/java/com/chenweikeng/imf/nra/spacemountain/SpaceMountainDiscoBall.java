@@ -35,9 +35,8 @@ import org.joml.Vector3f;
 /**
  * Emulates disco-ball star projectors. Each ball is a point that emits {@link #BEAMS_PER_BALL}
  * beams spread over a {@code 2 x CONE_HALF_ANGLE_DEG} cone; every beam raycasts outward and the
- * nearest surface it hits — a world block ({@link net.minecraft.world.level.Level#clip}) or the STL
- * mesh ({@link SpaceMountainStlBvh}), whichever is closer — gets a star dot. Spinning a ball sweeps
- * its beams, so the dots drag across the surfaces.
+ * nearest world block it hits ({@link net.minecraft.world.level.Level#clip}) gets a star dot.
+ * Spinning a ball sweeps its beams, so the dots drag across the surfaces.
  *
  * <p>Experimental: balls are registered at runtime over the debug bridge — stand where the ball
  * goes, face the aim, and {@code addBall} with your position + yaw/pitch.
@@ -59,8 +58,8 @@ public final class SpaceMountainDiscoBall {
           .resolve("imaginemorefun")
           .resolve("disco_balls.json");
 
-  // Cells the prismarine "cover" marks star-free — a star landing in one is dropped. Baked from
-  // an /imf dumpchunks capture by debug-dumps/bake-disco-exclusion.py; world-coordinate triples.
+  // Cells the prismarine "cover" marks star-free — a star landing in one is dropped. Pre-baked
+  // JSON of flat world-coordinate triples (x, y, z, ...).
   private static final Path EXCLUSION_PATH =
       FabricLoader.getInstance()
           .getConfigDir()
@@ -101,8 +100,6 @@ public final class SpaceMountainDiscoBall {
   private static final CopyOnWriteArrayList<Ball> balls = new CopyOnWriteArrayList<>();
   private static volatile boolean ENABLED = true;
 
-  private static SpaceMountainStlBvh bvh;
-  private static boolean bvhTried;
   private static long lastNanos;
 
   // Auto-spin: every AUTO_SPIN_INTERVAL_SEC the spin hands off to a random ball, never a repeat.
@@ -111,9 +108,6 @@ public final class SpaceMountainDiscoBall {
   private static double autoSpinTimer;
   private static int autoSpinCurrent = -1;
   private static final java.util.Random autoSpinRng = new java.util.Random();
-
-  // Fraction of beams that raycast the STL; the rest ignore it and pass through to the walls.
-  private static volatile double stlBeamFraction = 0.5;
 
   private SpaceMountainDiscoBall() {}
 
@@ -207,19 +201,6 @@ public final class SpaceMountainDiscoBall {
     save();
   }
 
-  /**
-   * Set the fraction (0..1) of each ball's beams that raycast the STL. The rest ignore the STL and
-   * pass straight through to the world blocks behind it — fewer stars on the STL, more on the
-   * walls.
-   */
-  public static void setStlBeamFraction(double fraction) {
-    stlBeamFraction = Math.max(0.0, Math.min(1.0, fraction));
-    for (Ball b : balls) b.dirty = true;
-    NotRidingAlertClient.LOGGER.info(
-        "[SpaceMountainDiscoBall] setStlBeamFraction {}", stlBeamFraction);
-    save();
-  }
-
   /** Force every ball to re-project on the next frame (e.g. after the world changed). */
   public static void reproject() {
     for (Ball b : balls) b.dirty = true;
@@ -238,7 +219,6 @@ public final class SpaceMountainDiscoBall {
     StringBuilder sb = new StringBuilder();
     sb.append("balls=").append(balls.size()).append(" enabled=").append(ENABLED);
     sb.append(" autoSpin=").append(autoSpinEnabled).append(" rate=").append(autoSpinRate);
-    sb.append(" stlBeamFraction=").append(stlBeamFraction);
     sb.append(" exclusionCells=").append(exclusionCells.size());
     int i = 0;
     for (Ball b : balls) {
@@ -276,9 +256,6 @@ public final class SpaceMountainDiscoBall {
         autoSpinEnabled = root.get("autoSpinEnabled").getAsBoolean();
       }
       if (root.has("autoSpinRate")) autoSpinRate = root.get("autoSpinRate").getAsDouble();
-      if (root.has("stlBeamFraction")) {
-        stlBeamFraction = root.get("stlBeamFraction").getAsDouble();
-      }
       autoSpinCurrent = -1;
       autoSpinTimer = 0.0;
       NotRidingAlertClient.LOGGER.info(
@@ -308,7 +285,6 @@ public final class SpaceMountainDiscoBall {
     root.add("balls", arr);
     root.addProperty("autoSpinEnabled", autoSpinEnabled);
     root.addProperty("autoSpinRate", autoSpinRate);
-    root.addProperty("stlBeamFraction", stlBeamFraction);
     try {
       Files.createDirectories(PERSIST_PATH.getParent());
       Files.writeString(PERSIST_PATH, root.toString());
@@ -341,24 +317,6 @@ public final class SpaceMountainDiscoBall {
 
   // --- Projection -----------------------------------------------------------
 
-  private static void ensureBvh() {
-    if (bvhTried) return;
-    bvhTried = true;
-    double[] verts = SpaceMountainStlOverlay.getWorldVertices();
-    int tc = SpaceMountainStlOverlay.getStlTriangleCount();
-    if (tc > 0 && verts.length >= tc * 9) {
-      long t0 = System.nanoTime();
-      bvh = new SpaceMountainStlBvh(verts, tc);
-      NotRidingAlertClient.LOGGER.info(
-          "[SpaceMountainDiscoBall] built STL BVH ({} triangles) in {} ms",
-          tc,
-          (System.nanoTime() - t0) / 1_000_000L);
-    } else {
-      NotRidingAlertClient.LOGGER.warn(
-          "[SpaceMountainDiscoBall] STL not loaded — beams will hit world blocks only");
-    }
-  }
-
   /** True when the block cell containing (x,y,z) is under the prismarine cover. */
   private static boolean isExcluded(double x, double y, double z) {
     if (exclusionCells.isEmpty()) return false;
@@ -367,8 +325,6 @@ public final class SpaceMountainDiscoBall {
 
   /** Raycast every beam and cache the hit points. */
   private static void project(Ball b, Minecraft mc) {
-    ensureBvh();
-
     double yaw = Math.toRadians(b.aimYaw);
     double pitch = Math.toRadians(b.aimPitch);
     double cp = Math.cos(pitch);
@@ -412,9 +368,7 @@ public final class SpaceMountainDiscoBall {
       // spin about world Y
       double rdx = dx * cs + dz * sn;
       double rdz = -dx * sn + dz * cs;
-      // Even-dithered subset of beams raycast the STL; the rest ignore it and reach the walls.
-      boolean useStl = (long) ((i + 1) * stlBeamFraction) != (long) (i * stlBeamFraction);
-      double dist = castBeam(mc, b.x, b.y, b.z, rdx, dy, rdz, useStl);
+      double dist = castBeam(mc, b.x, b.y, b.z, rdx, dy, rdz);
       if (dist > 0.0 && dist < MAX_BEAM) {
         double px = b.x + rdx * dist;
         double py = b.y + dy * dist;
@@ -460,21 +414,10 @@ public final class SpaceMountainDiscoBall {
     b.dotCount = kept;
   }
 
-  /** Nearest surface distance along a unit beam — the block hit, plus the STL hit when useStl. */
+  /** Nearest world-block surface distance along a unit beam, or {@link #MAX_BEAM} if none. */
   private static double castBeam(
-      Minecraft mc,
-      double ox,
-      double oy,
-      double oz,
-      double dx,
-      double dy,
-      double dz,
-      boolean useStl) {
+      Minecraft mc, double ox, double oy, double oz, double dx, double dy, double dz) {
     double best = MAX_BEAM;
-    if (useStl && bvh != null) {
-      double t = bvh.raycast(ox, oy, oz, dx, dy, dz, MAX_BEAM);
-      if (t < best) best = t;
-    }
     if (mc.level != null) {
       Vec3 from = new Vec3(ox, oy, oz);
       Vec3 to = new Vec3(ox + dx * MAX_BEAM, oy + dy * MAX_BEAM, oz + dz * MAX_BEAM);

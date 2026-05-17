@@ -2,12 +2,10 @@ package com.chenweikeng.imf;
 
 import com.chenweikeng.imf.nra.NotRidingAlertClient;
 import com.chenweikeng.imf.nra.canoe.CanoeHelperClient;
-import com.chenweikeng.imf.nra.spacemountain.SpaceMountainAnimationRecorder;
 import com.chenweikeng.imf.nra.spacemountain.SpaceMountainBlockOverride;
 import com.chenweikeng.imf.nra.spacemountain.SpaceMountainDiscoBall;
 import com.chenweikeng.imf.nra.spacemountain.SpaceMountainRideAudio;
 import com.chenweikeng.imf.nra.spacemountain.SpaceMountainStarRenderer;
-import com.chenweikeng.imf.nra.spacemountain.SpaceMountainStlOverlay;
 import com.chenweikeng.imf.nra.spacemountain.SpaceMountainTrackRenderer;
 import com.chenweikeng.imf.nra.spacemountain.SpaceMountainTunnelRenderer;
 import com.chenweikeng.imf.pim.PimClient;
@@ -44,12 +42,7 @@ public class ImfClient implements ClientModInitializer {
     SpaceMountainStarRenderer.register();
     SpaceMountainTrackRenderer.register();
     SpaceMountainBlockOverride.init();
-    SpaceMountainAnimationRecorder.register();
-    // Freestanding hyperspace streaks are superseded by SpaceMountainTunnelRenderer's
-    // cylinder-projected streaks during the warp window. Re-enable if you want both layers.
-    // SpaceMountainHyperspaceRenderer.register();
     SpaceMountainTunnelRenderer.register();
-    SpaceMountainStlOverlay.register();
     SpaceMountainDiscoBall.register();
     SpaceMountainRideAudio.register();
 
