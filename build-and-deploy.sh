@@ -4,7 +4,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="${SCRIPT_DIR}"
-TARGET_DIR="/Users/cusgadmin/Library/Application Support/ModrinthApp/profiles/ImagineFun/mods/"
+TARGET_DIR="/Users/cusgadmin/Library/Application Support/PrismLauncher/instances/ImagineFun/.minecraft/mods/"
 
 # Derive the jar name from gradle.properties so a mod_version bump
 # doesn't silently leave us deploying a stale jar.
