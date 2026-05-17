@@ -145,7 +145,8 @@ public final class PinHoarderAutoConfirm {
 
       if (distance <= MAX_DISTANCE) {
         PimClient.LOGGER.info(
-            "[PinHoarderAutoConfirm] Player is {:.1f} blocks from Pin Hoarder", distance);
+            "[PinHoarderAutoConfirm] Player is {} blocks from Pin Hoarder",
+            String.format("%.1f", distance));
         return true;
       }
     }

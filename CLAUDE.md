@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build Commands
 
 ```bash
-./gradlew build                    # Build mod → build/libs/imaginemorefun-3.0.0.jar
+./gradlew build                    # Build mod → build/libs/imaginemorefun-3.0.1.jar
 ./gradlew spotlessApply            # Format code (Google Java Format)
 ./gradlew spotlessCheck            # Check formatting without fixing
 ```
@@ -14,9 +14,9 @@ No tests exist in this codebase. Testing is done manually in-game on the Imagine
 
 ## Deploy
 
-The mod JAR deploys to the Modrinth App:
+`build-and-deploy.sh` builds the mod and atomically swaps the JAR into the PrismLauncher `ImagineFun` instance — the atomic swap keeps a running game's open JAR handle valid, so never plain-`cp` the jar in:
 ```bash
-cp ./build/libs/imaginemorefun-*.jar ~/Library/Application\ Support/ModrinthApp/profiles/ImagineFun/mods/
+./build-and-deploy.sh
 ```
 
 ## Architecture
@@ -41,6 +41,7 @@ All mixins live flat in `com.chenweikeng.imf.mixin.*` with prefixes indicating o
 - `Nra*` — NRA mixins
 - `Pim*` — PIM mixins  
 - `SkinCache*` — SkinCache mixins
+- `Canoe*` — canoe-helper mixins
 - `Imf*` — Shared/umbrella mixins
 
 Registered in single `imf.mixins.json`.

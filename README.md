@@ -17,7 +17,7 @@ All features activate only while connected to an `*.imaginefun.net` server.
 
 ```bash
 ./gradlew build
-# → build/libs/imaginemorefun-3.0.0.jar
+# → build/libs/imaginemorefun-3.0.1.jar
 ```
 
 ## Features

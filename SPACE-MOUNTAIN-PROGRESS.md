@@ -1,291 +1,130 @@
 # Space Mountain / Hyperspace Mountain client overrides
 
-Client-side modifications that turn Hyperspace Mountain (and seasonally Space Mountain — same physical building) into a "ride through space" with replaced launch-tunnel, starfield, custom coaster geometry, hyperspace warp effect, and selectable show-prop tweaks. **Server is never modified**; everything happens on the client.
+Client-side effects layered onto Hyperspace Mountain (and seasonally Space Mountain — the same physical building) on the ImagineFun server: a projected starfield, a launch-tunnel cylinder, ride audio, dome block-overlay, and show-prop hiding. **The server is never modified** — everything is client-side rendering and client-side block-state replacement.
 
-Master gate: `SpaceMountainOverride.isActive()` → true iff connected to ImagineFun **and** `CurrentRideHolder.getCurrentRide() ∈ {SPACE_MOUNTAIN, HYPERSPACE_MOUNTAIN}`. Off-ride traffic costs one boolean check; every override fast-paths back to vanilla.
-
-Build/deploy: `./build-and-deploy.sh` from repo root (atomic-swap, preserves a running JVM's jar handle). Default jar: `imaginemorefun-3.0.1.jar` → `~/Library/Application Support/ModrinthApp/profiles/ImagineFun/mods/`.
-
-DebugBridge port: **9876**. `mcdev-mcp` MCP server exposes `mc_execute` (Lua reflection), `mc_screenshot`, `mc_nearby_entities`, etc. The mod's own `/imf dumpchunks <radius>` command writes a gzipped binary per call to `debug-dumps/chunks-<timestamp>.bin.gz` (pure-Java iteration, no Lua bridge cost).
+> **Rewritten 2026-05-17.** The previous version of this doc predated two refactors and was wrong in nearly every section. This version reflects the current code. The STL subsystem, the freestanding hyperspace-streak renderer, the chunk-dump command, and the animation recorder were all **deleted** — see "Removed" at the bottom.
 
 ---
 
-## Architecture overview
+## ⚠ Known issue — the star effect isn't rendering
 
-Three independent overlays plus a chunk-mutation pipeline:
+**Cause (verified):** the disco-ball star effect (`SpaceMountainDiscoBall`) loads its projector "balls" from `config/imaginemorefun/disco_balls.json`. That file — and `disco_exclusion.json` — currently exist only in the **old Modrinth profile**:
 
 ```
-              [SpaceMountainStarRenderer]      [SpaceMountainHyperspaceRenderer]
-                3000 dome stars +                600 launch-tunnel streaks
-                500 track-surface stars          (elapsed 40-55 s)
-                          \                         /
-                           \                       /
-                            \   [SpaceMountainTrackRenderer]
-                             \   pre-baked coaster geometry
-                              \  rails + spine + V-bracing struts
-                               \  (RENDER_START_SAMPLE onward)
-                                \                |
-                                 \_______________|________ on every frame while active
-                                                 |
-                              [SpaceMountainBlockOverride]
-                              chunk-mutation pipeline:
-                              • PeopleMover bbox seal
-                              • EXTRA_COVER_POSITIONS (time-gated)
-                              • Knockout patch (IFKN binary)
-                              • Animation suppress (IFAS binary)
-                              • DeSeal on gate-flip-false
+present:  ~/Library/Application Support/ModrinthApp/profiles/ImagineFun/config/imaginemorefun/disco_balls.json
+          ~/Library/Application Support/ModrinthApp/profiles/ImagineFun/config/imaginemorefun/disco_exclusion.json
+missing:  ~/Library/Application Support/PrismLauncher/instances/ImagineFun/.minecraft/config/imaginemorefun/
 ```
 
-### File layout
+The project migrated from Modrinth App to PrismLauncher; the config dir did not come along. On PrismLauncher, `SpaceMountainDiscoBall.load()` finds no `disco_balls.json` → `balls` is empty → `render()` early-returns on `balls.isEmpty()` → **no stars**.
 
-| Path | Role |
+**Fix:** copy both JSON files from the Modrinth `config/imaginemorefun/` into the PrismLauncher instance's `config/imaginemorefun/`, then relaunch (the files are read once at startup, in `register()`). Nothing in the *code* is broken — it is purely the missing config.
+
+Note: the star effect is **not** gated by the ride or the `spaceMountainEnhancements` toggle (see "Star effect" below), so an empty/absent `disco_balls.json` is the only thing that produces "zero stars everywhere."
+
+---
+
+## Master gate
+
+`SpaceMountainOverride.isActive()` returns true iff **all** of:
+- `BAKING_MODE` is `false` (a compile-time kill-switch constant, normally `false`);
+- `ModConfig.currentSetting.spaceMountainEnhancements` is on — the **"Space Mountain (Beta Preview)"** config toggle (Modifications tab), which **defaults off**;
+- connected to ImagineFun (`ServerState.isImagineFunServer()`);
+- `CurrentRideHolder.getCurrentRide()` is `SPACE_MOUNTAIN` or `HYPERSPACE_MOUNTAIN`.
+
+`SpaceMountainBlockOverride`, `SpaceMountainTunnelRenderer`, and `SpaceMountainRideAudio` route through this gate. **`SpaceMountainDiscoBall` does not** — see below.
+
+## Build / deploy
+
+`./build-and-deploy.sh` from the repo root — builds, then atomically swaps `imaginemorefun-3.0.1.jar` into the PrismLauncher instance:
+`~/Library/Application Support/PrismLauncher/instances/ImagineFun/.minecraft/mods/`. The atomic swap keeps a running game's open jar handle valid; never plain-`cp` the jar in.
+
+## File layout — `src/main/java/com/chenweikeng/imf/nra/spacemountain/`
+
+| File | Role |
 |---|---|
-| `src/main/java/com/chenweikeng/imf/nra/spacemountain/SpaceMountainOverride.java` | Master gate |
-| `…/SpaceMountainBlockOverride.java` | Chunk-mutation pipeline (seal/deseal) |
-| `…/SpaceMountainStarRenderer.java` | Dome wall + track surface stars |
-| `…/SpaceMountainTrackRenderer.java` | Coaster geometry (rails + spine + struts) |
-| `…/SpaceMountainHyperspaceRenderer.java` | Launch-tunnel warp streaks |
-| `…/SpaceMountainEntityLightOverride.java` | Whitelist of armor stands to FULL_BRIGHT |
-| `…/SpaceMountainAnimationRecorder.java` | Diagnostic — records server packet events 40-55 s |
-| `…/ImfRenderPipelines.java` | Custom Sodium-compatible no-depth render pipeline |
-| `…/ChunkDumpCommand.java` | `/imf dumpchunks` implementation |
-| `src/main/java/com/chenweikeng/imf/mixin/Nra*` | Mixin classes registered in `imf.mixins.json` |
-| `src/main/resources/imaginemorefun/` | Pre-baked binary resources |
-| `src/main/resources/assets/imaginemorefun/textures/particle/` | Star + streak + track textures |
-| `debug-dumps/` | Python tooling + captured dumps |
+| `SpaceMountainOverride.java` | Master gate (above). |
+| `SpaceMountainDiscoBall.java` | **The star effect** — disco-ball light projectors. |
+| `SpaceMountainBlockOverride.java` | Dome block-overlay (IFOV) — replaces dome cells while riding. |
+| `SpaceMountainTunnelRenderer.java` | Launch-tunnel cylinder + tunnel screen effects. |
+| `SpaceMountainRideAudio.java` | Wind + rail-friction audio loops. |
+| `SpaceMountainStarRenderer.java` | Older baked dome-wall starfield — **retired**, `ENABLED = false` (superseded by the disco ball). |
+| `SpaceMountainTrackRenderer.java` | Baked coaster-tube geometry — off by default (`ENABLED = false`). |
+| `SpaceMountainEntityHider.java` | Whitelist of show-prop armor stands to hide; queried by `NraEntityRendererHideMixin`. |
+| `ImfRenderPipelines.java` | Custom render pipelines (`OPAQUE_SCREEN`, `ENTITY_THROUGH_WALLS`). |
 
-### Pre-baked resources
-
-| Resource | Source | Size | Purpose |
-|---|---|---|---|
-| `imaginemorefun/dome_track.bin` | `bake-track.py track-*.csv` | ~38 KB | Vehicle path samples (~1200 samples at 6.67 Hz) — input to track + track-stars renderers |
-| `imaginemorefun/dome_borders.bin` | `bake-borders.py chunks-*.bin.gz` (with watertight tunnel-mouth seal) | ~365 KB | 28 011 dome-wall faces — input to star renderer |
-| `imaginemorefun/dome_track_stars.bin` | `bake-track-stars.py` | ~12 KB | 500 random surface positions on coaster track |
-| `imaginemorefun/dome_knockout.bin` | `bake-knockout-multi.py --remove-only` | ~150 KB | Per-cell `→ air` removals (currently 5643 entries) |
-| `imaginemorefun/dome_animation_suppress.bin` | `bake-animation-suppress.py` | ~10 KB | 873 cells pinned to `black_concrete` to kill server warp flicker |
-| `assets/imaginemorefun/textures/particle/star.png` | static | ~1 KB | Dome-wall star texture |
-| `assets/imaginemorefun/textures/particle/track.png` | PIL-generated white | ~1 KB | Track tube texture |
-| `assets/imaginemorefun/textures/particle/hyperspace_streak.png` | PIL gradient | ~2 KB | Streak texture (transparent ends, blue-white core) |
+Registered in `ImfClient.onInitializeClient()` in this order: `SpaceMountainStarRenderer`, `SpaceMountainTrackRenderer`, `SpaceMountainBlockOverride.init()`, `SpaceMountainTunnelRenderer`, `SpaceMountainDiscoBall`, `SpaceMountainRideAudio`.
 
 ---
 
-## SpaceMountainBlockOverride — chunk mutation pipeline
+## Star effect — `SpaceMountainDiscoBall`
 
-Single source of truth for "what should the chunk look like during a ride". Four layered rules, all funnelled through one seal/deseal infrastructure.
+The current starfield. Emulates disco-ball light projectors: a set of fixed "balls" each emit beams that raycast outward; wherever a beam hits a surface, a star dot is drawn. Spinning a ball drags its dots across the surfaces.
 
-### Apply order in `sealChunk(chunk)` (current state after the May-11 ordering fix)
+**Model.** Each `Ball` has a position `(x,y,z)`, an aim `(yaw, pitch)`, a `spinDeg`/`spinRate`, and a close-in cap (`closeRadius`, `maxCloseDots`). `BEAMS_PER_BALL = 800` beams are spread over a 240° cone (`CONE_HALF_ANGLE_DEG = 120`) as a fibonacci spiral, shared across all balls in a local frame and rotated to each ball's aim + spin.
 
-1. **PeopleMover bbox** (`HOLE_X_MIN/MAX × HOLE_Y_MIN/MAX × HOLE_Z_MIN/MAX = X:[-283,-223] Y:[74,83] Z:[215,220]`) — replaces `air ∪ barrier ∪ light` with `minecraft:black_concrete`.
-2. **`EXTRA_COVER_POSITIONS`** (42-cell launch-tunnel mouth at Z=201) — time-gated on `elapsedSeconds ≥ EXPLICIT_SEAL_AFTER_SECONDS` (70 s). Pins each cell to `black_concrete` unconditionally.
-3. **Animation suppress** (`dome_animation_suppress.bin`, 873 cells) — pins to `black_concrete` regardless of current state. Kills the server's `light_blue_wool` / `concrete_powder` warp flicker.
-4. **Knockout patch** (`dome_knockout.bin`, currently 5643 `→air` entries) — **runs LAST so user demolitions beat anim-suppress**. Critical ordering invariant — the original order had anim-suppress last, which clobbered demolitions in the launch tunnel.
+**Projection (`project` / `castBeam`).** Each beam is raycast up to `MAX_BEAM = 128` blocks via `Level.clip(ClipContext)` — **world blocks only**. (There used to be an STL-mesh raycast too; the STL subsystem was deleted — beams now hit only real Minecraft blocks.) The nearest hit point becomes a star dot. A beam whose hit *cell* is in the prismarine-cover exclusion set is dropped (no star). A per-ball close-in cap drops the closest dots within `closeRadius` so stars don't clump on the ball itself.
 
-### State tracking
+**Spin / auto-spin.** `setSpin(index, degPerSec)` spins one ball; auto-spin (`AUTO_SPIN_INTERVAL_SEC = 20`) hands the spin to a random ball every 20 s, never the same one twice. A spinning ball is re-projected each frame, so its dots sweep.
 
-- `originalStates: Map<BlockPos, BlockState>` — every cell we mutate records its pre-seal value.
-- `desealAll(mc)` on gate-flip-false restores each entry, then clears the map. The client sees a "server update" reverting to the live geometry.
-- DISCONNECT handler clears `previousActive`, `pendingRemesh`, `originalStates` so a rejoin re-runs from scratch.
+**Rendering.** `render()` is a `WorldRenderEvents.AFTER_ENTITIES` callback: `if (!ENABLED || balls.isEmpty()) return;` then it draws every ball's cached dots as camera-facing quads with `RenderTypes.eyes` (emissive/full-bright, so stars stay visible in the dark dome). `ENABLED` defaults `true`. **`render()` does not check `SpaceMountainOverride.isActive()`** — the disco balls render whenever `ENABLED` is true and `balls` is non-empty, regardless of the ride or the config toggle. (Flagged in the code review as a gating gap; not yet fixed.)
 
-### Packet hooks (`NraClientPacketListenerChunkMixin`)
+**Persistence — `config/imaginemorefun/`:**
+- `disco_balls.json` — the balls (position/aim/spin/close-cap) plus `autoSpinEnabled`/`autoSpinRate`. Written on every change, read once in `register()` via `load()`.
+- `disco_exclusion.json` — `{"cells":[x,y,z,x,y,z,…]}`, the prismarine "cover" cells that suppress stars. Read in `register()` via `loadExclusion()`. Baked by `debug-dumps/bake-disco-exclusion.py` from an `/imf dumpchunks`-style capture (the `debug-dumps/` tooling now lives outside the repo — see "Removed").
 
-Hook three packet handlers at `@At("TAIL")` on `ClientPacketListener`:
-- `handleLevelChunkWithLight` → `sealChunk(chunk)` for every freshly-installed chunk.
-- `handleBlockUpdate` → `sealCellIfNeeded(pos)` for incremental block changes.
-- `handleChunkBlocksUpdate` → `sealCellIfNeeded(pos)` per cell in the section-blocks update.
-
-This is the key insight that survives Sodium: mutating chunk-stored block states (via `chunk.setBlockState(pos, target, 0)` + `levelRenderer.setSectionDirty(...)`) propagates through every renderer (vanilla, Sodium, Iris). Per-cell `getBlockState` mixins were tried and dropped — Sodium reads section palettes directly.
-
-### Activation/eager-seal behavior
-
-- On gate-flip false → true: `pendingRemesh = true`. Next tick (after `levelRenderer != null && mc.level != null`), `sealAllLoadedChunks(mc)` walks every chunk in `sealRegionChunkKeys()` and seals whatever is currently loaded. Chunks still streaming in get sealed at packet-arrival time. **No `areHoleChunksLoaded` wait** — that caused a 10-20 s delay through the dome interior.
-- On gate-flip true → false: `desealAll(mc)` restores from `originalStates`.
+**Runtime API (over the DebugBridge / `mc_execute`):** `addBall(x,y,z,yaw,pitch)`, `clearBalls()`, `setSpin(index,deg)`, `setAutoSpin(enabled,deg)`, `setCloseLimit(index,closeRadius,maxDots)`, `reproject()`, `setEnabled(bool)`, `describe()`. `describe()` is the quickest health check — it reports `balls=N`, `enabled`, and per-ball dot counts.
 
 ---
 
-## Star renderer
+## `SpaceMountainBlockOverride` — dome block overlay (IFOV)
 
-`SpaceMountainStarRenderer.loadAndPickStars()`:
-1. Load `dome_borders.bin` (28 011 face entries: `block_pos + face_dir_idx`).
-2. Pre-compute world positions: `block_center + 0.5 × face_normal`.
-3. Partial Fisher-Yates with `SEED = 0xCAFEBABE` to pick `STAR_COUNT = 3000` faces. Same dome → same 3000 stars per session.
-4. Append all 500 track-surface stars from `dome_track_stars.bin` (smaller billboard size `× 0.6`).
+Replaces dome block states while the ride gate is active. Reads a **single** binary, `dome_overlay.bin` (magic `IFOV`, version 1) — an offline-baked diff between the live ImagineFun world and a curated SP simulator world. This replaced an older four-layer runtime model (PeopleMover bbox seal, explicit cover cells, animation-suppress, knockout patch); those are all now collapsed into the one overlay.
 
-Renders on `WorldRenderEvents.AFTER_ENTITIES` via `BufferSource.getBuffer(RenderTypes.eyes(STAR_TEXTURE))` — emissive, depth-test on, depth-write off.
+- `loadOverlay()` parses the binary into `rawOverlayEntries` at class-load. Once `mc.level` is available, entries are parsed (via `BlockStateParser`) and indexed into `overlayByChunk` (keyed by chunk long-key) for O(1) per-chunk lookup.
+- `sealChunk(chunk)` / `sealCellIfNeeded(pos)` apply the overlay; `originalStates` records each replaced cell's pre-seal `BlockState`.
+- When the gate flips off, originals are restored (the client sees a "server update" reverting the geometry).
+- Packet hooks live in `NraClientPacketListenerChunkMixin` (`@At("TAIL")` on `ClientPacketListener.handleLevelChunkWithLight` / `handleBlockUpdate` / `handleChunkBlocksUpdate`). Mutating the chunk's stored block states (not per-cell `getBlockState`) is what survives Sodium.
+- `init()` watches the active flag each tick and forces a full re-mesh on transition.
 
-Bake notes:
-- `bake-borders.py` does a flood-fill from the player position through `minecraft:air` only. Tunnel boundaries (blue_wool markers, barriers, light) block the flood, keeping it watertight inside the dome.
-- Safety guards: `DOME_BBOX = X[-330..-200] Y[50..120] Z[100..230]` and `MAX_VISITED = 250_000`. Without these a leaky dome (e.g. after demolition) would flood the entire world and OOM (we hit ~17 GB RAM once).
-- The current `dome_borders.bin` was baked from `chunks-1778344197256.bin.gz` — pre-demolition, naturally watertight.
+To change what the dome looks like: edit the SP simulator world, re-dump live + SP, re-run `debug-dumps/bake-overlay.py`.
 
----
+## `SpaceMountainTunnelRenderer`
 
-## Track renderer
+Renders a cylindrical "launch-tunnel cover" around the rider during the tunnel window, plus screen effects on the cylinder wall (rotating starfield, purple double-rings, a red radial-stripe phase). The cylinder is a tilted axis from `START` to `END` that follows the rider's climbing path. The hyperspace warp-streak path (`HYPERSPACE_EFFECT_ENABLED`) is currently `false`. Axial/lateral position gates are commented out pending cylinder re-calibration.
 
-`SpaceMountainTrackRenderer.loadAndBuild()` reads `dome_track.bin` (the recorded vehicle path). Builds three continuous tube rails (left, right, spine) + V-bracing struts.
+## `SpaceMountainRideAudio`
 
-Knobs at the top of the file (current values):
+Two persistent looping sounds — wind and rail-friction — whose volume/pitch track the vehicle's per-tick speed and yaw rate. Started/stopped on the `SpaceMountainOverride.isActive()` transition. Coupled to the OpenAudioMc volume slider.
 
-```
-VEHICLE_Y_OFFSET    =  0.1
-RAIL_HALF_SEPARATION = 0.7   // rails 1.4 blocks apart
-SPINE_DROP           = 0.6   // spine below rail centerline
-TUBE_RADIUS          = 0.11
-SPINE_RADIUS         = 0.15
-STRUT_RADIUS         = 0.06
-CROSSTIE_STRIDE      = 6
-RENDER_START_SAMPLE  = 400   // skip first ~60 s (launch tunnel)
-COLOR_R/G/B          = 0.08/0.08/0.09   // ~10% brightness silver
-COLOR_A              = 0.45            // translucent
-TRACK_BLOCK_LIGHT    = 4    // lightmap, 0..15
-```
+## `SpaceMountainEntityHider`
 
-Render type: `RenderTypes.entityTranslucent(TRACK_TEXTURE)` — non-emissive, lightmap-respecting, depth-tested. Track reads as dim metal that gets occluded by walls naturally. Color × lightmap × translucency together makes it barely-visible against the dark dome — the "real coaster track" aesthetic.
-
-History of failed earlier attempts:
-- Emissive `eyes()` made the track glow neon yellow (later switched to white texture + tint).
-- `NO_DEPTH_TEST` variant (`ImfRenderPipelines.entityThroughWalls`) was added then dropped — through-walls felt off; user requested standard depth.
-
-`bake-track-stars.py` mirrors the geometry constants — must be kept in sync when any track-renderer knob changes.
+A static whitelist of `(itemId, damage)` helmet signatures (e.g. the TIE Fighter / X-Wing shoulder-pet props, both `minecraft:diamond_sword` with custom-model damage). `NraEntityRendererHideMixin` queries `shouldHide(stand)` and skips rendering matching armor stands while riding.
 
 ---
 
-## Hyperspace renderer
+## Pre-baked resources — `src/main/resources/imaginemorefun/`
 
-`SpaceMountainHyperspaceRenderer` — 600 long thin emissive ribbons inside the launch-tunnel volume, active during `elapsed ∈ [40, 55]` s of the ride.
+| Resource | Consumed by | Notes |
+|---|---|---|
+| `dome_overlay.bin` | `SpaceMountainBlockOverride` | IFOV v1 — the dome block diff. |
+| `dome_borders.bin` | `SpaceMountainStarRenderer` | Baked dome-wall faces — renderer is retired (`ENABLED=false`). |
+| `dome_track.bin` | `SpaceMountainTrackRenderer` | Recorded vehicle path — renderer off by default. |
+| `dome_track_stars.bin` | `SpaceMountainStarRenderer` | Track-surface stars — `INCLUDE_TRACK_STARS=false`. |
+| `textures/particle/star.png` | disco ball | Star dot texture. |
+| `textures/particle/track.png`, `hyperspace_streak.png` | track / tunnel renderers | — |
 
-```
-TUNNEL_X_MIN/MAX  =  -297, -253
-TUNNEL_Y_MIN/MAX  =  63, 88
-TUNNEL_Z_MIN/MAX  =  126, 200
-STREAK_COUNT      = 600
-STREAK_LENGTH_MIN = 1.5   // blocks
-STREAK_LENGTH_MAX = 4.5
-STREAK_WIDTH      = 0.05
-START_SECONDS     = 40
-END_SECONDS       = 55
-SEED              = 0xD15CE5L
-```
+## Removed (2026-05-17 cleanup)
 
-Each streak: axis-aligned billboard, long axis fixed to world +Z (tunnel direction), short axis rotates per-frame to face the camera. **Static in world space — relies on rider motion through the field**. Future upgrade if needed: per-frame Z advance with wrap-around for a stars-streaming-past look even when vehicle is slow.
+Do not look for these — they were deleted:
+- **STL subsystem** — `SpaceMountainStlOverlay`, `SpaceMountainStlBvh`, the `space_mountain.stl` + `stl_stars.bin` resources. The disco ball previously raycast an STL mesh; it now raycasts world blocks only.
+- `SpaceMountainHyperspaceRenderer` — freestanding warp-streak renderer, superseded by the tunnel renderer.
+- `SpaceMountainAnimationRecorder` and `ChunkDumpCommand` (the `/imf dumpchunks` command) — debug/recording tooling.
+- The `debug-dumps/` directory (Python bake scripts + captures) was moved out of the repo to `~/imf-debug-dumps-archive/`.
 
-The 873-cell `dome_animation_suppress.bin` is paired with this — it pins the server's animated wool/concrete-powder cells to black_concrete so they don't fight the streak overlay.
+## Resuming cold
 
----
-
-## Entity light + visibility tweaks
-
-`NraEntityRendererLightMixin` — targets `EntityRenderer.extractRenderState(T, S, float)` at `@At("TAIL")` (the 1.21 `EntityRenderState` pipeline; the older `EntityRenderDispatcher.getPackedLightCoords` was dead for non-hand entities). Sets `state.lightCoords = LightTexture.FULL_BRIGHT` for any `ArmorStand` whose head matches `SpaceMountainEntityLightOverride.shouldFullBright(stand)`.
-
-Whitelist (extend by adding `(itemId, damage)` pairs):
-- `minecraft:diamond_sword` damage 145 (TIE Fighter Shoulder Pet)
-- `minecraft:diamond_sword` damage 143 (X-Wing Shoulder Pet)
-
-`NraEntityRenderDispatcherShouldRenderMixin` — `@Inject` HEAD-cancellable on `shouldRender(...)`. Returns `false` for any `ItemFrame` whose displayed item is `minecraft:nether_star` while the gate is active. Hides the floating nether-star frames the server uses for launch-tunnel lighting.
-
----
-
-## Bake / deploy workflow
-
-Python scripts live in `debug-dumps/`. Each is invoked from that directory.
-
-### Capture a dump
-
-In-game: `/imf dumpchunks 8` (8 is the chunk radius; default produces ~289 chunks). Output: `debug-dumps/chunks-<timestamp>.bin.gz`.
-
-### Bake recipes (current)
-
-```bash
-cd debug-dumps
-
-# Track from a CSV recording (gate-active rider capture)
-python3 bake-track.py track-hyperspace-*.csv
-# → ../src/main/resources/imaginemorefun/dome_track.bin
-
-# Track-surface stars (must match SpaceMountainTrackRenderer knobs)
-python3 bake-track-stars.py
-# → ../src/main/resources/imaginemorefun/dome_track_stars.bin
-
-# Dome border star projection (uses a known-watertight pre-demolition dump)
-python3 bake-borders.py chunks-1778344197256.bin.gz
-# → ../src/main/resources/imaginemorefun/dome_borders.bin
-
-# Animation suppression positions (873 cells)
-python3 bake-animation-suppress.py animation-hyperspace-*.csv
-# → ../src/main/resources/imaginemorefun/dome_animation_suppress.bin
-
-# Knockout patch — remove-only, multi-baseline
-python3 bake-knockout-multi.py --remove-only \
-  after-tunnel-demolish.bin.gz \
-  baseline-knockout.bin.gz \
-  onride-current.bin.gz
-# → ../src/main/resources/imaginemorefun/dome_knockout.bin
-```
-
-Then `./build-and-deploy.sh` from repo root.
-
-### Diagnostic / verification scripts
-
-- `parse_dump.py` — chunk dump parser library.
-- `diff-dumps.py <baseline.bin.gz> <after.bin.gz>` — counts added / removed / swapped cells between two dumps. Restricts to common chunks to avoid boundary-noise.
-- `parse-track.py track-*.csv` — quick summary of a ride recording.
-- `watertight-test.py chunks-*.bin.gz` — flood-fills from player position, reports leaks past a generous dome bbox. Used to verify dome is closed before baking borders.
-- `track-viewer.html` — 3D track + optional STL overlay viewer (Three.js r137 UMD, no build step). Serve with `python3 -m http.server 8000` in `debug-dumps/`.
-
----
-
-## Pipeline pain points + planned unification
-
-The current architecture has accumulated **four overlapping seal/patch layers** with subtle ordering and exclusion rules:
-
-| Layer | Source | Target | Condition |
-|---|---|---|---|
-| PeopleMover bbox | hardcoded constants | `→ black_concrete` | inside bbox AND was visually empty |
-| `EXTRA_COVER_POSITIONS` | hardcoded 42 cells | `→ black_concrete` | `elapsedSeconds ≥ 70` |
-| Animation suppress | `dome_animation_suppress.bin` | `→ black_concrete` | always while gate active |
-| Knockout patch | `dome_knockout.bin` | `→ air` (remove-only) | always while gate active |
-
-**Bugs caused by layering**:
-1. (fixed) Anim-suppress ran AFTER knockout → demolished cells got pinned back to black_concrete. Re-ordered: anim-suppress → knockout.
-2. (fixed) Patch with `target=barrier` would defeat the PeopleMover bbox seal. Fix: `SKIP_TARGET_BASE = {barrier, light}` in the baker.
-3. (fixed) Multi-source bake captured swap+add entries that brought "deleted" blocks back. Fix: `--remove-only` mode emits only `target=air` entries.
-4. Bake script needs **two baselines** (`baseline-knockout.bin.gz` AND `onride-current.bin.gz`) to capture cells already demolished pre-baseline.
-
-### Proposed unified architecture (next session)
-
-Replace the four-layer pipeline with a single normalised patch format that is both:
-- **Authoritative**: emitted by one bake step that takes (live-server-pristine, desired-state) and produces one binary.
-- **Self-describing**: each entry carries `(pos, target_state, condition_flag)` where `condition_flag` is a tiny enum:
-  - `ALWAYS` — apply whenever the gate is active.
-  - `AFTER_SECONDS(N)` — apply once `elapsedSeconds >= N`.
-  - (extensible — `IN_TUNNEL`, `IN_DOME`, etc. if we need them later)
-
-Then `SpaceMountainBlockOverride` collapses to one loader and one `sealChunk` loop that iterates entries by chunk-index and applies them in entry order. PeopleMover bbox cells become explicit entries (one per cell inside the bbox where the live server has `air|barrier|light`). The 42 tunnel-mouth cells become `AFTER_SECONDS(70)` entries. Anim-suppress and knockout merge into the same stream. Deseal logic unchanged — still keyed by `originalStates`.
-
-**Workflow for the user's next edit pass**:
-1. Take a pristine **live-server** dump (off-ride, gate inactive).
-2. Make demolitions / swaps in the freshly-downloaded SP world.
-3. Dump the SP world.
-4. Run a single unified `bake-overlay.py` that takes the live dump + SP dump + any time-gated cell list and emits one binary.
-5. Build/deploy.
-
-The bake script should also be **idempotent**: re-running with identical inputs produces the same binary (already true via deterministic seed + sorted entries — preserve this).
-
-### Open work items for the next session
-
-- [ ] Implement the unified patch format (`IFOV` v1 — Imf OVerlay).
-- [ ] Migrate `dome_knockout.bin` + `dome_animation_suppress.bin` + the bbox + tunnel-mouth seal into a single `dome_overlay.bin`.
-- [ ] Replace the four code paths in `SpaceMountainBlockOverride` with one entry-driven loop.
-- [ ] Update the bake scripts (collapse `bake-knockout-multi.py` + `bake-animation-suppress.py` + the implicit bbox/tunnel-mouth constants into one `bake-overlay.py`).
-- [ ] Mesh-staleness bug (residual "deleted blocks reappearing"): need to investigate whether Sodium's section-dirty signal sometimes isn't enough — possibly add a tiny periodic re-mesh of the seal region during the ride.
-
----
-
-## Resuming in a new session
-
-When you pick this up cold:
-1. Read this file top-to-bottom (≈300 lines).
-2. Check `git log --oneline -20` for recent commits.
-3. Look at `debug-dumps/` for the latest captured dumps (file timestamps).
-4. The DebugBridge port is **9876** — connect via `mcdev-mcp` MCP to inspect live state.
-5. Build/deploy: `./build-and-deploy.sh` from repo root (never plain `cp` — atomic-swap preserves the running JVM).
-6. To regenerate stars/track/patches after dome changes: see the bake recipes section above.
+1. Read this file.
+2. `git log --oneline -20` for recent commits.
+3. DebugBridge port **9876** — connect via the `mcdev-mcp` MCP to inspect live state (`SpaceMountainDiscoBall.describe()` is the fastest star-effect health check).
+4. Build/deploy: `./build-and-deploy.sh` (never plain `cp`).

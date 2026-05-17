@@ -132,7 +132,7 @@ public class Page2VisualPreferences extends WizardPage {
         append(
             header,
             literal(
-                "Control how closesd caption should be display in ImagineFun.These are scripts from skippers' introductions in "));
+                "Control how closed caption should be displayed in ImagineFun. These are scripts from skippers' introductions in "));
     header = append(header, colored("Jungle Cruise", ChatFormatting.GOLD));
     header = append(header, literal(", songs in "));
     header = append(header, colored("Tiana's Bayou Adventure", ChatFormatting.GOLD));

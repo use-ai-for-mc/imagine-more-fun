@@ -28,7 +28,7 @@ public record ImageBlock(Identifier texture, int imgWidth, int imgHeight) implem
         0f,
         1f,
         0f,
-        1f); // should use 0f 1f 0f 1f to include the full image.
+        1f); // 0f, 1f, 0f, 1f spans the full UV range — draws the whole image.
   }
 
   private double calculateScaleFactor(int containerWidth) {
