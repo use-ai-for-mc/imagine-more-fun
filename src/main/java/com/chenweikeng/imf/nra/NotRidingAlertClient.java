@@ -3,6 +3,7 @@ package com.chenweikeng.imf.nra;
 import com.chenweikeng.imf.nra.audio.OpenAudioMcService;
 import com.chenweikeng.imf.nra.compat.MonkeycraftCompat;
 import com.chenweikeng.imf.nra.config.ModConfig;
+import com.chenweikeng.imf.nra.config.RidePlanNudge;
 import com.chenweikeng.imf.nra.config.profile.HistoryManager;
 import com.chenweikeng.imf.nra.config.profile.ProfileCommandHandler;
 import com.chenweikeng.imf.nra.config.profile.ProfileManager;
@@ -79,6 +80,7 @@ public class NotRidingAlertClient implements ClientModInitializer {
   @Override
   public void onInitializeClient() {
     ModConfig.load();
+    RidePlanNudge.applyFirstLaunch();
     ProfileManager.load();
     HistoryManager.load();
     DailyRideSnapshot.getInstance();
@@ -88,9 +90,13 @@ public class NotRidingAlertClient implements ClientModInitializer {
     ClientPlayConnectionEvents.JOIN.register(
         (handler, sender, client) -> {
           ServerState.onJoin(client);
+          client.execute(RidePlanNudge::showMessageIfPending);
           if (ServerState.isImagineFunServer()) {
             MonkeycraftCompat.init();
             SessionTracker.getInstance().onSessionStart();
+            if (ModConfig.currentSetting.enableOpenAudioMc) {
+              OpenAudioMcService.getInstance().autoConnectOnJoin();
+            }
           }
           if (ServerState.isImagineFunServer()
               && TutorialManager.getInstance().shouldStartTutorial()) {

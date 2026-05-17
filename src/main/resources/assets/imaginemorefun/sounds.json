@@ -1,0 +1,12 @@
+{
+  "ride.wind": {
+    "sounds": [
+      { "name": "imaginemorefun:ride/wind", "stream": false }
+    ]
+  },
+  "ride.rail_friction": {
+    "sounds": [
+      { "name": "imaginemorefun:ride/rail_friction", "stream": false }
+    ]
+  }
+}

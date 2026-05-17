@@ -81,4 +81,9 @@ public final class ImfStorage {
   public static Path migrationMarker() {
     return root().resolve(".migrated-v1");
   }
+
+  /** Marker file written once the first-launch Ride Plan nudge has been applied. */
+  public static Path ridePlanNudgeMarker() {
+    return root().resolve(".ride-plan-nudge");
+  }
 }

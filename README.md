@@ -86,3 +86,10 @@ A single `imf.mixins.json` references every mixin under `com.chenweikeng.imf.mix
 ## License
 
 Mixed CC0-1.0 (NRA + PIM + umbrella) and MIT (skincache). See `LICENSE` and `LICENSE-CC0`.
+
+## Audio credits
+
+The Space/Hyperspace Mountain ride overlay (`com.chenweikeng.imf.nra.spacemountain.SpaceMountainRideAudio`) ships two looping sound assets:
+
+- **`assets/imaginemorefun/sounds/ride/rail_friction.ogg`** — trimmed and re-encoded loop derived from "train_wheels_ringing_speed.wav" by **uair01** on [Freesound](https://freesound.org/people/uair01/sounds/57787/). Licensed under [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).
+- **`assets/imaginemorefun/sounds/ride/wind.ogg`** — trimmed and re-encoded loop derived from "Wind cold interior" on [Mixkit](https://mixkit.co/free-sound-effects/wind/). Used under the [Mixkit Sound Effects Free License](https://mixkit.co/license/#sfxFree).

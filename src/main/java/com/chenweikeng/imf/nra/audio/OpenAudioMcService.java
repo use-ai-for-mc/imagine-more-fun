@@ -32,11 +32,14 @@ import org.slf4j.LoggerFactory;
 public class OpenAudioMcService {
   private static final Logger LOGGER = LoggerFactory.getLogger("OpenAudioMcService");
 
-  private static final String URL_PREFIX = "https://session.openaudiomc.net/";
+  /** Host of OpenAudioMC session URLs; what follows it varies between server versions. */
+  private static final String URL_PREFIX = "https://session.openaudiomc.net";
+
   private static final int MAX_RECONNECT_ATTEMPTS = 3;
   private static final int MAX_MID_SESSION_DROP_ATTEMPTS = 3;
   private static final int MONITOR_INTERVAL_MS = 3000;
   private static final int CONNECTION_TIMEOUT_MS = 60000;
+  private static final int AUTO_CONNECT_DELAY_MS = 5000;
 
   /** JavaScript injected every 3 seconds to check DOM state. */
   private static final String STATUS_CHECK_JS =
@@ -143,9 +146,18 @@ public class OpenAudioMcService {
     return instance;
   }
 
-  /** Returns true if the URL is an OpenAudioMC session URL. */
+  /**
+   * Returns true if the URL is an OpenAudioMC session URL. Accepts both the legacy path/query form
+   * ({@code https://session.openaudiomc.net/...}) and the current hash-fragment form ({@code
+   * https://session.openaudiomc.net#TOKEN}). The boundary check after the host rejects look-alike
+   * domains such as {@code https://session.openaudiomc.net.example.com}.
+   */
   public static boolean isOpenAudioMcUrl(String url) {
-    return url != null && url.startsWith(URL_PREFIX);
+    if (url == null || !url.startsWith(URL_PREFIX)) {
+      return false;
+    }
+    String rest = url.substring(URL_PREFIX.length());
+    return rest.isEmpty() || rest.startsWith("/") || rest.startsWith("#");
   }
 
   /**
@@ -311,6 +323,31 @@ public class OpenAudioMcService {
       isConnected = false;
       ReminderHandler.getInstance().setAudioConnected(false);
     }
+  }
+
+  /**
+   * Called from the client JOIN handler. A few seconds after joining, requests an audio session via
+   * /audio so auto-connect no longer depends on the server's own join message arriving. Skips
+   * silently if a session is already active when the delay elapses (the server's join hook won).
+   */
+  public void autoConnectOnJoin() {
+    if (scheduler == null || scheduler.isShutdown()) {
+      scheduler =
+          Executors.newSingleThreadScheduledExecutor(
+              r -> {
+                Thread t = new Thread(r, "OpenAudioMC-Monitor");
+                t.setDaemon(true);
+                return t;
+              });
+    }
+    scheduler.schedule(
+        () -> {
+          if (!isActive) {
+            connectViaCommand();
+          }
+        },
+        AUTO_CONNECT_DELAY_MS,
+        TimeUnit.MILLISECONDS);
   }
 
   /**
@@ -553,7 +590,7 @@ public class OpenAudioMcService {
       LOGGER.info("Auto-clicking 'Start Audio Session' button");
       bridge.evaluateJs(CLICK_START_JS);
     } else if (!hasSession
-        && !currentUrl.startsWith(URL_PREFIX)
+        && !isOpenAudioMcUrl(currentUrl)
         && savedSessionUrl != null
         && wasConnected) {
       // Session was lost (page navigated away or crashed)

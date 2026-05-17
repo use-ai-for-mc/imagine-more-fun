@@ -37,6 +37,7 @@ public final class ConfigDefaults {
   public static final AudioBoostReminderMode AUDIO_BOOST_REMINDER_MODE =
       AudioBoostReminderMode.ONLY_WHEN_RIDING;
   public static final ClosedCaptionMode CLOSED_CAPTION_MODE = ClosedCaptionMode.RECOLORED;
+  public static final HideCrosshairMode HIDE_CROSSHAIR_MODE = HideCrosshairMode.NONE;
   public static final TrackerDisplayMode TRACKER_DISPLAY_MODE = TrackerDisplayMode.ALWAYS;
   public static final MaxGoal MAX_GOAL = MaxGoal.K1;
   public static final SortingRules SORTING_RULES = SortingRules.NEXT_GOAL_ASC;
@@ -45,4 +46,5 @@ public final class ConfigDefaults {
   public static final RideReportNotifyMode RIDE_REPORT_NOTIFY_MODE = RideReportNotifyMode.POPUP;
   public static final boolean RANDOM_RIDE_OVERRIDE = true;
   public static final RideHubMode RIDE_HUB_MODE = RideHubMode.RIDE_PLAN;
+  public static final boolean SPACE_MOUNTAIN_ENHANCEMENTS = false;
 }

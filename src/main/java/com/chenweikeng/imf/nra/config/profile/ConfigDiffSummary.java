@@ -156,6 +156,9 @@ public final class ConfigDiffSummary {
     if (a.closedCaptionMode != b.closedCaptionMode) {
       diffs.add("captions " + a.closedCaptionMode.name().toLowerCase());
     }
+    if (a.hideCrosshairMode != b.hideCrosshairMode) {
+      diffs.add("crosshair " + a.hideCrosshairMode.name().toLowerCase());
+    }
     if (a.audioBoostReminderMode != b.audioBoostReminderMode) {
       diffs.add("audio boost " + a.audioBoostReminderMode.name().toLowerCase());
     }

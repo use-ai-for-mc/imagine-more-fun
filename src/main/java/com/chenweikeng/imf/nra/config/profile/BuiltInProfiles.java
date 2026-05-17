@@ -79,6 +79,7 @@ public final class BuiltInProfiles {
     profile.hideExperienceLevel = true;
     profile.hideLovePotionMessages = true;
     profile.closedCaptionMode = ClosedCaptionMode.PLAIN;
+    profile.hideCrosshairMode = HideCrosshairMode.ONLY_WHEN_RIDING;
     profile.audioBoostReminderMode = AudioBoostReminderMode.DISABLED;
 
     profile.trackerDisplayMode = TrackerDisplayMode.NEVER;

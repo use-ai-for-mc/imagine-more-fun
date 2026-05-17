@@ -1,8 +1,13 @@
 package com.chenweikeng.imf.nra.dailyplan;
 
+import com.chenweikeng.imf.nra.config.ModConfig;
+import com.chenweikeng.imf.nra.ride.RideCountManager;
+import com.chenweikeng.imf.nra.ride.RideName;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 
 public final class DailyPlanManager {
   private static DailyPlanManager instance;
@@ -34,6 +39,11 @@ public final class DailyPlanManager {
         }
       }
     }
+    boolean pruned = false;
+    if (cached != null) {
+      pruned = pruneHiddenRideLayers(cached);
+    }
+
     boolean regenerated = false;
     if (cached == null
         || !today.toString().equals(cached.date)
@@ -43,7 +53,7 @@ public final class DailyPlanManager {
       regenerated = true;
     }
     boolean extended = DailyPlanGenerator.ensureTailCapacity(cached);
-    if (regenerated || extended) {
+    if (regenerated || pruned || extended) {
       DailyPlanStorage.save(cached);
     }
     return cached;
@@ -53,6 +63,170 @@ public final class DailyPlanManager {
   public synchronized void invalidateCache() {
     cached = null;
     loaded = false;
+  }
+
+  /**
+   * Inserts a quest layer for every eligible-and-unpinned daily quest in the snapshot, placing each
+   * one right after the currently active layer so the user sees it next. Without this, freshly
+   * captured quests would only get pulled in when {@link DailyPlanGenerator#ensureTailCapacity}
+   * naturally extends the tail — which doesn't happen until the user finishes enough random fillers
+   * to drop the unfinished count below the minimum. Persists the plan if any layer was inserted.
+   */
+  public synchronized boolean injectPendingQuestLayers() {
+    DailyPlan plan = getOrCreateToday();
+    if (plan == null || plan.layers == null) {
+      return false;
+    }
+    int insertAt = plan.layers.size();
+    for (int i = 0; i < plan.layers.size(); i++) {
+      if (!plan.layers.get(i).completed) {
+        insertAt = i + 1;
+        break;
+      }
+    }
+    boolean anyAdded = false;
+    while (true) {
+      DailyPlanLayer layer = DailyPlanGenerator.buildNextDailyQuestLayer(plan);
+      if (layer == null) {
+        break;
+      }
+      plan.layers.add(insertAt, layer);
+      insertAt++;
+      anyAdded = true;
+    }
+    if (anyAdded) {
+      DailyPlanStorage.save(plan);
+    }
+    return anyAdded;
+  }
+
+  /**
+   * Snapshot-driven completion for special daily-quest layers (RIDDLE_RIDE / NPC / LAND_RIDE) —
+   * they don't auto-complete via ride counts, so we reconcile against the freshly captured snapshot
+   * whenever the user re-opens the Daily Objectives screen. A pending layer flips to {@code
+   * completed} when its pin-key is gone from the new snapshot (server retired the quest after
+   * completion) or its observedProgress has reached the target. Each flipped layer fires {@link
+   * DailyPlanCelebration#layerCompleted} so the level-up sound + particles play just like a
+   * normally-tracked layer. Persists the plan if anything flipped.
+   */
+  public synchronized void reconcileSpecialQuestLayers(
+      net.minecraft.client.Minecraft client, DailyQuestSnapshot fresh) {
+    if (fresh == null) {
+      return;
+    }
+    DailyPlan plan = getOrCreateToday();
+    if (plan == null || plan.layers == null) {
+      return;
+    }
+    java.util.Map<String, DailyQuest> byKey = new java.util.HashMap<>();
+    if (fresh.quests != null) {
+      for (DailyQuest q : fresh.quests) {
+        if (q == null || q.rideMatchName == null) {
+          continue;
+        }
+        if (q.kindOrDefault() != DailyQuest.Kind.RIDE) {
+          byKey.put(q.rideMatchName, q);
+        }
+      }
+    }
+    boolean anyChanged = false;
+    for (int layerIdx = 0; layerIdx < plan.layers.size(); layerIdx++) {
+      DailyPlanLayer layer = plan.layers.get(layerIdx);
+      if (!layer.fromDailyQuest || layer.completed || layer.nodes == null) {
+        continue;
+      }
+      for (DailyPlanNode node : layer.nodes) {
+        if (node == null || node.ride == null || node.completed) {
+          continue;
+        }
+        if (!isSpecialPinKey(node.ride)) {
+          continue;
+        }
+        DailyQuest match = byKey.get(node.ride);
+        boolean done = match == null || match.observedProgress >= match.target;
+        if (done) {
+          node.completed = true;
+          anyChanged = true;
+        }
+      }
+      if (layer.recomputeCompleted()) {
+        anyChanged = true;
+        DailyPlanCelebration.layerCompleted(client, layerIdx + 1, layer.type);
+      }
+    }
+    if (anyChanged) {
+      DailyPlanStorage.save(plan);
+    }
+  }
+
+  private static boolean isSpecialPinKey(String pinKey) {
+    return pinKey.startsWith(":riddle:")
+        || pinKey.startsWith(":npc:")
+        || pinKey.startsWith(":land:")
+        || pinKey.startsWith(":task:");
+  }
+
+  /**
+   * Removes uncompleted RIDE quest layers from <em>prior</em> 8h windows when their ride also
+   * appears in the fresh current-window snapshot — those are stale duplicates of the layer that
+   * {@link #injectPendingQuestLayers} will (or already did) pin for the current window. The server
+   * only ever exposes ~3 active quests and refreshes them every 8h, so a previous window's
+   * uncompleted "Mainst 4x" pin is the same goal the server is asking for again, not an extra one.
+   * Without this, opening /dailies across windows accumulates duplicate RIDE pins (e.g. two Mainst
+   * 3/4 tiles in the HUD) all racing the same baseline. Persists the plan when anything was
+   * removed. Special-quest sentinels (riddle/npc/land/task) are handled by {@link
+   * #reconcileSpecialQuestLayers} instead.
+   */
+  public synchronized boolean pruneStalePriorRideQuestLayers(DailyQuestSnapshot fresh) {
+    if (fresh == null || fresh.quests == null || fresh.quests.isEmpty()) {
+      return false;
+    }
+    DailyPlan plan = getOrCreateToday();
+    if (plan == null || plan.layers == null) {
+      return false;
+    }
+    String currentWindow = DailyQuestState.currentWindowKey();
+    Set<String> currentRides = new HashSet<>();
+    for (DailyQuest q : fresh.quests) {
+      if (q == null || q.rideMatchName == null) {
+        continue;
+      }
+      if (q.kindOrDefault() != DailyQuest.Kind.RIDE) {
+        continue;
+      }
+      currentRides.add(q.rideMatchName);
+    }
+    if (currentRides.isEmpty()) {
+      return false;
+    }
+    boolean anyRemoved = false;
+    for (int i = plan.layers.size() - 1; i >= 0; i--) {
+      DailyPlanLayer layer = plan.layers.get(i);
+      if (!layer.fromDailyQuest || layer.completed || layer.nodes == null) {
+        continue;
+      }
+      if (currentWindow.equals(layer.questWindowKey)) {
+        continue;
+      }
+      boolean stale = false;
+      for (DailyPlanNode node : layer.nodes) {
+        if (node == null || node.ride == null || isSpecialPinKey(node.ride)) {
+          continue;
+        }
+        if (currentRides.contains(node.ride)) {
+          stale = true;
+          break;
+        }
+      }
+      if (stale) {
+        plan.layers.remove(i);
+        anyRemoved = true;
+      }
+    }
+    if (anyRemoved) {
+      DailyPlanStorage.save(plan);
+    }
+    return anyRemoved;
   }
 
   /**
@@ -108,5 +282,98 @@ public final class DailyPlanManager {
     }
     plan.nodes = null;
     return true;
+  }
+
+  /**
+   * Removes uncompleted layers whose nodes reference rides the user has hidden via the Rides tab.
+   * The active (first uncompleted) layer is only pruned when no progress has been made on any of
+   * its nodes; upcoming layers are always pruned. Completed layers survive unchanged.
+   */
+  private static boolean pruneHiddenRideLayers(DailyPlan plan) {
+    if (plan == null || plan.layers == null || plan.layers.isEmpty()) {
+      return false;
+    }
+    Set<String> hiddenRides = ModConfig.currentSetting.hiddenRides;
+    if (hiddenRides == null || hiddenRides.isEmpty()) {
+      return false;
+    }
+
+    int activeIdx = -1;
+    for (int i = 0; i < plan.layers.size(); i++) {
+      if (!plan.layers.get(i).completed) {
+        activeIdx = i;
+        break;
+      }
+    }
+    if (activeIdx < 0) {
+      return false;
+    }
+
+    boolean anyRemoved = false;
+    RideCountManager counts = RideCountManager.getInstance();
+
+    DailyPlanLayer active = plan.layers.get(activeIdx);
+    if (!active.fromDailyQuest
+        && layerContainsHiddenRide(active, hiddenRides)
+        && !hasProgress(active, counts)) {
+      plan.layers.remove(activeIdx);
+      anyRemoved = true;
+      activeIdx = -1;
+      for (int i = 0; i < plan.layers.size(); i++) {
+        if (!plan.layers.get(i).completed) {
+          activeIdx = i;
+          break;
+        }
+      }
+    }
+
+    if (activeIdx >= 0) {
+      for (int i = plan.layers.size() - 1; i > activeIdx; i--) {
+        DailyPlanLayer layer = plan.layers.get(i);
+        if (!layer.completed
+            && !layer.fromDailyQuest
+            && layerContainsHiddenRide(layer, hiddenRides)) {
+          plan.layers.remove(i);
+          anyRemoved = true;
+        }
+      }
+    }
+
+    return anyRemoved;
+  }
+
+  private static boolean layerContainsHiddenRide(DailyPlanLayer layer, Set<String> hiddenRides) {
+    if (layer == null || layer.nodes == null) {
+      return false;
+    }
+    for (DailyPlanNode node : layer.nodes) {
+      if (node != null && hiddenRides.contains(node.ride)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static boolean hasProgress(DailyPlanLayer layer, RideCountManager counts) {
+    if (layer == null || layer.nodes == null) {
+      return false;
+    }
+    for (DailyPlanNode node : layer.nodes) {
+      if (node == null || node.completed) {
+        continue;
+      }
+      RideName ride = RideName.fromMatchString(node.ride);
+      if (ride == RideName.UNKNOWN) {
+        continue;
+      }
+      int baseline = 0;
+      if (layer.baselineCounts != null) {
+        baseline = layer.baselineCounts.getOrDefault(node.ride, 0);
+      }
+      if (counts.getRideCount(ride) > baseline) {
+        return true;
+      }
+    }
+    return false;
   }
 }

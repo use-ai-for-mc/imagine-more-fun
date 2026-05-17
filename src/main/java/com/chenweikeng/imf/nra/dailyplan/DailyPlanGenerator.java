@@ -32,6 +32,10 @@ import java.util.Set;
  *
  * <p>Enchanted Tiki Room and Red Car Trolley are {@link #COMPANION_REQUIRED} and never appear as
  * SINGLE-layer nodes — they only surface paired in OR/AND branches.
+ *
+ * <p>AND layers require one of the {@link #AND_ANCHORS} (Red Car Trolley, Enchanted Tiki Room, or
+ * Great Moments with Mr. Lincoln). A naturally generated AND whose picks lack an anchor is demoted
+ * to OR — those three short rides are the only ones whose pairing is cheap enough to demand both.
  */
 public final class DailyPlanGenerator {
   public static final int INITIAL_LAYER_COUNT = 5;
@@ -43,6 +47,13 @@ public final class DailyPlanGenerator {
   private static final Set<String> COMPANION_REQUIRED =
       Set.of(
           RideName.ENCHANTED_TIKI_ROOM.toMatchString(), RideName.RED_CAR_TROLLEY.toMatchString());
+
+  /** AND layers are only allowed when at least one node is one of these rides. */
+  private static final Set<String> AND_ANCHORS =
+      Set.of(
+          RideName.RED_CAR_TROLLEY.toMatchString(),
+          RideName.ENCHANTED_TIKI_ROOM.toMatchString(),
+          RideName.GREAT_MOMENTS_WITH_MR_LINCOLN.toMatchString());
 
   private DailyPlanGenerator() {}
 
@@ -147,31 +158,54 @@ public final class DailyPlanGenerator {
    * resolves). Pre-seeds {@link DailyPlanLayer#baselineCounts} so the activation-time delta lines
    * up with the server-reported observed progress at capture time.
    */
+  /**
+   * Builds a quest layer for the next eligible-and-unpinned daily quest, or null when none. Public
+   * entry point for {@link DailyPlanManager#injectPendingQuestLayers} which pulls quests in
+   * immediately on snapshot capture rather than waiting for the tail to drain.
+   */
+  public static DailyPlanLayer buildNextDailyQuestLayer(DailyPlan plan) {
+    return nextDailyQuestLayer(plan);
+  }
+
   private static DailyPlanLayer nextDailyQuestLayer(DailyPlan plan) {
     Optional<DailyQuest> next = DailyQuestState.getInstance().nextEligibleForPlan(plan);
     if (next.isEmpty()) {
       return null;
     }
     DailyQuest quest = next.get();
-    RideName ride = RideName.fromMatchString(quest.rideMatchName);
-    if (ride == RideName.UNKNOWN) {
-      return null;
+    DailyQuest.Kind kind = quest.kindOrDefault();
+
+    if (kind == DailyQuest.Kind.RIDE) {
+      RideName ride = RideName.fromMatchString(quest.rideMatchName);
+      if (ride == RideName.UNKNOWN) {
+        return null;
+      }
     }
+
     DailyPlanNode node = new DailyPlanNode(quest.rideMatchName, Math.max(1, quest.target));
+    if (kind != DailyQuest.Kind.RIDE) {
+      node.displayLabel = quest.displayLabel;
+    }
     List<DailyPlanNode> nodes = new ArrayList<>(1);
     nodes.add(node);
     DailyPlanLayer layer = new DailyPlanLayer(LayerType.SINGLE, nodes);
     layer.fromDailyQuest = true;
     layer.questWindowKey = DailyQuestState.currentWindowKey();
 
-    DailyQuestSnapshot snap = DailyQuestState.getInstance().getSnapshot();
-    if (snap != null && snap.rideCountsAtCapture != null) {
-      Integer atCapture = snap.rideCountsAtCapture.get(quest.rideMatchName);
-      if (atCapture != null) {
-        Map<String, Integer> baseline = new HashMap<>();
-        baseline.put(quest.rideMatchName, atCapture - quest.observedProgress);
-        layer.baselineCounts = baseline;
+    if (kind == DailyQuest.Kind.RIDE) {
+      DailyQuestSnapshot snap = DailyQuestState.getInstance().getSnapshot();
+      if (snap != null && snap.rideCountsAtCapture != null) {
+        Integer atCapture = snap.rideCountsAtCapture.get(quest.rideMatchName);
+        if (atCapture != null) {
+          Map<String, Integer> baseline = new HashMap<>();
+          baseline.put(quest.rideMatchName, atCapture - quest.observedProgress);
+          layer.baselineCounts = baseline;
+        }
       }
+    } else {
+      // Special quests don't auto-complete via ride counts. Pre-set an empty baseline so the
+      // progress tracker doesn't try to seed one from RideName.UNKNOWN counts on activation.
+      layer.baselineCounts = new HashMap<>();
     }
     return layer;
   }
@@ -230,7 +264,20 @@ public final class DailyPlanGenerator {
       nodes.add(new DailyPlanNode(pick.toMatchString(), chooseK(pick, random)));
     }
 
+    if (type == LayerType.AND && !containsAndAnchor(nodes)) {
+      type = LayerType.OR;
+    }
+
     return new DailyPlanLayer(type, nodes);
+  }
+
+  private static boolean containsAndAnchor(List<DailyPlanNode> nodes) {
+    for (DailyPlanNode node : nodes) {
+      if (AND_ANCHORS.contains(node.ride)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**

@@ -129,6 +129,9 @@ public final class DailyPlanHudRenderer {
     int titleWidth = font.width(title);
 
     RidingStatus riding = buildRidingStatus(client);
+    if (riding == null) {
+      riding = buildSpecialQuestNudge(plan);
+    }
     int ridingWidth = riding == null ? 0 : font.width(riding.text);
     int ridingExtraHeight = riding == null ? 0 : FONT_HEIGHT + 2;
 
@@ -304,9 +307,11 @@ public final class DailyPlanHudRenderer {
       progress = 0;
     }
 
+    boolean isSpecialQuest = node.displayLabel != null && ride == RideName.UNKNOWN;
     NodeLayout layout = new NodeLayout();
     layout.isDone = node.completed;
-    layout.blink = highlightRide != null && !layout.isDone && ride == highlightRide;
+    layout.blink =
+        !isSpecialQuest && highlightRide != null && !layout.isDone && ride == highlightRide;
     boolean isPartial = !layout.isDone && progress > 0;
 
     if (layout.isDone) {
@@ -335,8 +340,13 @@ public final class DailyPlanHudRenderer {
       layout.borderColor = COLOR_QUEST_GOLD;
     }
 
-    layout.name = ride.getShortName().toUpperCase(Locale.ENGLISH);
-    layout.prog = layout.isDone ? ("\u00D7" + node.k) : (progress + "/" + node.k);
+    if (isSpecialQuest) {
+      layout.name = node.displayLabel.toUpperCase(Locale.ENGLISH);
+      layout.prog = layout.isDone ? "DONE" : ("?/" + node.k);
+    } else {
+      layout.name = ride.getShortName().toUpperCase(Locale.ENGLISH);
+      layout.prog = layout.isDone ? ("\u00D7" + node.k) : (progress + "/" + node.k);
+    }
 
     String topRow = layout.glyph + " " + layout.name;
     layout.topRowWidth = font.width(topRow);
@@ -470,6 +480,42 @@ public final class DailyPlanHudRenderer {
     }
 
     return null;
+  }
+
+  /**
+   * Idle-only nudge shown in the same status row as the autograbbing / on-ride lines, telling the
+   * user to re-open Daily Objectives once they finish a special quest. Returns null unless the
+   * active layer is a special daily quest (RIDDLE / NPC / LAND) — RIDE quests auto-tick from the
+   * local ride counts and don't need the prompt.
+   */
+  private static RidingStatus buildSpecialQuestNudge(DailyPlan plan) {
+    if (plan == null || plan.layers == null) {
+      return null;
+    }
+    for (DailyPlanLayer layer : plan.layers) {
+      if (layer.completed) {
+        continue;
+      }
+      if (!layer.fromDailyQuest || layer.nodes == null || layer.nodes.isEmpty()) {
+        return null;
+      }
+      DailyPlanNode node = layer.nodes.get(0);
+      if (node == null || node.ride == null || !isSpecialPinKey(node.ride)) {
+        return null;
+      }
+      // White, not gold \u2014 the \u2605 DAILY badge already paints quest layers gold; a second
+      // gold line
+      // muddles the visual hierarchy.
+      return new RidingStatus("\u2605 Open /daily after finishing the quest", COLOR_IDLE);
+    }
+    return null;
+  }
+
+  private static boolean isSpecialPinKey(String pinKey) {
+    return pinKey.startsWith(":riddle:")
+        || pinKey.startsWith(":npc:")
+        || pinKey.startsWith(":land:")
+        || pinKey.startsWith(":task:");
   }
 
   private static String formatDateFriendly(String dateStr) {

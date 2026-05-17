@@ -4,7 +4,10 @@ import com.chenweikeng.imf.nra.ServerState;
 import com.chenweikeng.imf.nra.compat.MonkeycraftCompat;
 import com.chenweikeng.imf.nra.ride.RideName;
 import com.chenweikeng.imf.nra.util.TimeFormatUtil;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.stream.Collectors;
+import me.shedaniel.clothconfig2.api.AbstractConfigListEntry;
 import me.shedaniel.clothconfig2.api.ConfigBuilder;
 import me.shedaniel.clothconfig2.api.ConfigCategory;
 import me.shedaniel.clothconfig2.api.ConfigEntryBuilder;
@@ -277,6 +280,21 @@ public class ClothConfigScreen {
     visual.addEntry(
         entryBuilder
             .startEnumSelector(
+                Component.translatable("config.not-riding-alert.hideCrosshairMode"),
+                HideCrosshairMode.class,
+                profile.hideCrosshairMode)
+            .setDefaultValue(ConfigDefaults.HIDE_CROSSHAIR_MODE)
+            .setTooltip(Component.translatable("config.not-riding-alert.hideCrosshairMode.tooltip"))
+            .setSaveConsumer(newValue -> profile.hideCrosshairMode = newValue)
+            .setEnumNameProvider(
+                mode ->
+                    Component.translatable(
+                        "config.not-riding-alert.hideCrosshairMode." + mode.name().toLowerCase()))
+            .build());
+
+    visual.addEntry(
+        entryBuilder
+            .startEnumSelector(
                 Component.translatable("config.not-riding-alert.audioBoostReminderMode"),
                 AudioBoostReminderMode.class,
                 profile.audioBoostReminderMode)
@@ -299,6 +317,31 @@ public class ClothConfigScreen {
             .setDefaultValue(ConfigDefaults.SHOW_SESSION_STATS)
             .setTooltip(Component.translatable("config.not-riding-alert.showSessionStats.tooltip"))
             .setSaveConsumer(newValue -> profile.showSessionStats = newValue)
+            .build());
+
+    ConfigCategory modifications =
+        builder.getOrCreateCategory(
+            Component.translatable("config.not-riding-alert.category.modifications"));
+
+    // "Space Mountain" group — a collapsible sub-category. Each ride's modification toggles get
+    // their own group in this tab; add more groups the same way as they're built.
+    List<AbstractConfigListEntry> spaceMountainGroup = new ArrayList<>();
+    spaceMountainGroup.add(
+        entryBuilder
+            .startBooleanToggle(
+                Component.translatable("config.not-riding-alert.spaceMountainEnhancements"),
+                profile.spaceMountainEnhancements)
+            .setDefaultValue(ConfigDefaults.SPACE_MOUNTAIN_ENHANCEMENTS)
+            .setTooltip(
+                Component.translatable("config.not-riding-alert.spaceMountainEnhancements.tooltip"))
+            .setSaveConsumer(newValue -> profile.spaceMountainEnhancements = newValue)
+            .build());
+    modifications.addEntry(
+        entryBuilder
+            .startSubCategory(
+                Component.translatable("config.not-riding-alert.spaceMountainGroup"),
+                spaceMountainGroup)
+            .setExpanded(true)
             .build());
 
     ConfigCategory tracker =

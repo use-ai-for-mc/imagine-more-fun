@@ -47,6 +47,7 @@ public class ConfigSetting {
   public ClosestRideMode closestRideMode = ConfigDefaults.CLOSEST_RIDE_MODE;
   public AudioBoostReminderMode audioBoostReminderMode = ConfigDefaults.AUDIO_BOOST_REMINDER_MODE;
   public ClosedCaptionMode closedCaptionMode = ConfigDefaults.CLOSED_CAPTION_MODE;
+  public HideCrosshairMode hideCrosshairMode = ConfigDefaults.HIDE_CROSSHAIR_MODE;
   public TrackerDisplayMode trackerDisplayMode = ConfigDefaults.TRACKER_DISPLAY_MODE;
   public MaxGoal maxGoal = ConfigDefaults.MAX_GOAL;
   public SortingRules sortingRules = ConfigDefaults.SORTING_RULES;
@@ -56,6 +57,7 @@ public class ConfigSetting {
   public RideReportNotifyMode rideReportNotifyMode = ConfigDefaults.RIDE_REPORT_NOTIFY_MODE;
   public boolean randomRideOverride = ConfigDefaults.RANDOM_RIDE_OVERRIDE;
   public RideHubMode rideHubMode = ConfigDefaults.RIDE_HUB_MODE;
+  public boolean spaceMountainEnhancements = ConfigDefaults.SPACE_MOUNTAIN_ENHANCEMENTS;
 
   public int getAdvanceNoticeSeconds(RideName ride) {
     return advanceNoticeSeconds.getOrDefault(ride.toMatchString(), 0);
@@ -99,6 +101,7 @@ public class ConfigSetting {
     closestRideMode = ConfigDefaults.CLOSEST_RIDE_MODE;
     audioBoostReminderMode = ConfigDefaults.AUDIO_BOOST_REMINDER_MODE;
     closedCaptionMode = ConfigDefaults.CLOSED_CAPTION_MODE;
+    hideCrosshairMode = ConfigDefaults.HIDE_CROSSHAIR_MODE;
     trackerDisplayMode = ConfigDefaults.TRACKER_DISPLAY_MODE;
     maxGoal = ConfigDefaults.MAX_GOAL;
     sortingRules = ConfigDefaults.SORTING_RULES;
@@ -108,6 +111,7 @@ public class ConfigSetting {
     rideReportNotifyMode = ConfigDefaults.RIDE_REPORT_NOTIFY_MODE;
     randomRideOverride = ConfigDefaults.RANDOM_RIDE_OVERRIDE;
     rideHubMode = ConfigDefaults.RIDE_HUB_MODE;
+    spaceMountainEnhancements = ConfigDefaults.SPACE_MOUNTAIN_ENHANCEMENTS;
   }
 
   public ConfigSetting copy() {
@@ -144,6 +148,7 @@ public class ConfigSetting {
     copy.closestRideMode = this.closestRideMode;
     copy.audioBoostReminderMode = this.audioBoostReminderMode;
     copy.closedCaptionMode = this.closedCaptionMode;
+    copy.hideCrosshairMode = this.hideCrosshairMode;
     copy.trackerDisplayMode = this.trackerDisplayMode;
     copy.maxGoal = this.maxGoal;
     copy.sortingRules = this.sortingRules;
@@ -156,6 +161,7 @@ public class ConfigSetting {
     copy.rideReportNotifyMode = this.rideReportNotifyMode;
     copy.randomRideOverride = this.randomRideOverride;
     copy.rideHubMode = this.rideHubMode;
+    copy.spaceMountainEnhancements = this.spaceMountainEnhancements;
     return copy;
   }
 
@@ -193,6 +199,7 @@ public class ConfigSetting {
         && closestRideMode == that.closestRideMode
         && audioBoostReminderMode == that.audioBoostReminderMode
         && closedCaptionMode == that.closedCaptionMode
+        && hideCrosshairMode == that.hideCrosshairMode
         && trackerDisplayMode == that.trackerDisplayMode
         && maxGoal == that.maxGoal
         && sortingRules == that.sortingRules
@@ -201,6 +208,7 @@ public class ConfigSetting {
         && rideReportNotifyMode == that.rideReportNotifyMode
         && randomRideOverride == that.randomRideOverride
         && rideHubMode == that.rideHubMode
+        && spaceMountainEnhancements == that.spaceMountainEnhancements
         && Objects.equals(soundId, that.soundId)
         && Objects.equals(minRideTimeMinutes, that.minRideTimeMinutes)
         && Objects.equals(hiddenRides, that.hiddenRides)
@@ -242,6 +250,7 @@ public class ConfigSetting {
         closestRideMode,
         audioBoostReminderMode,
         closedCaptionMode,
+        hideCrosshairMode,
         trackerDisplayMode,
         maxGoal,
         sortingRules,
@@ -250,6 +259,7 @@ public class ConfigSetting {
         enableOpenAudioMc,
         rideReportNotifyMode,
         randomRideOverride,
-        rideHubMode);
+        rideHubMode,
+        spaceMountainEnhancements);
   }
 }

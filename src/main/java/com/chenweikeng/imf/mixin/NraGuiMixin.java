@@ -3,6 +3,7 @@ package com.chenweikeng.imf.mixin;
 import com.chenweikeng.imf.nra.GameState;
 import com.chenweikeng.imf.nra.NotRidingAlertClient;
 import com.chenweikeng.imf.nra.config.ClosedCaptionMode;
+import com.chenweikeng.imf.nra.config.HideCrosshairMode;
 import com.chenweikeng.imf.nra.config.ModConfig;
 import com.chenweikeng.imf.nra.handler.ClosedCaptionHolder;
 import java.util.List;
@@ -108,6 +109,17 @@ public abstract class NraGuiMixin {
   private void onRenderCrosshair(
       GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
     if (!NotRidingAlertClient.isImagineFunServer()) {
+      return;
+    }
+    HideCrosshairMode hideMode = ModConfig.currentSetting.hideCrosshairMode;
+    if (hideMode == HideCrosshairMode.ALWAYS) {
+      ci.cancel();
+      return;
+    }
+    if (hideMode == HideCrosshairMode.ONLY_WHEN_RIDING
+        && minecraft.player != null
+        && minecraft.player.isPassenger()) {
+      ci.cancel();
       return;
     }
     if (ModConfig.currentSetting.closedCaptionMode == ClosedCaptionMode.NONE) {
