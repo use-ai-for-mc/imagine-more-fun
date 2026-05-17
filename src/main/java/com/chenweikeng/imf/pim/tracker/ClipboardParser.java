@@ -1,5 +1,6 @@
 package com.chenweikeng.imf.pim.tracker;
 
+import com.chenweikeng.imf.pim.PimClient;
 import com.chenweikeng.imf.pim.pin.PinShortNameGenerator;
 import com.chenweikeng.imf.pim.screen.PinDetailHandler;
 import java.util.ArrayList;
@@ -55,6 +56,7 @@ public class ClipboardParser {
       parseAndMatch(mc, currentClipboard);
 
     } catch (Exception e) {
+      PimClient.LOGGER.debug("[ClipboardParser] clipboard parse failed", e);
     }
   }
 

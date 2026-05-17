@@ -26,10 +26,10 @@ public class PimItemUseMixin {
 
   @Inject(at = @At("HEAD"), method = "startUseItem", cancellable = true)
   public void onStartUseItem(CallbackInfo ci) {
-    PimClient.LOGGER.info("[PimItemUseMixin] startUseItem called");
+    PimClient.LOGGER.debug("[PimItemUseMixin] startUseItem called");
 
     if (!PimClient.isImagineFunServer()) {
-      PimClient.LOGGER.info("[PimItemUseMixin] Not on ImagineFun server");
+      PimClient.LOGGER.debug("[PimItemUseMixin] Not on ImagineFun server");
       return;
     }
 
@@ -42,7 +42,7 @@ public class PimItemUseMixin {
     ItemStack mainHandItem = player.getMainHandItem();
     ItemStack offHandItem = player.getOffhandItem();
 
-    PimClient.LOGGER.info(
+    PimClient.LOGGER.debug(
         "[PimItemUseMixin] mainHand: {}, isTrackableFood: {}",
         mainHandItem.getHoverName().getString(),
         FoodConsumptionTracker.isTrackableFood(mainHandItem));
@@ -55,12 +55,12 @@ public class PimItemUseMixin {
     // Track food consumption for items with FOOD_TYPE NBT
     int selectedSlot = player.getInventory().getSelectedSlot();
     if (FoodConsumptionTracker.isTrackableFood(mainHandItem)) {
-      PimClient.LOGGER.info(
+      PimClient.LOGGER.debug(
           "[PimItemUseMixin] Tracking food: {}", mainHandItem.getHoverName().getString());
       FoodConsumptionTracker.getInstance().onItemUseStart(mainHandItem, selectedSlot);
     } else if (FoodConsumptionTracker.isTrackableFood(offHandItem)) {
       // Offhand slot is 40
-      PimClient.LOGGER.info(
+      PimClient.LOGGER.debug(
           "[PimItemUseMixin] Tracking offhand food: {}", offHandItem.getHoverName().getString());
       FoodConsumptionTracker.getInstance().onItemUseStart(offHandItem, 40);
     }

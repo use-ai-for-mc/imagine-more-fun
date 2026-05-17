@@ -1,6 +1,7 @@
 package com.chenweikeng.imf.nra.dailyplan;
 
 import com.chenweikeng.imf.ImfStorage;
+import com.chenweikeng.imf.nra.NotRidingAlertClient;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import java.io.File;
@@ -180,7 +181,8 @@ public final class DailyQuestState {
         GSON.toJson(snap, writer);
       }
     } catch (IOException e) {
-      e.printStackTrace();
+      NotRidingAlertClient.LOGGER.error(
+          "[DailyQuestState] failed to save quest state to {}", path, e);
     }
   }
 }

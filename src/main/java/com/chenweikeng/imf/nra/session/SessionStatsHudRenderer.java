@@ -59,7 +59,7 @@ public class SessionStatsHudRenderer {
     }
 
     if (rideTimePerHourMin > 60 && debugThrottle++ % 200 == 0) {
-      NotRidingAlertClient.LOGGER.warn(
+      NotRidingAlertClient.LOGGER.debug(
           "[SessionDebug] m/hr EXCEEDED 60: {}m/hr | rideTime={}s (completed={}s + currentElapsed={}s) | onlineSeconds={}s | onlineHours={} | currentRide={} | rides={}",
           rideTimePerHourMin,
           rideTime,

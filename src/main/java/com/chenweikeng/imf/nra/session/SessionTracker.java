@@ -35,7 +35,7 @@ public class SessionTracker {
     long onlineBefore = data.getOnlineSeconds();
     long rideTimeBefore = data.totalRideTimeSeconds;
     data.onRideCompleted(rideTime);
-    NotRidingAlertClient.LOGGER.info(
+    NotRidingAlertClient.LOGGER.debug(
         "[SessionDebug] rideCompleted: ride={} rideTime={}s onlineSeconds={} rideTimeBefore={}s rideTimeAfter={}s",
         ride.name(),
         rideTime,
