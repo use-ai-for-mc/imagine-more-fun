@@ -65,7 +65,7 @@ public class CurrentSettingsEntry {
 
     StoredProfile matchingProfile =
         ProfileManager.getAllProfiles().stream()
-            .filter(p -> p.data.hashCode() == ModConfig.currentSetting.hashCode())
+            .filter(p -> p.data.equals(ModConfig.currentSetting))
             .findFirst()
             .orElse(null);
 

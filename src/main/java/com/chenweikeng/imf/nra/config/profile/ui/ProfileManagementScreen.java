@@ -14,6 +14,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
@@ -196,16 +197,22 @@ public class ProfileManagementScreen extends Screen {
   private void onProfileDeleteRequest(StoredProfile profile) {
     if (profile == null) return;
     pendingDeleteProfile = profile;
-    confirmDelete();
+    minecraft.setScreen(
+        new ConfirmScreen(
+            this::onDeleteConfirmed,
+            Component.literal("Delete profile?"),
+            Component.literal(
+                "Permanently delete \"" + profile.name + "\"? This cannot be undone."),
+            Component.literal("Delete"),
+            Component.literal("Cancel")));
   }
 
-  private void confirmDelete() {
-    if (pendingDeleteProfile == null) return;
-
-    ProfileManager.deleteProfile(pendingDeleteProfile.id);
-    profileList.refreshProfiles();
-
+  private void onDeleteConfirmed(boolean confirmed) {
+    if (confirmed && pendingDeleteProfile != null) {
+      ProfileManager.deleteProfile(pendingDeleteProfile.id);
+    }
     pendingDeleteProfile = null;
+    minecraft.setScreen(this);
   }
 
   private void onResetClicked(Button button) {

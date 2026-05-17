@@ -90,6 +90,6 @@ public final class ProfileManager {
 
   public static boolean isCurrentProfile(StoredProfile profile) {
     if (profile == null) return false;
-    return profile.data.hashCode() == ModConfig.currentSetting.hashCode();
+    return profile.data.equals(ModConfig.currentSetting);
   }
 }
