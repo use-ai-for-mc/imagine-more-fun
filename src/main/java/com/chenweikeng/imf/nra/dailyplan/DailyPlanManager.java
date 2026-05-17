@@ -167,17 +167,26 @@ public final class DailyPlanManager {
   }
 
   /**
-   * Removes uncompleted RIDE quest layers from <em>prior</em> 8h windows when their ride also
-   * appears in the fresh current-window snapshot — those are stale duplicates of the layer that
-   * {@link #injectPendingQuestLayers} will (or already did) pin for the current window. The server
-   * only ever exposes ~3 active quests and refreshes them every 8h, so a previous window's
-   * uncompleted "Mainst 4x" pin is the same goal the server is asking for again, not an extra one.
-   * Without this, opening /dailies across windows accumulates duplicate RIDE pins (e.g. two Mainst
-   * 3/4 tiles in the HUD) all racing the same baseline. Persists the plan when anything was
-   * removed. Special-quest sentinels (riddle/npc/land/task) are handled by {@link
-   * #reconcileSpecialQuestLayers} instead.
+   * Removes uncompleted daily-quest layers from <em>prior</em> 8h windows when the same quest
+   * appears again in the fresh current-window snapshot — those are stale duplicates of the layer
+   * that {@link #injectPendingQuestLayers} will (or already did) pin for the current window. The
+   * server refreshes quests every 8h but routinely re-issues the same goal; a previous window's
+   * uncompleted "Mainst 4x" pin — or "Critter Country 3x" land challenge — is the same goal the
+   * server is asking for again, not an extra one.
+   *
+   * <p>Applies to <em>every</em> quest kind. RIDE quests dedup on the canonical ride match-name;
+   * the special kinds (riddle / npc / land / task) dedup on their sentinel key, which {@link
+   * DailyQuestParser} derives deterministically from stable quest content, so the same quest yields
+   * the same key across re-captures. Earlier this skipped the special kinds — leaving a land/npc
+   * quest that straddled a window boundary pinned twice (one "current", one "next") with nothing to
+   * collapse it, since {@link #reconcileSpecialQuestLayers} only flips layers to completed and
+   * never removes duplicates.
+   *
+   * <p>Without this, opening /dailies across windows accumulates duplicate pins (e.g. two Critter
+   * Country tiles in the Ride Plan, one tagged to each window). Completed layers are left untouched
+   * so they survive as history. Persists the plan when anything was removed.
    */
-  public synchronized boolean pruneStalePriorRideQuestLayers(DailyQuestSnapshot fresh) {
+  public synchronized boolean pruneStalePriorQuestLayers(DailyQuestSnapshot fresh) {
     if (fresh == null || fresh.quests == null || fresh.quests.isEmpty()) {
       return false;
     }
@@ -186,17 +195,14 @@ public final class DailyPlanManager {
       return false;
     }
     String currentWindow = DailyQuestState.currentWindowKey();
-    Set<String> currentRides = new HashSet<>();
+    Set<String> currentQuestKeys = new HashSet<>();
     for (DailyQuest q : fresh.quests) {
       if (q == null || q.rideMatchName == null) {
         continue;
       }
-      if (q.kindOrDefault() != DailyQuest.Kind.RIDE) {
-        continue;
-      }
-      currentRides.add(q.rideMatchName);
+      currentQuestKeys.add(q.rideMatchName);
     }
-    if (currentRides.isEmpty()) {
+    if (currentQuestKeys.isEmpty()) {
       return false;
     }
     boolean anyRemoved = false;
@@ -210,10 +216,10 @@ public final class DailyPlanManager {
       }
       boolean stale = false;
       for (DailyPlanNode node : layer.nodes) {
-        if (node == null || node.ride == null || isSpecialPinKey(node.ride)) {
+        if (node == null || node.ride == null) {
           continue;
         }
-        if (currentRides.contains(node.ride)) {
+        if (currentQuestKeys.contains(node.ride)) {
           stale = true;
           break;
         }
