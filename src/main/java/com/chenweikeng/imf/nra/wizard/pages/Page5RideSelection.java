@@ -83,8 +83,6 @@ public class Page5RideSelection extends WizardPage {
       Arrays.asList(
           RideName.HAUNTED_MANSION_HOLIDAY,
           RideName.GUARDIANS_OF_THE_GALAXY_MONSTERS_AFTER_DARK,
-          RideName.THE_SUGARPINE_EXPRESS,
-          RideName.THE_SUGARPINE_MERRY_GO_ROUND,
           RideName.HYPERSPACE_MOUNTAIN);
 
   public Page5RideSelection() {

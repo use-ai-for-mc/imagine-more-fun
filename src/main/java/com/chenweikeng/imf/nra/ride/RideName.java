@@ -104,8 +104,6 @@ public enum RideName {
       "gotgmad",
       123,
       "Avenger's Campus"),
-  THE_SUGARPINE_EXPRESS("The Sugarpine Express", "sugarexpress", 132, null),
-  THE_SUGARPINE_MERRY_GO_ROUND("The Sugarpine Merry-Go-Round", "sugargoround", 76, null),
   HYPERSPACE_MOUNTAIN("Hyperspace Mountain", "hyperspace", 180, "Tomorrowland"),
 
   // Unknown ride (for rides not in the enum)
@@ -179,8 +177,6 @@ public enum RideName {
   public boolean isSeasonal() {
     return this == HAUNTED_MANSION_HOLIDAY
         || this == GUARDIANS_OF_THE_GALAXY_MONSTERS_AFTER_DARK
-        || this == THE_SUGARPINE_EXPRESS
-        || this == THE_SUGARPINE_MERRY_GO_ROUND
         || this == HYPERSPACE_MOUNTAIN;
   }
 
