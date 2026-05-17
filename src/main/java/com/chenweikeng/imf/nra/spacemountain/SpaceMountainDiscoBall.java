@@ -9,6 +9,8 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
 import java.io.IOException;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -232,12 +234,16 @@ public final class SpaceMountainDiscoBall {
 
   // --- Persistence ----------------------------------------------------------
 
-  /** Load balls from {@link #PERSIST_PATH}, replacing any currently registered. */
+  /**
+   * Load balls — from the config-dir {@link #PERSIST_PATH} if present, else the JAR-bundled default
+   * so the effect ships with the mod. Replaces any currently registered.
+   */
   public static void load() {
     balls.clear();
-    if (!Files.exists(PERSIST_PATH)) return;
+    String json = readConfigOrBundled(PERSIST_PATH, "/imaginemorefun/disco_balls.json");
+    if (json == null) return;
     try {
-      JsonObject root = JsonParser.parseString(Files.readString(PERSIST_PATH)).getAsJsonObject();
+      JsonObject root = JsonParser.parseString(json).getAsJsonObject();
       for (JsonElement el : root.getAsJsonArray("balls")) {
         JsonObject o = el.getAsJsonObject();
         Ball b = new Ball();
@@ -258,9 +264,8 @@ public final class SpaceMountainDiscoBall {
       if (root.has("autoSpinRate")) autoSpinRate = root.get("autoSpinRate").getAsDouble();
       autoSpinCurrent = -1;
       autoSpinTimer = 0.0;
-      NotRidingAlertClient.LOGGER.info(
-          "[SpaceMountainDiscoBall] loaded {} balls from {}", balls.size(), PERSIST_PATH);
-    } catch (IOException | RuntimeException e) {
+      NotRidingAlertClient.LOGGER.info("[SpaceMountainDiscoBall] loaded {} balls", balls.size());
+    } catch (RuntimeException e) {
       NotRidingAlertClient.LOGGER.error("[SpaceMountainDiscoBall] failed to load balls", e);
     }
   }
@@ -293,12 +298,16 @@ public final class SpaceMountainDiscoBall {
     }
   }
 
-  /** Load the prismarine-cover exclusion cells from {@link #EXCLUSION_PATH}. */
+  /**
+   * Load the prismarine-cover exclusion cells — from the config-dir {@link #EXCLUSION_PATH} if
+   * present, else the JAR-bundled default.
+   */
   public static void loadExclusion() {
     exclusionCells.clear();
-    if (!Files.exists(EXCLUSION_PATH)) return;
+    String json = readConfigOrBundled(EXCLUSION_PATH, "/imaginemorefun/disco_exclusion.json");
+    if (json == null) return;
     try {
-      JsonObject root = JsonParser.parseString(Files.readString(EXCLUSION_PATH)).getAsJsonObject();
+      JsonObject root = JsonParser.parseString(json).getAsJsonObject();
       JsonArray cells = root.getAsJsonArray("cells");
       for (int i = 0; i + 2 < cells.size(); i += 3) {
         exclusionCells.add(
@@ -306,12 +315,35 @@ public final class SpaceMountainDiscoBall {
                 cells.get(i).getAsInt(), cells.get(i + 1).getAsInt(), cells.get(i + 2).getAsInt()));
       }
       NotRidingAlertClient.LOGGER.info(
-          "[SpaceMountainDiscoBall] loaded {} exclusion cells from {}",
-          exclusionCells.size(),
-          EXCLUSION_PATH);
-    } catch (IOException | RuntimeException e) {
+          "[SpaceMountainDiscoBall] loaded {} exclusion cells", exclusionCells.size());
+    } catch (RuntimeException e) {
       NotRidingAlertClient.LOGGER.error(
           "[SpaceMountainDiscoBall] failed to load exclusion cells", e);
+    }
+  }
+
+  /**
+   * JSON text from the config-dir file if it exists, else from the JAR-bundled default. The bundled
+   * copy is what lets the disco-ball effect ship with the mod — a fresh install, or a launcher
+   * migration that leaves {@code config/imaginemorefun/} behind, still gets the default balls and
+   * exclusion cells. Returns {@code null} only if neither source is readable.
+   */
+  private static String readConfigOrBundled(Path configPath, String bundledResource) {
+    if (Files.exists(configPath)) {
+      try {
+        return Files.readString(configPath);
+      } catch (IOException e) {
+        NotRidingAlertClient.LOGGER.error(
+            "[SpaceMountainDiscoBall] failed to read {}", configPath, e);
+      }
+    }
+    try (InputStream in = SpaceMountainDiscoBall.class.getResourceAsStream(bundledResource)) {
+      if (in == null) return null;
+      return new String(in.readAllBytes(), StandardCharsets.UTF_8);
+    } catch (IOException e) {
+      NotRidingAlertClient.LOGGER.error(
+          "[SpaceMountainDiscoBall] failed to read bundled {}", bundledResource, e);
+      return null;
     }
   }
 
