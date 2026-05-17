@@ -485,7 +485,11 @@ public final class SpaceMountainDiscoBall {
   }
 
   private static void render(WorldRenderContext ctx) {
-    if (!ENABLED || balls.isEmpty()) return;
+    // Route through the shared master gate like every other Space Mountain overlay: BAKING_MODE
+    // off, the "Space Mountain (Beta Preview)" toggle on, connected to ImagineFun, and actively
+    // riding Space/Hyperspace Mountain. Without this the bundled default disco balls would render
+    // everywhere — including single-player and unrelated servers — the moment the jar is installed.
+    if (!ENABLED || !SpaceMountainOverride.isActive() || balls.isEmpty()) return;
     Minecraft mc = Minecraft.getInstance();
     if (mc.player == null || mc.level == null) return;
 

@@ -6,24 +6,6 @@ Client-side effects layered onto Hyperspace Mountain (and seasonally Space Mount
 
 ---
 
-## ⚠ Known issue — the star effect isn't rendering
-
-**Cause (verified):** the disco-ball star effect (`SpaceMountainDiscoBall`) loads its projector "balls" from `config/imaginemorefun/disco_balls.json`. That file — and `disco_exclusion.json` — currently exist only in the **old Modrinth profile**:
-
-```
-present:  ~/Library/Application Support/ModrinthApp/profiles/ImagineFun/config/imaginemorefun/disco_balls.json
-          ~/Library/Application Support/ModrinthApp/profiles/ImagineFun/config/imaginemorefun/disco_exclusion.json
-missing:  ~/Library/Application Support/PrismLauncher/instances/ImagineFun/.minecraft/config/imaginemorefun/
-```
-
-The project migrated from Modrinth App to PrismLauncher; the config dir did not come along. On PrismLauncher, `SpaceMountainDiscoBall.load()` finds no `disco_balls.json` → `balls` is empty → `render()` early-returns on `balls.isEmpty()` → **no stars**.
-
-**Fix:** copy both JSON files from the Modrinth `config/imaginemorefun/` into the PrismLauncher instance's `config/imaginemorefun/`, then relaunch (the files are read once at startup, in `register()`). Nothing in the *code* is broken — it is purely the missing config.
-
-Note: the star effect is **not** gated by the ride or the `spaceMountainEnhancements` toggle (see "Star effect" below), so an empty/absent `disco_balls.json` is the only thing that produces "zero stars everywhere."
-
----
-
 ## Master gate
 
 `SpaceMountainOverride.isActive()` returns true iff **all** of:
@@ -32,7 +14,7 @@ Note: the star effect is **not** gated by the ride or the `spaceMountainEnhancem
 - connected to ImagineFun (`ServerState.isImagineFunServer()`);
 - `CurrentRideHolder.getCurrentRide()` is `SPACE_MOUNTAIN` or `HYPERSPACE_MOUNTAIN`.
 
-`SpaceMountainBlockOverride`, `SpaceMountainTunnelRenderer`, and `SpaceMountainRideAudio` route through this gate. **`SpaceMountainDiscoBall` does not** — see below.
+`SpaceMountainBlockOverride`, `SpaceMountainTunnelRenderer`, `SpaceMountainRideAudio`, and `SpaceMountainDiscoBall` all route through this gate.
 
 ## Build / deploy
 
@@ -67,11 +49,11 @@ The current starfield. Emulates disco-ball light projectors: a set of fixed "bal
 
 **Spin / auto-spin.** `setSpin(index, degPerSec)` spins one ball; auto-spin (`AUTO_SPIN_INTERVAL_SEC = 20`) hands the spin to a random ball every 20 s, never the same one twice. A spinning ball is re-projected each frame, so its dots sweep.
 
-**Rendering.** `render()` is a `WorldRenderEvents.AFTER_ENTITIES` callback: `if (!ENABLED || balls.isEmpty()) return;` then it draws every ball's cached dots as camera-facing quads with `RenderTypes.eyes` (emissive/full-bright, so stars stay visible in the dark dome). `ENABLED` defaults `true`. **`render()` does not check `SpaceMountainOverride.isActive()`** — the disco balls render whenever `ENABLED` is true and `balls` is non-empty, regardless of the ride or the config toggle. (Flagged in the code review as a gating gap; not yet fixed.)
+**Rendering.** `render()` is a `WorldRenderEvents.AFTER_ENTITIES` callback: `if (!ENABLED || !SpaceMountainOverride.isActive() || balls.isEmpty()) return;` then it draws every ball's cached dots as camera-facing quads with `RenderTypes.eyes` (emissive/full-bright, so stars stay visible in the dark dome). Like every other Space Mountain overlay, the disco ball routes through the `SpaceMountainOverride.isActive()` master gate — the stars render only while actually riding Space/Hyperspace Mountain on ImagineFun with the Beta Preview toggle on, never in single-player or on other servers. `ENABLED` is a secondary debug kill (defaults `true`); it can force the effect off but cannot bypass the gate.
 
-**Persistence — `config/imaginemorefun/`:**
+**Persistence — config-dir file, JAR-bundled fallback.** `load()` / `loadExclusion()` go through `readConfigOrBundled()`: read `config/imaginemorefun/<file>` if it exists, else fall back to the copy bundled in the jar (`src/main/resources/imaginemorefun/`). The bundled copy ships the default starfield with the mod, so a fresh install — or a launcher migration that drops the config dir — still has working stars. Runtime-API writes (`addBall`, `setSpin`, …) always land in the config-dir file, which then takes precedence on the next load.
 - `disco_balls.json` — the balls (position/aim/spin/close-cap) plus `autoSpinEnabled`/`autoSpinRate`. Written on every change, read once in `register()` via `load()`.
-- `disco_exclusion.json` — `{"cells":[x,y,z,x,y,z,…]}`, the prismarine "cover" cells that suppress stars. Read in `register()` via `loadExclusion()`. Baked by `debug-dumps/bake-disco-exclusion.py` from an `/imf dumpchunks`-style capture (the `debug-dumps/` tooling now lives outside the repo — see "Removed").
+- `disco_exclusion.json` — `{"cells":[x,y,z,x,y,z,…]}`, the prismarine "cover" cells that suppress stars. Read in `register()` via `loadExclusion()`. Baked by `bake-disco-exclusion.py` from an `/imf dumpchunks`-style capture (the bake tooling now lives outside the repo — see "Removed").
 
 **Runtime API (over the DebugBridge / `mc_execute`):** `addBall(x,y,z,yaw,pitch)`, `clearBalls()`, `setSpin(index,deg)`, `setAutoSpin(enabled,deg)`, `setCloseLimit(index,closeRadius,maxDots)`, `reproject()`, `setEnabled(bool)`, `describe()`. `describe()` is the quickest health check — it reports `balls=N`, `enabled`, and per-ball dot counts.
 
@@ -111,6 +93,8 @@ A static whitelist of `(itemId, damage)` helmet signatures (e.g. the TIE Fighter
 | `dome_borders.bin` | `SpaceMountainStarRenderer` | Baked dome-wall faces — renderer is retired (`ENABLED=false`). |
 | `dome_track.bin` | `SpaceMountainTrackRenderer` | Recorded vehicle path — renderer off by default. |
 | `dome_track_stars.bin` | `SpaceMountainStarRenderer` | Track-surface stars — `INCLUDE_TRACK_STARS=false`. |
+| `disco_balls.json` | `SpaceMountainDiscoBall` | Bundled default projectors — `load()` fallback when no config-dir file. |
+| `disco_exclusion.json` | `SpaceMountainDiscoBall` | Bundled default prismarine-cover cells — `loadExclusion()` fallback. |
 | `textures/particle/star.png` | disco ball | Star dot texture. |
 | `textures/particle/track.png`, `hyperspace_streak.png` | track / tunnel renderers | — |
 
