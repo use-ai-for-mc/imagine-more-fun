@@ -8,6 +8,7 @@ import com.google.gson.JsonParser;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import it.unimi.dsi.fastutil.longs.LongOpenHashSet;
+import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -48,6 +49,9 @@ public final class SpaceMountainDiscoBall {
   private static final double CONE_HALF_ANGLE_DEG = 120.0; // 240-degree full cone
   private static final double MAX_BEAM = 128.0; // max beam length, blocks
   private static final double AUTO_SPIN_INTERVAL_SEC = 20.0; // auto-spin hand-off period
+  // Spin ramp: a ball's angular velocity eases toward its target rate at this rate, so spin
+  // accelerates from rest and decelerates to a stop instead of snapping on/off.
+  private static final double SPIN_ACCEL_DEG_PER_SEC2 = 3.0;
   private static final float DOT_HALF_SIZE = 0.13f;
 
   private static final Identifier DOT_TEXTURE =
@@ -68,6 +72,11 @@ public final class SpaceMountainDiscoBall {
           .resolve("imaginemorefun")
           .resolve("disco_exclusion.json");
   private static final LongOpenHashSet exclusionCells = new LongOpenHashSet();
+
+  // Watertight dome-shell cells from the bundled dome_borders.bin: a projected star is kept only
+  // when its hit block is one of these, so stars never land in entrance/exit tunnels, on barriers,
+  // or anywhere the flood-fill never reached. Empty (mask disabled) if dome_borders.bin won't load.
+  private static final LongOpenHashSet watertightWallCells = new LongOpenHashSet();
 
   // Beam directions in the cone's local frame (around local +Z), shared by every ball.
   private static final double[] BEAM_LOCAL = new double[BEAMS_PER_BALL * 3];
@@ -91,7 +100,8 @@ public final class SpaceMountainDiscoBall {
     double x, y, z;
     double aimYaw, aimPitch; // cone-axis orientation, MC degrees
     double spinDeg; // current rotation about world Y
-    double spinRate; // degrees per second (0 = static)
+    double spinRate; // TARGET angular velocity, deg/s (0 = static)
+    double spinVel; // current angular velocity, deg/s — eases toward spinRate (accel/decel)
     double closeRadius = 6.0; // blocks; what counts as "super close" to the ball
     int maxCloseDots = -1; // cap on dots within closeRadius; -1 = no cap
     double[] dots = new double[0]; // 3 doubles per hit dot
@@ -101,6 +111,12 @@ public final class SpaceMountainDiscoBall {
 
   private static final CopyOnWriteArrayList<Ball> balls = new CopyOnWriteArrayList<>();
   private static volatile boolean ENABLED = true;
+
+  // Dev-only single-player preview. When true the disco ball also renders in single-player, where
+  // SpaceMountainOverride.isActive() is always false — lets the effect be built and tuned against
+  // the SP simulator world. Bridge-only and not persisted, so an end-user's single-player world is
+  // never affected and it can never leak onto a real server.
+  private static volatile boolean spDevPreview = false;
 
   private static long lastNanos;
 
@@ -116,6 +132,7 @@ public final class SpaceMountainDiscoBall {
   public static void register() {
     load();
     loadExclusion();
+    loadBorders();
     WorldRenderEvents.AFTER_ENTITIES.register(SpaceMountainDiscoBall::render);
   }
 
@@ -162,7 +179,9 @@ public final class SpaceMountainDiscoBall {
 
   /**
    * Enable/disable auto-spin: every {@link #AUTO_SPIN_INTERVAL_SEC} seconds the spin hands off to a
-   * random ball — never the one that just had it — so exactly one ball spins at a time.
+   * random ball — never the one that just had it. Spin eases in and out (see {@link
+   * #SPIN_ACCEL_DEG_PER_SEC2}), so a hand-off briefly overlaps as the outgoing ball decelerates and
+   * the incoming one accelerates.
    */
   public static void setAutoSpin(boolean enabled, double degPerSec) {
     autoSpinEnabled = enabled;
@@ -213,6 +232,17 @@ public final class SpaceMountainDiscoBall {
     NotRidingAlertClient.LOGGER.info("[SpaceMountainDiscoBall] enabled={}", enabled);
   }
 
+  /**
+   * Dev-only single-player preview. When enabled, the disco ball renders in single-player even
+   * though {@link SpaceMountainOverride#isActive()} is false there — for building and tuning the
+   * effect against the SP simulator world. Not persisted; defaults off so end-user single-player
+   * worlds are unaffected and a real server only ever shows the gated effect.
+   */
+  public static void setSpDevPreview(boolean enabled) {
+    spDevPreview = enabled;
+    NotRidingAlertClient.LOGGER.info("[SpaceMountainDiscoBall] spDevPreview={}", enabled);
+  }
+
   public static boolean isEnabled() {
     return ENABLED;
   }
@@ -220,14 +250,25 @@ public final class SpaceMountainDiscoBall {
   public static String describe() {
     StringBuilder sb = new StringBuilder();
     sb.append("balls=").append(balls.size()).append(" enabled=").append(ENABLED);
+    sb.append(" spDevPreview=").append(spDevPreview);
     sb.append(" autoSpin=").append(autoSpinEnabled).append(" rate=").append(autoSpinRate);
     sb.append(" exclusionCells=").append(exclusionCells.size());
+    sb.append(" watertightCells=").append(watertightWallCells.size());
     int i = 0;
     for (Ball b : balls) {
       sb.append(
           String.format(
-              "  [%d] pos=(%.1f,%.1f,%.1f) aim=(%.0f,%.0f) spin=%.0f rate=%.0f dots=%d",
-              i++, b.x, b.y, b.z, b.aimYaw, b.aimPitch, b.spinDeg, b.spinRate, b.dotCount));
+              "  [%d] pos=(%.1f,%.1f,%.1f) aim=(%.0f,%.0f) spin=%.0f rate=%.0f vel=%.1f dots=%d",
+              i++,
+              b.x,
+              b.y,
+              b.z,
+              b.aimYaw,
+              b.aimPitch,
+              b.spinDeg,
+              b.spinRate,
+              b.spinVel,
+              b.dotCount));
     }
     return sb.toString();
   }
@@ -347,6 +388,53 @@ public final class SpaceMountainDiscoBall {
     }
   }
 
+  /**
+   * Load the watertight dome-shell cells from {@code dome_borders.bin} — config dir first (a fresh
+   * {@link SpaceMountainBorderBake} result), else the JAR-bundled default. Used as a hard mask on
+   * the projection: a beam-cast star only survives if its hit block is one of these cells.
+   */
+  public static void loadBorders() {
+    watertightWallCells.clear();
+    Path cfg =
+        FabricLoader.getInstance()
+            .getConfigDir()
+            .resolve("imaginemorefun")
+            .resolve("dome_borders.bin");
+    try (InputStream in =
+        Files.exists(cfg)
+            ? Files.newInputStream(cfg)
+            : SpaceMountainDiscoBall.class.getResourceAsStream(
+                "/imaginemorefun/dome_borders.bin")) {
+      if (in == null) {
+        NotRidingAlertClient.LOGGER.warn("[SpaceMountainDiscoBall] dome_borders.bin not found");
+        return;
+      }
+      DataInputStream dis = new DataInputStream(in);
+      byte[] magic = new byte[4];
+      dis.readFully(magic);
+      if (magic[0] != 'I' || magic[1] != 'F' || magic[2] != 'D' || magic[3] != 'B') {
+        throw new IOException(
+            "bad dome_borders magic: " + new String(magic, StandardCharsets.UTF_8));
+      }
+      int version = dis.readUnsignedByte();
+      if (version != 1) throw new IOException("unsupported dome_borders version: " + version);
+      int faceCount = dis.readInt();
+      for (int i = 0; i < faceCount; i++) {
+        int x = dis.readInt();
+        int y = dis.readInt();
+        int z = dis.readInt();
+        dis.readUnsignedByte(); // face direction — not needed for the wall-cell mask
+        watertightWallCells.add(BlockPos.asLong(x, y, z));
+      }
+      NotRidingAlertClient.LOGGER.info(
+          "[SpaceMountainDiscoBall] loaded {} watertight wall cells ({} faces)",
+          watertightWallCells.size(),
+          faceCount);
+    } catch (IOException | RuntimeException e) {
+      NotRidingAlertClient.LOGGER.error("[SpaceMountainDiscoBall] failed to load dome borders", e);
+    }
+  }
+
   // --- Projection -----------------------------------------------------------
 
   /** True when the block cell containing (x,y,z) is under the prismarine cover. */
@@ -400,18 +488,26 @@ public final class SpaceMountainDiscoBall {
       // spin about world Y
       double rdx = dx * cs + dz * sn;
       double rdz = -dx * sn + dz * cs;
-      double dist = castBeam(mc, b.x, b.y, b.z, rdx, dy, rdz);
-      if (dist > 0.0 && dist < MAX_BEAM) {
-        double px = b.x + rdx * dist;
-        double py = b.y + dy * dist;
-        double pz = b.z + rdz * dist;
-        if (isExcluded(px, py, pz)) continue;
-        hx[hits] = px;
-        hy[hits] = py;
-        hz[hits] = pz;
-        hd[hits] = dist;
-        hits++;
+      // Nearest world block — must belong to the watertight dome shell.
+      BlockHitResult hit = castBeam(mc, b.x, b.y, b.z, rdx, dy, rdz);
+      if (hit.getType() != HitResult.Type.BLOCK) continue; // beam hit no block
+      if (!watertightWallCells.isEmpty()
+          && !watertightWallCells.contains(hit.getBlockPos().asLong())) {
+        continue;
       }
+      Vec3 bl = hit.getLocation();
+      double px = bl.x;
+      double py = bl.y;
+      double pz = bl.z;
+      double dist =
+          Math.sqrt((px - b.x) * (px - b.x) + (py - b.y) * (py - b.y) + (pz - b.z) * (pz - b.z));
+      if (dist <= 0.0 || dist >= MAX_BEAM) continue;
+      if (isExcluded(px, py, pz)) continue;
+      hx[hits] = px;
+      hy[hits] = py;
+      hz[hits] = pz;
+      hd[hits] = dist;
+      hits++;
     }
 
     // Close-in cap: within closeRadius keep only the farthest maxCloseDots dots, dropping the
@@ -446,22 +542,14 @@ public final class SpaceMountainDiscoBall {
     b.dotCount = kept;
   }
 
-  /** Nearest world-block surface distance along a unit beam, or {@link #MAX_BEAM} if none. */
-  private static double castBeam(
+  /** Raycast a beam up to {@link #MAX_BEAM} blocks; returns the block hit, or a MISS result. */
+  private static BlockHitResult castBeam(
       Minecraft mc, double ox, double oy, double oz, double dx, double dy, double dz) {
-    double best = MAX_BEAM;
-    if (mc.level != null) {
-      Vec3 from = new Vec3(ox, oy, oz);
-      Vec3 to = new Vec3(ox + dx * MAX_BEAM, oy + dy * MAX_BEAM, oz + dz * MAX_BEAM);
-      ClipContext ctx =
-          new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, mc.player);
-      BlockHitResult hit = mc.level.clip(ctx);
-      if (hit.getType() == HitResult.Type.BLOCK) {
-        double bd = hit.getLocation().distanceTo(from);
-        if (bd < best) best = bd;
-      }
-    }
-    return best;
+    Vec3 from = new Vec3(ox, oy, oz);
+    Vec3 to = new Vec3(ox + dx * MAX_BEAM, oy + dy * MAX_BEAM, oz + dz * MAX_BEAM);
+    ClipContext ctx =
+        new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, mc.player);
+    return mc.level.clip(ctx);
   }
 
   // --- Rendering ------------------------------------------------------------
@@ -485,13 +573,16 @@ public final class SpaceMountainDiscoBall {
   }
 
   private static void render(WorldRenderContext ctx) {
-    // Route through the shared master gate like every other Space Mountain overlay: BAKING_MODE
-    // off, the "Space Mountain (Beta Preview)" toggle on, connected to ImagineFun, and actively
-    // riding Space/Hyperspace Mountain. Without this the bundled default disco balls would render
-    // everywhere — including single-player and unrelated servers — the moment the jar is installed.
-    if (!ENABLED || !SpaceMountainOverride.isActive() || balls.isEmpty()) return;
+    if (!ENABLED || balls.isEmpty()) return;
     Minecraft mc = Minecraft.getInstance();
     if (mc.player == null || mc.level == null) return;
+    // Production gate: route through the shared master switch like every other Space Mountain
+    // overlay — BAKING_MODE off, the "Space Mountain (Beta Preview)" toggle on, connected to
+    // ImagineFun, and actively riding Space/Hyperspace Mountain. Without this the bundled default
+    // disco balls would render everywhere the moment the jar is installed.
+    // Dev exception: spDevPreview also renders in single-player (where isActive() is false) so the
+    // effect can be tuned against the SP simulator world — see setSpDevPreview.
+    if (!SpaceMountainOverride.isActive() && !(mc.hasSingleplayerServer() && spDevPreview)) return;
 
     long now = System.nanoTime();
     double dt = lastNanos == 0L ? 0.0 : Math.min((now - lastNanos) / 1.0e9, 0.1);
@@ -506,8 +597,18 @@ public final class SpaceMountainDiscoBall {
     }
 
     for (Ball b : balls) {
-      if (b.spinRate != 0.0) {
-        b.spinDeg = (b.spinDeg + b.spinRate * dt) % 360.0;
+      // Ease the actual angular velocity toward the target so a ball spins up and slows down
+      // smoothly instead of snapping between 0 and full rate.
+      if (b.spinVel != b.spinRate) {
+        double step = SPIN_ACCEL_DEG_PER_SEC2 * dt;
+        if (b.spinVel < b.spinRate) {
+          b.spinVel = Math.min(b.spinRate, b.spinVel + step);
+        } else {
+          b.spinVel = Math.max(b.spinRate, b.spinVel - step);
+        }
+      }
+      if (b.spinVel != 0.0) {
+        b.spinDeg = (b.spinDeg + b.spinVel * dt) % 360.0;
         b.dirty = true;
       }
       if (b.dirty) {

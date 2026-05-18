@@ -6,9 +6,12 @@ import com.mojang.blaze3d.vertex.VertexConsumer;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Random;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
+import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.LightTexture;
@@ -40,7 +43,7 @@ public final class SpaceMountainStarRenderer {
   private static final Identifier STAR_TEXTURE =
       Identifier.fromNamespaceAndPath("imaginemorefun", "textures/particle/star.png");
 
-  private static final int STAR_COUNT = 3000;
+  private static final int STAR_COUNT = 1000;
   private static final float STAR_SIZE_MIN = 0.18f;
   private static final float STAR_SIZE_MAX = 0.55f;
   private static final long SEED = 0xCAFEBABEL;
@@ -61,9 +64,15 @@ public final class SpaceMountainStarRenderer {
   private static double[] starZ = new double[0];
   private static float[] starHalfSize = new float[0];
 
-  // Baked dome-wall stars — off by default; the disco-ball projection is the star effect.
-  // Re-enable via the bridge: java.import("...SpaceMountainStarRenderer"):setEnabled(true)
-  private static volatile boolean ENABLED = false;
+  // The static "surface" star layer — baked dome-wall stars that never move, rendered alongside
+  // the SpaceMountainDiscoBall projection layer. On a real server it's gated by
+  // SpaceMountainOverride.isActive(); toggle at runtime via the bridge with setEnabled.
+  private static volatile boolean ENABLED = true;
+
+  // Dev-only single-player preview, mirroring SpaceMountainDiscoBall: lets the surface layer render
+  // in single-player (where isActive() is always false) for tuning against the SP simulator world.
+  // Bridge-only and not persisted, so an end-user's single-player world is never affected.
+  private static volatile boolean spDevPreview = false;
 
   static {
     loadAndPickStars();
@@ -84,12 +93,38 @@ public final class SpaceMountainStarRenderer {
     return ENABLED;
   }
 
+  /**
+   * Dev-only single-player preview — see {@link SpaceMountainDiscoBall#setSpDevPreview}. Lets the
+   * surface-star layer render in single-player for tuning against the SP simulator world.
+   */
+  public static void setSpDevPreview(boolean enabled) {
+    spDevPreview = enabled;
+    NotRidingAlertClient.LOGGER.info("[SpaceMountainStarRenderer] spDevPreview={}", enabled);
+  }
+
+  /** Re-read dome_borders.bin and re-pick the stars — picks up a fresh SpaceMountainBorderBake. */
+  public static void reload() {
+    loadAndPickStars();
+  }
+
+  /** dome_borders.bin from the config dir if present (a fresh bake), else the bundled resource. */
+  private static InputStream openBorders() throws IOException {
+    Path cfg =
+        FabricLoader.getInstance()
+            .getConfigDir()
+            .resolve("imaginemorefun")
+            .resolve("dome_borders.bin");
+    if (Files.exists(cfg)) {
+      return Files.newInputStream(cfg);
+    }
+    return SpaceMountainStarRenderer.class.getResourceAsStream(BORDERS_RESOURCE);
+  }
+
   private static void loadAndPickStars() {
-    try (InputStream in = SpaceMountainStarRenderer.class.getResourceAsStream(BORDERS_RESOURCE)) {
+    try (InputStream in = openBorders()) {
       if (in == null) {
         NotRidingAlertClient.LOGGER.error(
-            "[SpaceMountainStarRenderer] resource {} not found — no stars will render",
-            BORDERS_RESOURCE);
+            "[SpaceMountainStarRenderer] dome_borders.bin not found — no stars will render");
         return;
       }
       DataInputStream dis = new DataInputStream(in);
@@ -195,16 +230,14 @@ public final class SpaceMountainStarRenderer {
     }
   }
 
-  // Set to true to bypass the ride-active gate — stars render in any world (including SP) so you
-  // can fly to the dome coords and inspect their positions. Flip back to false during normal play.
-  private static final boolean DEBUG_ALWAYS_RENDER = false;
-
   private static void render(WorldRenderContext ctx) {
-    if (!ENABLED) return;
-    if (!DEBUG_ALWAYS_RENDER && !SpaceMountainOverride.isActive()) return;
+    if (!ENABLED || starX.length == 0) return;
     Minecraft mc = Minecraft.getInstance();
     if (mc.player == null || mc.level == null) return;
-    if (starX.length == 0) return;
+    // Production gate: route through the shared master switch like the other Space Mountain
+    // overlays. Dev exception: spDevPreview also renders in single-player (where isActive() is
+    // false) for tuning against the SP simulator world — see setSpDevPreview.
+    if (!SpaceMountainOverride.isActive() && !(mc.hasSingleplayerServer() && spDevPreview)) return;
     drawStars(ctx, mc);
   }
 

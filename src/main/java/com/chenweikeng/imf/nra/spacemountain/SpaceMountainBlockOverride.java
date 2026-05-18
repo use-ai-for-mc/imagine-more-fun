@@ -155,15 +155,23 @@ public final class SpaceMountainBlockOverride {
       if (active) {
         pendingRemesh = true;
       } else {
+        int restored = originalStates.size();
         desealAll(mc);
+        // Cached section meshes don't repaint from a bare setBlockState — force a full re-mesh so
+        // the rider sees the restored geometry, not the stale sealed look.
+        mc.levelRenderer.allChanged();
         NotRidingAlertClient.LOGGER.info(
-            "[SpaceMountainBlockOverride] inactive → restored {} cells", originalStates.size());
+            "[SpaceMountainBlockOverride] inactive → restored {} cells", restored);
       }
     }
 
     if (pendingRemesh && active) {
       sealAllLoadedChunks(mc);
       pendingRemesh = false;
+      // Per-section setSectionDirty isn't reliable when chunks were already meshed before
+      // activation (observed on Hyperspace Mountain — the seal applied to the block data but the
+      // walls kept rendering see-through). A full re-mesh forces the sealed blocks to repaint.
+      mc.levelRenderer.allChanged();
       NotRidingAlertClient.LOGGER.info(
           "[SpaceMountainBlockOverride] active → sealed loaded chunks ({} cells)",
           originalStates.size());
