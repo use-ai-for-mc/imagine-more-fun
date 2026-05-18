@@ -60,3 +60,6 @@ native/windows/status-helper.exe
 # Personal Claude Code overrides — not for the team.
 .claude/settings.local.json
 .claude/worktrees/
+
+# /dream code-review skill workspace — review artifacts, not mod source.
+.dream/
