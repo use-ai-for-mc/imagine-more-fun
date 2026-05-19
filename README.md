@@ -35,6 +35,7 @@ All features activate only while connected to an `*.imaginefun.net` server.
 - **Autograbbing aids** — visual outlines of autograb regions, automatic cursor release on autograb or ride start, optional window minimize on autograb or ride start, and PC hibernation while riding.
 - **Visual tweaks** — dim-when-riding, fullbright mode (none / riding / not-riding / always), modernized closed captions (move `[CC]` messages out of chat), hide scoreboard / chat / health / name tags / hotbar / XP level / love-potion messages.
 - **Firework viewing** — alerts, time-of-day reset, and blindness are all suppressed inside the firework area.
+- **Space Mountain enhancements** — client-side visual overlay for Space Mountain / Hyperspace Mountain rides: dome cleanup, an animated launch-tunnel screen effect, the coaster track, a projected dome starfield, and hidden show props. On by default; the master toggle (Modifications tab) reverts to vanilla visuals.
 - **OpenAudioMC integration** — `/oa connect|disconnect|reconnect|volume` plus optional auto-connect, headless browser audio session, and an audio-boost reminder.
 - **Native status-bar indicator** — countdown helper in the macOS menu bar / Windows system tray, driven by a native helper bundled with the mod.
 
