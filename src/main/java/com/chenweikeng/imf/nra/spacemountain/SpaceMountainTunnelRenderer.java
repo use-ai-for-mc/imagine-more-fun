@@ -63,9 +63,9 @@ public final class SpaceMountainTunnelRenderer {
   private static final double UV_AZIMUTH_REPEAT = 1.0;
   private static final double UV_SCROLL_PER_SECOND = 0.8;
 
-  // Solid surface color (opaque). With the pure-white screen texture, this is the literal color
-  // you see on the cylinder wall. The wall lerps from this (deep-space black) toward
-  // HYPERSPACE_COLOR as the warp builds (enter strength 0→1).
+  // Base cylinder wall color (opaque). With the pure-white screen texture this is the literal
+  // color on the wall: deep-space black. During the red phase the wall tints from this toward
+  // RED_BG (see render()).
   private static final float COLOR_R = 0f;
   private static final float COLOR_G = 0f;
   private static final float COLOR_B = 0f;
@@ -149,7 +149,7 @@ public final class SpaceMountainTunnelRenderer {
   private static final double TUNNEL_ENTER_SECONDS = 41.0;
   // The black cylinder + rotating stars appear this many seconds before the purple rings begin,
   // so the rider sees an empty starfield tunnel briefly before the projection starts.
-  private static final double STARS_ONLY_LEAD_SECONDS = 2.0;
+  private static final double STARS_ONLY_LEAD_SECONDS = 4.0;
   private static final double PURPLE_DURATION = 3.0; // purple rings + stars hold
   private static final double PURPLE_TO_RED_SECONDS = 0.0; // 0 = instant cut, no purple→red fade
   private static final double RED_DURATION = 10.0; // full red hold
@@ -168,17 +168,25 @@ public final class SpaceMountainTunnelRenderer {
   private static final float RED_STREAK_R = 1.0f;
   private static final float RED_STREAK_G = 0.12f;
   private static final float RED_STREAK_B = 0.12f;
-  // Red radial stripes — the dominant red-phase look. WEDGE_COUNT thin solid-red bands radiate
-  // from the tunnel centre (each spans the full length), evenly spaced, rotating CCW. The gaps
-  // between them are plain black wall with the star field showing through. Stars whose angle
-  // falls under a stripe are hidden — the model is "black + stars + red stripes", not "red
-  // background"; the video only looks red-tinted because of the ride's ambient lighting.
+  // Red-phase background — during the red phase the cylinder wall tints from black toward this
+  // dark red (by redA), so the bright stripes sit on a dark-red glow rather than pure black.
+  private static final float RED_BG_R = 0.22f;
+  private static final float RED_BG_G = 0.03f;
+  private static final float RED_BG_B = 0.03f;
+
+  // Red radial stripes — the dominant red-phase look. WEDGE_COUNT bright near-white-red bands
+  // radiate from the tunnel centre (each spans the full length), evenly spaced, rotating CCW at
+  // WEDGE_ROTATION_DEG_PER_SEC. The gaps between them show the dark-red background wall with the
+  // star field through it; stars whose angle falls under a stripe are hidden.
   private static final int WEDGE_COUNT = 24;
   private static final int WEDGE_AZIMUTH_SUBDIV = 3; // quads across one band's angular span
   private static final int WEDGE_AXIAL_SEGS = 8; // axial subdivisions, for a smooth endpoint fade
-  private static final double WEDGE_FILL_FRACTION = 0.4; // thin stripe; rest of the slot is black
+  private static final double WEDGE_FILL_FRACTION = 0.4; // thin stripe; gaps show the background
   private static final double WEDGE_INSET = 0.10; // radius offset inward from the wall
-  private static final float WEDGE_RED_R = 0.95f, WEDGE_RED_G = 0.08f, WEDGE_RED_B = 0.08f;
+  // Bright, near-white red — a hot glowing stripe against the dark-red background wall.
+  private static final float WEDGE_RED_R = 1.0f, WEDGE_RED_G = 0.62f, WEDGE_RED_B = 0.58f;
+  // The stripes rotate 1.5x the star-field rate, so they visibly sweep over the slower stars.
+  private static final double WEDGE_ROTATION_DEG_PER_SEC = STAR_ROTATION_DEG_PER_SEC * 1.5;
 
   // Soft alpha fade at the axial endpoints so the cover doesn't pop on/off.
   private static final double FADE_AXIAL = 4.0;
@@ -241,11 +249,13 @@ public final class SpaceMountainTunnelRenderer {
   }
 
   /**
-   * True once {@code playerPos} has crossed the cylinder's START plane along the axis — i.e. the
-   * rider has entered the launch-tunnel cover. {@link SpaceMountainEntryTunnelSeal} gates on this.
+   * True once the red tunnel effect has begun — the instant purple-to-red cut at {@code
+   * TUNNEL_ENTER_SECONDS + PURPLE_DURATION}. {@link SpaceMountainEntryTunnelSeal} latches its
+   * entry-mouth seal on this, so the entrance is plugged exactly as the red phase starts.
    */
-  public static boolean isPlayerPastCylinderStart(Vec3 playerPos) {
-    return playerPos.subtract(START).dot(AXIS) >= 0.0;
+  public static boolean isRedPhaseStarted() {
+    Integer elapsed = CurrentRideHolder.getElapsedSeconds();
+    return elapsed != null && elapsed >= TUNNEL_ENTER_SECONDS + PURPLE_DURATION;
   }
 
   /**
@@ -392,11 +402,12 @@ public final class SpaceMountainTunnelRenderer {
     float purpleA = (float) purplePhaseAlpha(t);
     float redA = (float) redPhaseAlpha(t);
 
-    // Cylinder wall stays plain black the whole time — the background is "black + stars", and
-    // the red comes only from the stripes, never an ambient wall tint.
-    cylinderColorR = COLOR_R;
-    cylinderColorG = COLOR_G;
-    cylinderColorB = COLOR_B;
+    // Cylinder wall: black through the stars-only + purple phases, tinting to a dark red as the
+    // red phase comes in (redA). redA does an instant 0->1 cut at the purple->red switch, so the
+    // background snaps black->dark-red with the stripes, then fades back to black as red ends.
+    cylinderColorR = COLOR_R + (RED_BG_R - COLOR_R) * redA;
+    cylinderColorG = COLOR_G + (RED_BG_G - COLOR_G) * redA;
+    cylinderColorB = COLOR_B + (RED_BG_B - COLOR_B) * redA;
 
     for (int ring = 0; ring < AXIAL_RINGS; ring++) {
       double s0 = AXIS_LENGTH * ring / AXIAL_RINGS;
@@ -464,11 +475,11 @@ public final class SpaceMountainTunnelRenderer {
   }
 
   /**
-   * Bright pinpoint stars affixed to the inside wall. Emissive — visible against black. {@code
-   * alphaMul} scales per-vertex alpha globally. {@code redA} is the red-phase strength: stars whose
-   * angle falls under a red stripe fade out by {@code (1 - redA)} so no star shows on the stripes.
-   * Stars and stripes rotate at the same rate, so the in-stripe test is on each star's fixed base
-   * angle — the rotation cancels.
+   * Bright pinpoint stars affixed to the inside wall. Emissive — bright against the dark wall.
+   * {@code alphaMul} scales per-vertex alpha globally. {@code redA} is the red-phase strength:
+   * stars whose displayed angle falls under a red stripe fade out by {@code (1 - redA)} so no star
+   * shows on the stripes. The stripes rotate faster than the stars, so the in-stripe test accounts
+   * for both rotations rather than cancelling them.
    */
   private static void drawStars(
       PoseStack.Pose pose,
@@ -491,18 +502,21 @@ public final class SpaceMountainTunnelRenderer {
     // rider's forward-looking view (the (U,V,AXIS) basis is right-handed, so increasing theta
     // reads clockwise looking down +axis).
     double rotation = Math.toRadians(STAR_ROTATION_DEG_PER_SEC) * seconds;
-    // Stripe layout (un-rotated): a stripe occupies [0, wedgeSpan] of each WEDGE slot.
+    // The stripes spin faster than the stars, so the in-stripe test below has to carry both
+    // rotations rather than letting them cancel.
+    double wedgeRotation = Math.toRadians(WEDGE_ROTATION_DEG_PER_SEC) * seconds;
     double wedgeSlot = (Math.PI * 2.0) / WEDGE_COUNT;
     double wedgeSpan = wedgeSlot * WEDGE_FILL_FRACTION;
 
     for (int i = 0; i < STAR_COUNT; i++) {
       double s = STAR_S[i];
       double theta = STAR_THETA[i] - rotation;
-      // In-stripe stars fade out as the red phase rises. The test uses the base angle because
-      // the −rotation on both the star and the stripe cancels.
+      // In-stripe stars fade out as the red phase rises. The star's displayed angle is
+      // (THETA - rotation); it sits under a stripe when (THETA - rotation + wedgeRotation) mod
+      // wedgeSlot lands in [0, wedgeSpan), so the faster stripes sweep stars in and out.
       float starAlpha = alphaMul;
       if (redA > 0f) {
-        double phase = STAR_THETA[i] % wedgeSlot;
+        double phase = (STAR_THETA[i] - rotation + wedgeRotation) % wedgeSlot;
         if (phase < 0) phase += wedgeSlot;
         if (phase < wedgeSpan) starAlpha *= 1f - redA;
       }
@@ -873,11 +887,12 @@ public final class SpaceMountainTunnelRenderer {
   }
 
   /**
-   * Radial striped bands — {@link #WEDGE_COUNT} solid bands radiating from the tunnel centre, each
-   * spanning the full tunnel length, alternating red / white around the circumference like a
-   * sunburst. The whole set rotates CCW with the star field. Each band is subdivided axially only
-   * so the per-vertex {@link #fadeAlpha} tapers it smoothly at the tunnel mouths — there are no
-   * circumferential rungs (those would line up across bands into a concentric-ring bullseye).
+   * Radial striped bands — {@link #WEDGE_COUNT} solid bright-red bands radiating from the tunnel
+   * centre, each spanning the full tunnel length, evenly spaced around the circumference like a
+   * sunburst. The whole set rotates CCW at {@link #WEDGE_ROTATION_DEG_PER_SEC} — faster than the
+   * star field. Each band is subdivided axially only so the per-vertex {@link #fadeAlpha} tapers it
+   * smoothly at the tunnel mouths — there are no circumferential rungs (those would line up across
+   * bands into a concentric-ring bullseye).
    */
   private static void drawWedgePanels(
       PoseStack.Pose pose,
@@ -893,7 +908,7 @@ public final class SpaceMountainTunnelRenderer {
     VertexConsumer vc = bufferSource.getBuffer(type);
     int light = LightTexture.FULL_BRIGHT;
     int overlay = OverlayTexture.NO_OVERLAY;
-    double rotation = Math.toRadians(STAR_ROTATION_DEG_PER_SEC) * seconds;
+    double rotation = Math.toRadians(WEDGE_ROTATION_DEG_PER_SEC) * seconds;
     double slot = (Math.PI * 2.0) / WEDGE_COUNT;
     double wedgeSpan = slot * WEDGE_FILL_FRACTION;
 

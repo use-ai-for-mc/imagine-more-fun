@@ -31,7 +31,7 @@ While the gate is active the fullbright override is also suppressed — the dome
 | `SpaceMountainDiscoBall.java` | **The primary star effect** — disco-ball light projectors. |
 | `SpaceMountainBlockOverride.java` | Dome block-overlay (IFOV) — replaces dome cells while riding. |
 | `SpaceMountainTunnelRenderer.java` | Launch-tunnel cylinder + tunnel screen effects. |
-| `SpaceMountainEntryTunnelSeal.java` | Plugs the launch-tunnel entry mouth with black concrete once the rider passes the cylinder START plane; restores on ride-end. |
+| `SpaceMountainEntryTunnelSeal.java` | Plugs the launch-tunnel entry mouth with black concrete once the red tunnel effect starts; restores on ride-end. |
 | `SpaceMountainRideAudio.java` | Wind + rail-friction audio loops. |
 | `SpaceMountainStarRenderer.java` | Static baked dome-wall starfield (~1000 stars) — a secondary layer rendered alongside the disco ball. |
 | `SpaceMountainTrackRenderer.java` | Baked coaster-tube geometry (rails + spine + V-struts), drawn as near-invisible dark metal. |

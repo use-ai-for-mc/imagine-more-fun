@@ -16,9 +16,8 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 
 /**
- * Plugs the Space Mountain launch-tunnel entry with black concrete once the rider has ridden into
- * the tunnel-cover cylinder, so a glance back down the cover shows a black wall instead of the real
- * entry tunnel.
+ * Plugs the Space Mountain launch-tunnel entry with black concrete once the red tunnel effect
+ * begins, so a glance back down the cover shows a black wall instead of the real entry tunnel.
  *
  * <p>The cells are the entry-mouth cross-section at {@code Z=147} — a near-solid 6x6 wall, {@code X
  * -260..-255} x {@code Y 66..71}, hand-marked in the SP simulator world. Like {@link
@@ -26,12 +25,12 @@ import net.minecraft.world.level.chunk.LevelChunk;
  * authoritative blocks, so collision and pathing are unaffected — and originals are restored when
  * the ride gate flips off.
  *
- * <p>Gating: the seal latches on once {@link SpaceMountainOverride#isActive()} is true and the
- * player has crossed the cylinder's START plane ({@link
- * SpaceMountainTunnelRenderer#isPlayerPastCylinderStart}); it then holds for the rest of the ride.
- * It re-applies every tick, so a chunk the server re-streams is re-covered on the next tick. The
- * {@code isActive()} gate covers both Space Mountain and Hyperspace Mountain — the same physical
- * building — so the seal intentionally applies to the Hyperspace overlay as well.
+ * <p>Gating: the seal latches on once {@link SpaceMountainOverride#isActive()} is true and the red
+ * tunnel effect has started ({@link SpaceMountainTunnelRenderer#isRedPhaseStarted}) — by then the
+ * rider is well clear of the entrance; it then holds for the rest of the ride. It re-applies every
+ * tick, so a chunk the server re-streams is re-covered on the next tick. The {@code isActive()}
+ * gate covers both Space Mountain and Hyperspace Mountain — the same physical building — so the
+ * seal intentionally applies to the Hyperspace overlay as well.
  */
 public final class SpaceMountainEntryTunnelSeal {
   private static final BlockState COVER = Blocks.BLACK_CONCRETE.defaultBlockState();
@@ -82,7 +81,7 @@ public final class SpaceMountainEntryTunnelSeal {
 
   // Pre-cover block state of every cell we've replaced — restored when the gate flips off.
   private static final Map<BlockPos, BlockState> originalStates = new HashMap<>();
-  // Latches true once the rider passes the cylinder START; reset when the ride gate flips off.
+  // Latches true once the red tunnel effect starts; reset when the ride gate flips off.
   private static boolean entered = false;
   // Whether the cover is currently applied (drives the one-time full re-mesh).
   private static boolean sealed = false;
@@ -107,7 +106,7 @@ public final class SpaceMountainEntryTunnelSeal {
       entered = false;
       return;
     }
-    if (!entered && SpaceMountainTunnelRenderer.isPlayerPastCylinderStart(mc.player.position())) {
+    if (!entered && SpaceMountainTunnelRenderer.isRedPhaseStarted()) {
       entered = true;
     }
     if (entered) applySeal(mc);
