@@ -3,14 +3,14 @@
 	"id": "imaginemorefun",
 	"version": "${version}",
 	"name": "ImagineMoreFun",
-	"description": "A merged quality-of-life mod for the ImagineFun Minecraft server, bundling Not Riding Alert, Pim!, and SkinCache in one Fabric 1.21.11 JAR.",
+	"description": "A quality-of-life mod for the ImagineFun Minecraft server: a ride tracker, goal HUDs, a daily ride planner, pin-collection tooling, and visual tweaks.",
 	"authors": [
 		"Weikeng Chen"
 	],
 	"contact": {
-		"sources": "https://github.com/weikengchen/imf"
+		"sources": "https://github.com/use-ai-for-mc/imagine-more-fun"
 	},
-	"license": "CC0-1.0 AND MIT",
+	"license": "MIT",
 	"icon": "assets/imaginemorefun/icon.png",
 	"environment": "client",
 	"entrypoints": {
