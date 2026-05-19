@@ -2,7 +2,7 @@
 
 Client-side effects layered onto Hyperspace Mountain (and seasonally Space Mountain — the same physical building) on the ImagineFun server: a projected starfield, a launch-tunnel cylinder, ride audio, dome block-overlay, and show-prop hiding. **The server is never modified** — everything is client-side rendering and client-side block-state replacement.
 
-> **Rewritten 2026-05-17, updated 2026-05-19.** This version reflects the current code. The STL subsystem, the freestanding hyperspace-streak renderer, the `/imf dumpchunks` slash-command, and the animation recorder were all **deleted** — see "Removed" at the bottom. The 2026-05-19 update finalized the disco-ball starfield (spin easing, watertight-shell mask) and the static star layer, and re-baked the dome overlay.
+> **Rewritten 2026-05-17, updated 2026-05-19.** This version reflects the current code. The STL subsystem, the freestanding hyperspace-streak renderer, the `/imf dumpchunks` slash-command, and the animation recorder were all **deleted** — see "Removed" at the bottom. The 2026-05-19 update finalized the disco-ball starfield (spin easing, watertight-shell mask) and the static star layer, re-baked the dome overlay, and stripped the in-mod bridge bakers (`SpaceMountainChunkDump`, `SpaceMountainBorderBake`).
 
 ---
 
@@ -10,11 +10,13 @@ Client-side effects layered onto Hyperspace Mountain (and seasonally Space Mount
 
 `SpaceMountainOverride.isActive()` returns true iff **all** of:
 - `BAKING_MODE` is `false` (a compile-time kill-switch constant, normally `false`);
-- `ModConfig.currentSetting.spaceMountainEnhancements` is on — the **"Space Mountain (Beta Preview)"** config toggle (Modifications tab), which **defaults off**;
+- `ModConfig.currentSetting.spaceMountainEnhancements` is on — the **"Space Mountain Enhancements"** config toggle (Modifications tab), which **defaults on**;
 - connected to ImagineFun (`ServerState.isImagineFunServer()`);
 - `CurrentRideHolder.getCurrentRide()` is `SPACE_MOUNTAIN` or `HYPERSPACE_MOUNTAIN`.
 
-`SpaceMountainBlockOverride`, `SpaceMountainTunnelRenderer`, `SpaceMountainRideAudio`, `SpaceMountainDiscoBall`, and `SpaceMountainStarRenderer` all route through this gate.
+`SpaceMountainBlockOverride`, `SpaceMountainTunnelRenderer`, `SpaceMountainEntryTunnelSeal`, `SpaceMountainRideAudio`, `SpaceMountainDiscoBall`, and `SpaceMountainStarRenderer` all route through this gate.
+
+While the gate is active the fullbright override is also suppressed — the dome stays dark for the star effect, regardless of the configured fullbright mode (`NraLivingEntityMixin` / `DayTimeHandler`).
 
 ## Build / deploy
 
@@ -29,15 +31,14 @@ Client-side effects layered onto Hyperspace Mountain (and seasonally Space Mount
 | `SpaceMountainDiscoBall.java` | **The primary star effect** — disco-ball light projectors. |
 | `SpaceMountainBlockOverride.java` | Dome block-overlay (IFOV) — replaces dome cells while riding. |
 | `SpaceMountainTunnelRenderer.java` | Launch-tunnel cylinder + tunnel screen effects. |
+| `SpaceMountainEntryTunnelSeal.java` | Plugs the launch-tunnel entry mouth with black concrete once the rider passes the cylinder START plane; restores on ride-end. |
 | `SpaceMountainRideAudio.java` | Wind + rail-friction audio loops. |
 | `SpaceMountainStarRenderer.java` | Static baked dome-wall starfield (~1000 stars) — a secondary layer rendered alongside the disco ball. |
-| `SpaceMountainTrackRenderer.java` | Baked coaster-tube geometry — off by default (`ENABLED = false`). |
+| `SpaceMountainTrackRenderer.java` | Baked coaster-tube geometry (rails + spine + V-struts), drawn as near-invisible dark metal. |
 | `SpaceMountainEntityHider.java` | Whitelist of show-prop armor stands to hide; queried by `NraEntityRendererHideMixin`. |
 | `ImfRenderPipelines.java` | Custom render pipelines (`OPAQUE_SCREEN`, `ENTITY_THROUGH_WALLS`). |
-| `SpaceMountainChunkDump.java` | Bridge-callable dev tool — snapshots loaded chunks to `config/imaginemorefun/chunks-*.bin.gz` for offline overlay baking. |
-| `SpaceMountainBorderBake.java` | Bridge-callable dev tool — watertight flood-fill that bakes the dome-wall faces to `config/imaginemorefun/dome_borders.bin`. |
 
-Registered in `ImfClient.onInitializeClient()` in this order: `SpaceMountainStarRenderer`, `SpaceMountainTrackRenderer`, `SpaceMountainBlockOverride.init()`, `SpaceMountainTunnelRenderer`, `SpaceMountainDiscoBall`, `SpaceMountainRideAudio`. (`SpaceMountainChunkDump` and `SpaceMountainBorderBake` are not registered — they run on demand over the DebugBridge.)
+Registered in `ImfClient.onInitializeClient()` in this order: `SpaceMountainStarRenderer`, `SpaceMountainTrackRenderer`, `SpaceMountainBlockOverride.init()`, `SpaceMountainTunnelRenderer`, `SpaceMountainEntryTunnelSeal`, `SpaceMountainDiscoBall`, `SpaceMountainRideAudio`.
 
 ---
 
@@ -51,11 +52,11 @@ The primary starfield. Emulates disco-ball light projectors: a set of fixed "bal
 
 **Spin / auto-spin.** `setSpin(index, degPerSec)` spins one ball; auto-spin (`AUTO_SPIN_INTERVAL_SEC = 20`) hands the spin to a random ball every 20 s, never the same one twice. Spin eases in and out — a ball's angular velocity ramps toward its target rate at `SPIN_ACCEL_DEG_PER_SEC2`, so it accelerates from rest and decelerates to a stop rather than snapping. A spinning ball is re-projected each frame, so its dots sweep.
 
-**Rendering.** `render()` is a `WorldRenderEvents.AFTER_ENTITIES` callback. It guards in two steps: first `if (!ENABLED || balls.isEmpty()) return;`, then the master-gate check `if (!SpaceMountainOverride.isActive() && !(mc.hasSingleplayerServer() && spDevPreview)) return;`. It then draws every ball's cached dots as camera-facing quads with `RenderTypes.eyes` (emissive/full-bright, so stars stay visible in the dark dome). Like every other Space Mountain overlay, the disco ball routes through the `SpaceMountainOverride.isActive()` master gate — the stars render only while actually riding Space/Hyperspace Mountain on ImagineFun with the Beta Preview toggle on, never on other servers. The one exception is `spDevPreview`, a bridge-only, non-persisted dev flag (`setSpDevPreview`) that lets the effect render in single-player for tuning against the SP simulator world. `ENABLED` is a secondary debug kill (defaults `true`); it can force the effect off but cannot bypass the gate.
+**Rendering.** `render()` is a `WorldRenderEvents.AFTER_ENTITIES` callback. It guards in two steps: first `if (!ENABLED || balls.isEmpty()) return;`, then the master-gate check `if (!SpaceMountainOverride.isActive() && !(mc.hasSingleplayerServer() && spDevPreview)) return;`. It then draws every ball's cached dots as camera-facing quads with `RenderTypes.eyes` (emissive/full-bright, so stars stay visible in the dark dome). Like every other Space Mountain overlay, the disco ball routes through the `SpaceMountainOverride.isActive()` master gate — the stars render only while actually riding Space/Hyperspace Mountain on ImagineFun with the Space Mountain Enhancements toggle on, never on other servers. The one exception is `spDevPreview`, a bridge-only, non-persisted dev flag (`setSpDevPreview`) that lets the effect render in single-player for tuning against the SP simulator world. `ENABLED` is a secondary debug kill (defaults `true`); it can force the effect off but cannot bypass the gate.
 
 **Persistence — config-dir file, JAR-bundled fallback.** `load()` / `loadExclusion()` go through `readConfigOrBundled()`: read `config/imaginemorefun/<file>` if it exists, else fall back to the copy bundled in the jar (`src/main/resources/imaginemorefun/`). The bundled copy ships the default starfield with the mod, so a fresh install — or a launcher migration that drops the config dir — still has working stars. Runtime-API writes (`addBall`, `setSpin`, …) always land in the config-dir file, which then takes precedence on the next load.
 - `disco_balls.json` — the balls (position/aim/spin/close-cap) plus `autoSpinEnabled`/`autoSpinRate`. Written on every change, read once in `register()` via `load()`.
-- `disco_exclusion.json` — `{"cells":[x,y,z,x,y,z,…]}`, the prismarine "cover" cells that suppress stars. Read in `register()` via `loadExclusion()`. Baked by `bake-disco-exclusion.py` from a chunk capture taken with `SpaceMountainChunkDump` (the bake scripts live outside the repo — see "Removed").
+- `disco_exclusion.json` — `{"cells":[x,y,z,x,y,z,…]}`, the prismarine "cover" cells that suppress stars. Read in `register()` via `loadExclusion()`. Baked by `bake-disco-exclusion.py` from a chunk capture (the bake scripts and the chunk-dump tooling live outside the repo — see "Removed").
 
 **Runtime API (over the DebugBridge / `mc_execute`):** `addBall(x,y,z,yaw,pitch)`, `clearBalls()`, `setSpin(index,deg)`, `setAutoSpin(enabled,deg)`, `setCloseLimit(index,closeRadius,maxDots)`, `reproject()`, `setEnabled(bool)`, `setSpDevPreview(bool)`, `describe()`. `describe()` is the quickest health check — it reports `balls=N`, `enabled`, and per-ball dot counts.
 
@@ -63,7 +64,7 @@ The primary starfield. Emulates disco-ball light projectors: a set of fixed "bal
 
 ## Static star layer — `SpaceMountainStarRenderer`
 
-A secondary, non-moving star layer rendered alongside the disco ball: roughly `STAR_COUNT = 1000` dots picked once from the baked dome-wall faces in `dome_borders.bin`, so they sit flush on the dome shell and never move. `render()` routes through the same `SpaceMountainOverride.isActive()` master gate, with the same `spDevPreview` single-player dev bypass. `dome_borders.bin` is read config-dir-first (a fresh `SpaceMountainBorderBake` result) and falls back to the bundled resource; `reload()` re-reads it and re-picks the stars. Bridge API: `setEnabled(bool)`, `setSpDevPreview(bool)`, `reload()`.
+A secondary, non-moving star layer rendered alongside the disco ball: roughly `STAR_COUNT = 1000` dots picked once from the baked dome-wall faces in `dome_borders.bin`, so they sit flush on the dome shell and never move. `render()` routes through the same `SpaceMountainOverride.isActive()` master gate, with the same `spDevPreview` single-player dev bypass. `dome_borders.bin` is read config-dir-first (an offline-baked result dropped into the config dir) and falls back to the bundled resource; `reload()` re-reads it and re-picks the stars. Bridge API: `setEnabled(bool)`, `setSpDevPreview(bool)`, `reload()`.
 
 ---
 
@@ -77,7 +78,7 @@ Replaces dome block states while the ride gate is active. Reads a **single** bin
 - Packet hooks live in `NraClientPacketListenerChunkMixin` (`@At("TAIL")` on `ClientPacketListener.handleLevelChunkWithLight` / `handleBlockUpdate` / `handleChunkBlocksUpdate`). Mutating the chunk's stored block states (not per-cell `getBlockState`) is what survives Sodium.
 - `init()` watches the active flag each tick and forces a full re-mesh on transition.
 
-To change what the dome looks like: edit the SP simulator world, dump live + SP with `SpaceMountainChunkDump` (bridge-callable), and re-run `~/imf-debug-dumps-archive/bake-overlay.py`.
+To change what the dome looks like: edit the SP simulator world, re-capture the live + SP chunk dumps, and re-run `~/imf-debug-dumps-archive/bake-overlay.py`. The in-mod bridge dumper was removed in the 2026-05-19 cleanup — the dump + bake workflow now lives entirely in `~/imf-debug-dumps-archive/` (see "Removed").
 
 ## `SpaceMountainTunnelRenderer`
 
@@ -98,20 +99,21 @@ A static whitelist of `(itemId, damage)` helmet signatures (e.g. the TIE Fighter
 | Resource | Consumed by | Notes |
 |---|---|---|
 | `dome_overlay.bin` | `SpaceMountainBlockOverride` | IFOV v1 — the dome block diff. |
-| `dome_borders.bin` | `SpaceMountainStarRenderer`, `SpaceMountainDiscoBall` | IFDB v1 baked dome-wall faces. The star renderer places its static stars on them; the disco ball uses them as the `watertightWallCells` projection mask. Baked by `SpaceMountainBorderBake`. |
-| `dome_track.bin` | `SpaceMountainTrackRenderer` | Recorded vehicle path — renderer off by default. |
+| `dome_borders.bin` | `SpaceMountainStarRenderer`, `SpaceMountainDiscoBall` | IFDB v1 baked dome-wall faces. The star renderer places its static stars on them; the disco ball uses them as the `watertightWallCells` projection mask. Pre-baked offline — the bake tool was removed (see "Removed"). |
+| `dome_track.bin` | `SpaceMountainTrackRenderer` | Recorded vehicle path — the rail/spine geometry is baked from this. |
 | `dome_track_stars.bin` | `SpaceMountainStarRenderer` | Track-surface stars — `INCLUDE_TRACK_STARS=false`. |
 | `disco_balls.json` | `SpaceMountainDiscoBall` | Bundled default projectors — `load()` fallback when no config-dir file. |
 | `disco_exclusion.json` | `SpaceMountainDiscoBall` | Bundled default prismarine-cover cells — `loadExclusion()` fallback. |
 | `textures/particle/star.png` | `SpaceMountainDiscoBall`, `SpaceMountainStarRenderer` | Star dot texture. |
 | `textures/particle/track.png`, `hyperspace_streak.png` | track / tunnel renderers | — |
 
-## Removed (2026-05-17 cleanup)
+## Removed
 
 Do not look for these — they were deleted:
 - **STL subsystem** — `SpaceMountainStlOverlay`, `SpaceMountainStlBvh`, the `space_mountain.stl` + `stl_stars.bin` resources. The disco ball previously raycast an STL mesh; it now raycasts world blocks only.
 - `SpaceMountainHyperspaceRenderer` — freestanding warp-streak renderer, superseded by the tunnel renderer.
-- `SpaceMountainAnimationRecorder` and the `/imf dumpchunks` slash-command (`ChunkDumpCommand`) — debug/recording tooling. The chunk dump itself lives on as the bridge-callable `SpaceMountainChunkDump` (see the file layout above).
+- `SpaceMountainAnimationRecorder` and the `/imf dumpchunks` slash-command (`ChunkDumpCommand`) — debug/recording tooling.
+- `SpaceMountainChunkDump` and `SpaceMountainBorderBake` (2026-05-19) — bridge-callable dev tools: the chunk dumper feeding the offline overlay bake, and the watertight flood-fill that baked `dome_borders.bin`. Stripped in the pre-release cleanup; the overlay/border bake workflow now lives entirely in `~/imf-debug-dumps-archive/`.
 - The `debug-dumps/` directory (Python bake scripts + captures) was moved out of the repo to `~/imf-debug-dumps-archive/`.
 
 ## Resuming cold

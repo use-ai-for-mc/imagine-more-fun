@@ -19,16 +19,19 @@ import net.minecraft.resources.Identifier;
 import net.minecraft.world.phys.Vec3;
 
 /**
- * Renders the Space/Hyperspace Mountain coaster track as twin emissive yellow tubes that hover just
- * below the vehicle path. Geometry is pre-baked from a recorded ride ({@code dome_track.bin},
- * produced by {@code debug-dumps/bake-track.py}) — the recorder captures vehicle position +
- * yaw/pitch every tick, the baker subsamples and smooths, and this class loads the result at
- * startup and converts (yaw, pitch) into orthonormal frames so the rails curve and dive correctly.
+ * Renders the Space/Hyperspace Mountain coaster track as rail-and-spine tubes that hover just below
+ * the vehicle path. Geometry is pre-baked from a recorded ride ({@code dome_track.bin}, produced by
+ * {@code bake-track.py}) — the recorder captures vehicle position + yaw/pitch every tick, the baker
+ * subsamples and smooths, and this class loads the result at startup and converts (yaw, pitch) into
+ * orthonormal frames so the rails curve and dive correctly.
  *
- * <p>Render type is {@link RenderTypes#eyes} (same emissive lightmap-bypass as the starfield) so
- * the rails stay bright in the otherwise-pitch-black dome interior. Quads are emitted with {@link
- * BufferSource}; for ~1200 samples × 2 rails × 6 cross-section vertices we get ~14k quads per
- * frame, well within the per-frame budget for modern GPUs.
+ * <p>Render type is {@link RenderTypes#entityTranslucent} — lightmap-respecting and depth-tested,
+ * drawn at a low fixed lightmap coord with vertex colour modulated to a dim dark-grey metal ({@code
+ * COLOR_R/G/B = 0.16/0.16/0.18}). The track reads as moody structure rather than a glowing line;
+ * its brightness is governed by the {@code TRACK_BLOCK_LIGHT}/{@code TRACK_SKY_LIGHT} constants,
+ * not the dome's own gloom. Quads are emitted with {@link BufferSource}; for ~1200 samples × 2
+ * rails × 6 cross-section vertices we get ~14k quads per frame, well within the per-frame budget
+ * for modern GPUs.
  *
  * <p>Adjustable knobs at the top: tube radius, rail separation, vertical offset under the vehicle,
  * cross-section subdivision count.
@@ -51,20 +54,16 @@ public final class SpaceMountainTrackRenderer {
   // rail → spine), forming the V/triangle shape seen on real coaster track.
   private static final int CROSSTIE_STRIDE = 6;
   private static final float STRUT_RADIUS = 0.06f;
-  // White-silver per the second reference photo. The texture (track.png) is pure white, so this
-  // vertex color is what you actually see — slightly cool, slightly dimmed so the track reads as
-  // metal rather than glowing neon. Tweak here to brighten / shift hue.
-  // Vertex-color modulation of the (white) texture. Cut to ~10% of full white per user request —
-  // the track now reads as nearly-black metal that just barely catches the dim lightmap value
-  // below. Bump these toward 1.0 to brighten back up.
-  private static final float COLOR_R = 0.08f;
-  private static final float COLOR_G = 0.08f;
-  private static final float COLOR_B = 0.09f;
+  // Vertex-color modulation of the (white) track.png texture — effectively the colour you see. A
+  // dim, slightly-cool dark metal, kept low so the rails read as moody structure rather than a
+  // glowing neon line. Bump toward 1.0 to brighten, drop toward 0 to fade back out.
+  private static final float COLOR_R = 0.16f;
+  private static final float COLOR_G = 0.16f;
+  private static final float COLOR_B = 0.18f;
   private static final float COLOR_A = 0.45f;
-  // Lightmap coords: block-light × sky-light (0..15 each). Low values render the track as dim
-  // metal that's barely catching ambient light — the look the user asked for. Pump up to 15/15 to
-  // get a fully-lit silver bar.
-  private static final int TRACK_BLOCK_LIGHT = 4;
+  // Fixed lightmap coords (block-light × sky-light, 0..15) the track is drawn at — independent of
+  // the dome's own gloom. Kept modest so the track stays subdued; raise toward 15/15 to brighten.
+  private static final int TRACK_BLOCK_LIGHT = 8;
   private static final int TRACK_SKY_LIGHT = 0;
   // The rider doesn't see the track until they've cleared the launch tunnel. Skip rendering for
   // the first ~40 s of the ride. The bake subsamples 20 Hz → 6.67 Hz (every 3rd), so 40 s ≈
@@ -92,9 +91,9 @@ public final class SpaceMountainTrackRenderer {
   private static double[] strutVertY = new double[0];
   private static double[] strutVertZ = new double[0];
 
-  // Track rendering disabled by default for now. Toggle on via the debug bridge:
-  // java.import("...SpaceMountainTrackRenderer"):setEnabled(true)
-  private static volatile boolean ENABLED = false;
+  // Track rendering enabled by default. Toggle off via the debug bridge:
+  // java.import("...SpaceMountainTrackRenderer"):setEnabled(false)
+  private static volatile boolean ENABLED = true;
 
   static {
     loadAndBuild();
@@ -293,11 +292,8 @@ public final class SpaceMountainTrackRenderer {
     if (sampleCount < 2) return;
     Minecraft mc = Minecraft.getInstance();
     if (mc.player == null || mc.level == null) return;
-    // Normal gate: only render while the rider is on Space/Hyperspace Mountain.
-    // Singleplayer override: always render so we can fly around and tune the geometry without
-    // having to board a ride. The custom no-depth pipeline is also active in SP, so the track
-    // shows through dome walls.
-    if (!SpaceMountainOverride.isActive() && !mc.hasSingleplayerServer()) return;
+    // Only render while the rider is actually on Space/Hyperspace Mountain.
+    if (!SpaceMountainOverride.isActive()) return;
     drawTrack(ctx, mc);
   }
 
@@ -309,14 +305,11 @@ public final class SpaceMountainTrackRenderer {
     PoseStack.Pose pose = poseStack.last();
     BufferSource bufferSource = mc.renderBuffers().bufferSource();
     // Non-emissive translucent: respects the lightmap (low fixed light coord renders the track as
-    // dim metal) AND the depth buffer (track is occluded by blocks in front of it). Same render
-    // type for both singleplayer and multiplayer now — the SP-only no-depth variant has been
-    // dropped per user request to test how knock-out blocks read against a normally-occluded
-    // track.
+    // dim metal) AND the depth buffer (track is occluded by blocks in front of it).
     RenderType renderType = RenderTypes.entityTranslucent(TRACK_TEXTURE);
     VertexConsumer vc = bufferSource.getBuffer(renderType);
 
-    // Low fixed lightmap coord: block-light=4, sky-light=0 → track reads as dim metal in any
+    // Low fixed lightmap coord: block-light=8, sky-light=0 → track reads as dim metal in any
     // environment. Bump TRACK_BLOCK_LIGHT toward 15 to brighten, drop to 1 for near-pitch-black.
     int light = LightTexture.pack(TRACK_BLOCK_LIGHT, TRACK_SKY_LIGHT);
     int overlay = OverlayTexture.NO_OVERLAY;
@@ -329,7 +322,7 @@ public final class SpaceMountainTrackRenderer {
 
     // ---- Rails + spine (3 continuous tubes along the path) ----
     // Skip the launch-tunnel section (samples 0..RENDER_START_SAMPLE-1) — the rider only sees
-    // the open dome track from ~60 s onward.
+    // the open dome track from ~40 s onward.
     int firstSample = Math.min(RENDER_START_SAMPLE, sampleCount - 1);
     for (int i = firstSample; i < sampleCount - 1; i++) {
       int baseA = i * vertsPerSample;

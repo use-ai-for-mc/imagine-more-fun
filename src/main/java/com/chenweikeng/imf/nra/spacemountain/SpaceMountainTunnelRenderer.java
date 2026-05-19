@@ -48,9 +48,10 @@ public final class SpaceMountainTunnelRenderer {
   // (track is curving in from the launch room) — covering it would mis-align, so we start at
   // Z=150 and let the rider enter visually before the cover wraps them.
   private static final Vec3 START = new Vec3(-257.5, 68.4, 148.0);
-  // END stops short of the path's Z≈198/Y83 exit so the cover ends sooner — pulled back along the
-  // same axis to where the path reaches Y≈81 (Z≈192.9).
-  private static final Vec3 END = new Vec3(-257.5, 81.0, 192.9);
+  // END is cut short — pulled back down the same path axis to the Y≈79 point (Z≈185.8), well
+  // before the cylinder's upper wall would clip the black dome blocks near the tunnel exit. The
+  // axis keeps the path's height and tilt (not lowered), so the rider stays centered in the tube.
+  private static final Vec3 END = new Vec3(-257.5, 79.0, 185.8);
   private static final double RADIUS = 4.0;
 
   // Mesh resolution. 24 × 16 = 384 quads (768 tris). Cheap.
@@ -143,14 +144,14 @@ public final class SpaceMountainTunnelRenderer {
   // --- Space Mountain tunnel phase timing -----------------------------------------------------
   // Ride-elapsed seconds. Relative durations measured from the ride video (5:32 tunnel entry →
   // 5:50 exit); anchored at TUNNEL_ENTER_SECONDS — shift that once the launch-tunnel entry
-  // elapsed time is calibrated. Sequence: purple rings + stars → crossfade → full red (radial
+  // elapsed time is calibrated. Sequence: purple rings + stars → instant cut → full red (radial
   // streaks + striped wedge panels) → red fades out, tunnel ends.
-  private static final double TUNNEL_ENTER_SECONDS = 42.0;
+  private static final double TUNNEL_ENTER_SECONDS = 41.0;
   // The black cylinder + rotating stars appear this many seconds before the purple rings begin,
   // so the rider sees an empty starfield tunnel briefly before the projection starts.
   private static final double STARS_ONLY_LEAD_SECONDS = 2.0;
   private static final double PURPLE_DURATION = 3.0; // purple rings + stars hold
-  private static final double PURPLE_TO_RED_SECONDS = 2.0; // crossfade purple → red
+  private static final double PURPLE_TO_RED_SECONDS = 0.0; // 0 = instant cut, no purple→red fade
   private static final double RED_DURATION = 10.0; // full red hold
   private static final double RED_FADE_SECONDS = 3.0; // red fades out, tunnel ends
   private static final double TUNNEL_END_SECONDS =
@@ -240,6 +241,14 @@ public final class SpaceMountainTunnelRenderer {
   }
 
   /**
+   * True once {@code playerPos} has crossed the cylinder's START plane along the axis — i.e. the
+   * rider has entered the launch-tunnel cover. {@link SpaceMountainEntryTunnelSeal} gates on this.
+   */
+  public static boolean isPlayerPastCylinderStart(Vec3 playerPos) {
+    return playerPos.subtract(START).dot(AXIS) >= 0.0;
+  }
+
+  /**
    * Decompose a world-space offset from {@link #START} into (axialDistance, radialDistance). The
    * tunnel renders only while the player's axialDistance is inside [-AXIAL_TOLERANCE, length +
    * AXIAL_TOLERANCE] and radialDistance is within RADIUS + LATERAL_TOLERANCE.
@@ -319,7 +328,7 @@ public final class SpaceMountainTunnelRenderer {
     return (t - HYPERSPACE_END_SECONDS) / TRANSITION_SECONDS;
   }
 
-  /** Purple-phase alpha: 1 during purple, ramps 1→0 over the purple→red crossfade, 0 after. */
+  /** Purple-phase alpha: 1 during the purple hold, then an instant cut to 0 (no crossfade). */
   private static double purplePhaseAlpha(double t) {
     double rel = t - TUNNEL_ENTER_SECONDS;
     if (rel < 0.0) return 0.0;
@@ -330,8 +339,8 @@ public final class SpaceMountainTunnelRenderer {
   }
 
   /**
-   * Red-phase alpha: 0 during purple, ramps 0→1 over the crossfade, 1 through the full red phase,
-   * ramps 1→0 over the final fade, 0 afterward.
+   * Red-phase alpha: 0 during purple, an instant cut to 1 at the purple→red switch, 1 through the
+   * full red hold, ramps 1→0 over the final fade, 0 afterward.
    */
   private static double redPhaseAlpha(double t) {
     double rel = t - TUNNEL_ENTER_SECONDS;
@@ -377,8 +386,8 @@ public final class SpaceMountainTunnelRenderer {
     double seconds = (System.nanoTime() % 1_000_000_000_000L) * 1e-9;
     float vScroll = (float) (-seconds * UV_SCROLL_PER_SECOND); // negative = rings move toward -Z
 
-    // Phase clock — purple → crossfade → red → fade. purpleA fades the purple rings out across
-    // the crossfade; redA fades the red stripes in and out.
+    // Phase clock — purple → instant cut → red → fade. purpleA gates the purple rings; redA gates
+    // the red stripes and fades them out over the final RED_FADE_SECONDS.
     double t = smoothElapsedSeconds();
     float purpleA = (float) purplePhaseAlpha(t);
     float redA = (float) redPhaseAlpha(t);
@@ -441,7 +450,7 @@ public final class SpaceMountainTunnelRenderer {
     }
     bufferSource.endBatch(renderType);
 
-    // Purple rings — fade out across the purple→red crossfade.
+    // Purple rings — shown through the purple phase, gone at the instant purple→red cut.
     if (purpleA > 0f) {
       drawPurpleRings(pose, bufferSource, camX, camY, camZ, purpleA, seconds);
     }

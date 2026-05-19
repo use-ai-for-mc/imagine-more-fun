@@ -2,8 +2,8 @@ package com.chenweikeng.imf.nra.handler;
 
 import com.chenweikeng.imf.nra.GameState;
 import com.chenweikeng.imf.nra.ServerState;
-import com.chenweikeng.imf.nra.config.FullbrightMode;
 import com.chenweikeng.imf.nra.config.ModConfig;
+import com.chenweikeng.imf.nra.spacemountain.SpaceMountainOverride;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
 
@@ -26,14 +26,11 @@ public class DayTimeHandler {
     }
 
     boolean isRiding = GameState.getInstance().isRiding();
-    FullbrightMode mode = ModConfig.currentSetting.fullbrightMode;
+    // Fullbright is forced off while the Space Mountain dark-ride override is active, so the dome
+    // stays dark for the star effect — regardless of the configured fullbright mode.
     boolean shouldApplyFullbright =
-        switch (mode) {
-          case NONE -> false;
-          case ONLY_WHEN_RIDING -> isRiding;
-          case ONLY_WHEN_NOT_RIDING -> !isRiding;
-          case ALWAYS -> true;
-        };
+        ModConfig.currentSetting.fullbrightMode.shouldApply(isRiding)
+            && !SpaceMountainOverride.isActive();
 
     if (!shouldApplyFullbright) {
       return;

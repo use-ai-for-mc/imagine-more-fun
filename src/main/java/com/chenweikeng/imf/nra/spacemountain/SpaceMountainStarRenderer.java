@@ -102,7 +102,7 @@ public final class SpaceMountainStarRenderer {
     NotRidingAlertClient.LOGGER.info("[SpaceMountainStarRenderer] spDevPreview={}", enabled);
   }
 
-  /** Re-read dome_borders.bin and re-pick the stars — picks up a fresh SpaceMountainBorderBake. */
+  /** Re-read dome_borders.bin and re-pick the stars — picks up a freshly re-baked borders file. */
   public static void reload() {
     loadAndPickStars();
   }

@@ -4,6 +4,7 @@ import com.chenweikeng.imf.nra.NotRidingAlertClient;
 import com.chenweikeng.imf.nra.canoe.CanoeHelperClient;
 import com.chenweikeng.imf.nra.spacemountain.SpaceMountainBlockOverride;
 import com.chenweikeng.imf.nra.spacemountain.SpaceMountainDiscoBall;
+import com.chenweikeng.imf.nra.spacemountain.SpaceMountainEntryTunnelSeal;
 import com.chenweikeng.imf.nra.spacemountain.SpaceMountainRideAudio;
 import com.chenweikeng.imf.nra.spacemountain.SpaceMountainStarRenderer;
 import com.chenweikeng.imf.nra.spacemountain.SpaceMountainTrackRenderer;
@@ -43,6 +44,7 @@ public class ImfClient implements ClientModInitializer {
     SpaceMountainTrackRenderer.register();
     SpaceMountainBlockOverride.init();
     SpaceMountainTunnelRenderer.register();
+    SpaceMountainEntryTunnelSeal.init();
     SpaceMountainDiscoBall.register();
     SpaceMountainRideAudio.register();
 

@@ -46,5 +46,5 @@ public final class ConfigDefaults {
   public static final RideReportNotifyMode RIDE_REPORT_NOTIFY_MODE = RideReportNotifyMode.POPUP;
   public static final boolean RANDOM_RIDE_OVERRIDE = true;
   public static final RideHubMode RIDE_HUB_MODE = RideHubMode.RIDE_PLAN;
-  public static final boolean SPACE_MOUNTAIN_ENHANCEMENTS = false;
+  public static final boolean SPACE_MOUNTAIN_ENHANCEMENTS = true;
 }

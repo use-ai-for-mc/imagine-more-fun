@@ -4,7 +4,7 @@
   "config.not-riding-alert.category.visual": "Visual",
   "config.not-riding-alert.category.modifications": "Modifications",
   "config.not-riding-alert.spaceMountainGroup": "Space Mountain",
-  "config.not-riding-alert.spaceMountainEnhancements": "Space Mountain Enhancements (Beta Preview)",
+  "config.not-riding-alert.spaceMountainEnhancements": "Space Mountain Enhancements",
   "config.not-riding-alert.spaceMountainEnhancements.tooltip": "Master toggle for all Space Mountain / Hyperspace Mountain client modifications: the dome cleanup, tunnel screen effect, coaster track, dome starfield, and hidden show props. Turn off to ride with vanilla visuals.",
   "config.not-riding-alert.globalEnable": "Enable the mod",
   "config.not-riding-alert.globalEnable.tooltip": "Master switch to enable or disable all mod features",

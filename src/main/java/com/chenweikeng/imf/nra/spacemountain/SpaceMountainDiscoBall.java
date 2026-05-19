@@ -390,8 +390,8 @@ public final class SpaceMountainDiscoBall {
 
   /**
    * Load the watertight dome-shell cells from {@code dome_borders.bin} — config dir first (a fresh
-   * {@link SpaceMountainBorderBake} result), else the JAR-bundled default. Used as a hard mask on
-   * the projection: a beam-cast star only survives if its hit block is one of these cells.
+   * local re-bake), else the JAR-bundled default. Used as a hard mask on the projection: a
+   * beam-cast star only survives if its hit block is one of these cells.
    */
   public static void loadBorders() {
     watertightWallCells.clear();
@@ -577,7 +577,7 @@ public final class SpaceMountainDiscoBall {
     Minecraft mc = Minecraft.getInstance();
     if (mc.player == null || mc.level == null) return;
     // Production gate: route through the shared master switch like every other Space Mountain
-    // overlay — BAKING_MODE off, the "Space Mountain (Beta Preview)" toggle on, connected to
+    // overlay — BAKING_MODE off, the "Space Mountain Enhancements" toggle on, connected to
     // ImagineFun, and actively riding Space/Hyperspace Mountain. Without this the bundled default
     // disco balls would render everywhere the moment the jar is installed.
     // Dev exception: spDevPreview also renders in single-player (where isActive() is false) so the

@@ -2,9 +2,9 @@ package com.chenweikeng.imf.mixin;
 
 import com.chenweikeng.imf.nra.GameState;
 import com.chenweikeng.imf.nra.NotRidingAlertClient;
-import com.chenweikeng.imf.nra.config.FullbrightMode;
 import com.chenweikeng.imf.nra.config.ModConfig;
 import com.chenweikeng.imf.nra.handler.FireworkViewingHandler;
+import com.chenweikeng.imf.nra.spacemountain.SpaceMountainOverride;
 import net.minecraft.core.Holder;
 import net.minecraft.world.effect.MobEffect;
 import net.minecraft.world.effect.MobEffectInstance;
@@ -38,15 +38,7 @@ public abstract class NraLivingEntityMixin {
       if (ModConfig.currentSetting.blindWhenRiding && effect == MobEffects.BLINDNESS && isRiding) {
         cir.setReturnValue(true);
       } else if (effect == MobEffects.NIGHT_VISION) {
-        FullbrightMode mode = ModConfig.currentSetting.fullbrightMode;
-        boolean shouldHaveFullbright =
-            switch (mode) {
-              case NONE -> false;
-              case ONLY_WHEN_RIDING -> isRiding;
-              case ONLY_WHEN_NOT_RIDING -> !isRiding;
-              case ALWAYS -> true;
-            };
-        if (shouldHaveFullbright) {
+        if (shouldHaveFullbright(isRiding)) {
           cir.setReturnValue(true);
         }
       }
@@ -77,18 +69,20 @@ public abstract class NraLivingEntityMixin {
           cir.setReturnValue(new MobEffectInstance(MobEffects.BLINDNESS, -1));
         }
       } else if (effect == MobEffects.NIGHT_VISION) {
-        FullbrightMode mode = ModConfig.currentSetting.fullbrightMode;
-        boolean shouldHaveFullbright =
-            switch (mode) {
-              case NONE -> false;
-              case ONLY_WHEN_RIDING -> isRiding;
-              case ONLY_WHEN_NOT_RIDING -> !isRiding;
-              case ALWAYS -> true;
-            };
-        if (shouldHaveFullbright && cir.getReturnValue() == null) {
+        if (shouldHaveFullbright(isRiding) && cir.getReturnValue() == null) {
           cir.setReturnValue(new MobEffectInstance(MobEffects.NIGHT_VISION, -1));
         }
       }
     }
+  }
+
+  /**
+   * Whether the mod's fullbright override (forced night vision) should be on right now. It is
+   * forced off while the Space Mountain dark-ride override is active — the dome must stay dark for
+   * the star effect — regardless of the configured fullbright mode.
+   */
+  private static boolean shouldHaveFullbright(boolean isRiding) {
+    return ModConfig.currentSetting.fullbrightMode.shouldApply(isRiding)
+        && !SpaceMountainOverride.isActive();
   }
 }
