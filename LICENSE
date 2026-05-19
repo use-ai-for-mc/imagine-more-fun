@@ -1,16 +1,6 @@
-ImagineMoreFun combines code from three upstream mods under two licenses.
-
-================================================================================
-1. Code derived from Not Riding Alert (com.chenweikeng.imf.nra.*) and Pim
-   (com.chenweikeng.imf.pim.*) is licensed under CC0-1.0 (Public Domain).
-   Full text: see LICENSE-CC0.
-================================================================================
-2. Code derived from SkinCache (com.chenweikeng.imf.skincache.*) is licensed
-   under the MIT License.
---------------------------------------------------------------------------------
 MIT License
 
-Copyright (c) 2025 Weikeng Chen
+Copyright (c) 2025-2026 Weikeng Chen
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -29,8 +19,21 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
 ================================================================================
-3. The umbrella code (com.chenweikeng.imf.* directly, excluding the nra/pim/
-   skincache sub-packages) is released under CC0-1.0 to match the dominant
-   upstream.
+Bundled third-party assets
 ================================================================================
+
+The MIT License above covers the source code. The following bundled audio
+assets are NOT covered by it — each retains the license of its original work:
+
+- src/main/resources/assets/imaginemorefun/sounds/ride/rail_friction.ogg
+  A trimmed, re-encoded loop derived from "train_wheels_ringing_speed.wav" by
+  uair01 (https://freesound.org/people/uair01/sounds/57787/).
+  Licensed under CC BY 3.0: https://creativecommons.org/licenses/by/3.0/
+
+- src/main/resources/assets/imaginemorefun/sounds/ride/wind.ogg
+  A trimmed, re-encoded loop derived from "Wind cold interior" on Mixkit
+  (https://mixkit.co/free-sound-effects/wind/).
+  Used under the Mixkit Sound Effects Free License:
+  https://mixkit.co/license/#sfxFree
