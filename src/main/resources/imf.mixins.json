@@ -13,6 +13,7 @@
 		"ImfScreenInvoker",
 		"NraAvatarRendererMixin",
 		"NraBossHealthOverlayAccessor",
+		"NraCameraRollMixin",
 		"NraChatListenerMixin",
 		"NraClientLevelMixin",
 		"NraClientPacketListenerChunkMixin",

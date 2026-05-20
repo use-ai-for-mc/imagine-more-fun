@@ -326,7 +326,7 @@ public class ClothConfigScreen {
     // "Space Mountain" group — a collapsible sub-category. Each ride's modification toggles get
     // their own group in this tab; add more groups the same way as they're built.
     List<AbstractConfigListEntry> spaceMountainGroup = new ArrayList<>();
-    spaceMountainGroup.add(
+    var spaceMountainEnabledEntry =
         entryBuilder
             .startBooleanToggle(
                 Component.translatable("config.not-riding-alert.spaceMountainEnhancements"),
@@ -335,6 +335,50 @@ public class ClothConfigScreen {
             .setTooltip(
                 Component.translatable("config.not-riding-alert.spaceMountainEnhancements.tooltip"))
             .setSaveConsumer(newValue -> profile.spaceMountainEnhancements = newValue)
+            .build();
+    spaceMountainGroup.add(spaceMountainEnabledEntry);
+    // Ride Audio Volume — shown only while the master Space Mountain toggle above is on.
+    spaceMountainGroup.add(
+        entryBuilder
+            .startIntSlider(
+                Component.translatable("config.not-riding-alert.rideAudioVolume"),
+                profile.rideAudioVolume,
+                0,
+                200)
+            .setDefaultValue(ConfigDefaults.RIDE_AUDIO_VOLUME)
+            .setTooltip(Component.translatable("config.not-riding-alert.rideAudioVolume.tooltip"))
+            .setTextGetter(value -> Component.literal(value + "%"))
+            .setSaveConsumer(newValue -> profile.rideAudioVolume = newValue)
+            .setDisplayRequirement(Requirement.isValue(spaceMountainEnabledEntry, true))
+            .build());
+    var spaceMountainBankingEntry =
+        entryBuilder
+            .startBooleanToggle(
+                Component.translatable("config.not-riding-alert.spaceMountainBanking"),
+                profile.spaceMountainBanking)
+            .setDefaultValue(ConfigDefaults.SPACE_MOUNTAIN_BANKING)
+            .setTooltip(
+                Component.translatable("config.not-riding-alert.spaceMountainBanking.tooltip"))
+            .setSaveConsumer(newValue -> profile.spaceMountainBanking = newValue)
+            .setDisplayRequirement(Requirement.isValue(spaceMountainEnabledEntry, true))
+            .build();
+    spaceMountainGroup.add(spaceMountainBankingEntry);
+    spaceMountainGroup.add(
+        entryBuilder
+            .startIntSlider(
+                Component.translatable("config.not-riding-alert.spaceMountainBankStrength"),
+                profile.spaceMountainBankStrength,
+                0,
+                100)
+            .setDefaultValue(ConfigDefaults.SPACE_MOUNTAIN_BANK_STRENGTH)
+            .setTooltip(
+                Component.translatable("config.not-riding-alert.spaceMountainBankStrength.tooltip"))
+            .setTextGetter(value -> Component.literal(value + "%"))
+            .setSaveConsumer(newValue -> profile.spaceMountainBankStrength = newValue)
+            .setDisplayRequirement(
+                Requirement.all(
+                    Requirement.isValue(spaceMountainEnabledEntry, true),
+                    Requirement.isValue(spaceMountainBankingEntry, true)))
             .build());
     modifications.addEntry(
         entryBuilder

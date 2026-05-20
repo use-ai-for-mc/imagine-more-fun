@@ -3,9 +3,6 @@ package com.chenweikeng.imf.nra.spacemountain;
 import com.chenweikeng.imf.nra.NotRidingAlertClient;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import java.io.DataInputStream;
-import java.io.IOException;
-import java.io.InputStream;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.minecraft.client.Camera;
@@ -20,14 +17,14 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * Renders the Space/Hyperspace Mountain coaster track as rail-and-spine tubes that hover just below
- * the vehicle path. Geometry is pre-baked from a recorded ride ({@code dome_track.bin}, produced by
- * {@code bake-track.py}) — the recorder captures vehicle position + yaw/pitch every tick, the baker
- * subsamples and smooths, and this class loads the result at startup and converts (yaw, pitch) into
- * orthonormal frames so the rails curve and dive correctly.
+ * the vehicle path. Geometry is built at startup from {@link SpaceMountainTrackData} (the baked
+ * recording {@code dome_track.bin}) — each sample's (yaw, pitch) becomes an orthonormal frame so
+ * the rails curve and dive, and the per-sample {@code roll} (bank) angle rotates that frame around
+ * its forward axis so the rails tilt into turns instead of lying flat.
  *
  * <p>Render type is {@link RenderTypes#entityTranslucent} — lightmap-respecting and depth-tested,
  * drawn at a low fixed lightmap coord with vertex colour modulated to a dim dark-grey metal ({@code
- * COLOR_R/G/B = 0.16/0.16/0.18}). The track reads as moody structure rather than a glowing line;
+ * COLOR_R/G/B = 0.08/0.08/0.09}). The track reads as moody structure rather than a glowing line;
  * its brightness is governed by the {@code TRACK_BLOCK_LIGHT}/{@code TRACK_SKY_LIGHT} constants,
  * not the dome's own gloom. Quads are emitted with {@link BufferSource}; for ~1200 samples × 2
  * rails × 6 cross-section vertices we get ~14k quads per frame, well within the per-frame budget
@@ -39,8 +36,6 @@ import net.minecraft.world.phys.Vec3;
 public final class SpaceMountainTrackRenderer {
   private static final Identifier TRACK_TEXTURE =
       Identifier.fromNamespaceAndPath("imaginemorefun", "textures/particle/track.png");
-
-  private static final String TRACK_RESOURCE = "/imaginemorefun/dome_track.bin";
 
   private static final double VEHICLE_Y_OFFSET =
       0.1; // track sits this far below recorded pos (negative = lower; +0.1 = slightly above)
@@ -57,13 +52,13 @@ public final class SpaceMountainTrackRenderer {
   // Vertex-color modulation of the (white) track.png texture — effectively the colour you see. A
   // dim, slightly-cool dark metal, kept low so the rails read as moody structure rather than a
   // glowing neon line. Bump toward 1.0 to brighten, drop toward 0 to fade back out.
-  private static final float COLOR_R = 0.16f;
-  private static final float COLOR_G = 0.16f;
-  private static final float COLOR_B = 0.18f;
+  private static final float COLOR_R = 0.08f;
+  private static final float COLOR_G = 0.08f;
+  private static final float COLOR_B = 0.09f;
   private static final float COLOR_A = 0.45f;
   // Fixed lightmap coords (block-light × sky-light, 0..15) the track is drawn at — independent of
   // the dome's own gloom. Kept modest so the track stays subdued; raise toward 15/15 to brighten.
-  private static final int TRACK_BLOCK_LIGHT = 8;
+  private static final int TRACK_BLOCK_LIGHT = 4;
   private static final int TRACK_SKY_LIGHT = 0;
   // The rider doesn't see the track until they've cleared the launch tunnel. Skip rendering for
   // the first ~40 s of the ride. The bake subsamples 20 Hz → 6.67 Hz (every 3rd), so 40 s ≈
@@ -115,40 +110,32 @@ public final class SpaceMountainTrackRenderer {
   }
 
   private static void loadAndBuild() {
-    try (InputStream in = SpaceMountainTrackRenderer.class.getResourceAsStream(TRACK_RESOURCE)) {
-      if (in == null) {
+    try {
+      int n = SpaceMountainTrackData.count;
+      if (n < 2) {
         NotRidingAlertClient.LOGGER.error(
-            "[SpaceMountainTrackRenderer] resource {} not found — track will not render",
-            TRACK_RESOURCE);
+            "[SpaceMountainTrackRenderer] no track data — track will not render");
         return;
       }
-      DataInputStream dis = new DataInputStream(in);
-      byte[] magic = new byte[4];
-      dis.readFully(magic);
-      if (magic[0] != 'I' || magic[1] != 'F' || magic[2] != 'T' || magic[3] != 'C') {
-        throw new IOException("bad track magic: " + new String(magic));
-      }
-      int version = dis.readUnsignedByte();
-      if (version != 1) throw new IOException("unsupported track version: " + version);
-      int n = dis.readInt();
 
       double[] x = new double[n];
       double[] y = new double[n];
       double[] z = new double[n];
       float[] yaw = new float[n];
       float[] pitch = new float[n];
+      float[] roll = new float[n];
       for (int i = 0; i < n; i++) {
-        x[i] = dis.readDouble();
-        y[i] = dis.readDouble() + VEHICLE_Y_OFFSET;
-        z[i] = dis.readDouble();
-        yaw[i] = dis.readFloat();
-        pitch[i] = dis.readFloat();
+        x[i] = SpaceMountainTrackData.x[i];
+        y[i] = SpaceMountainTrackData.y[i] + VEHICLE_Y_OFFSET;
+        z[i] = SpaceMountainTrackData.z[i];
+        yaw[i] = SpaceMountainTrackData.yaw[i];
+        pitch[i] = SpaceMountainTrackData.pitch[i];
+        roll[i] = SpaceMountainTrackData.roll[i];
       }
 
-      // For each sample build orthonormal basis (forward, right, up) from yaw/pitch.
-      // forward = view direction in MC convention.
-      // right   = horizontal-only perpendicular (no roll banking from data).
-      // up      = forward × right (right-handed → "up" relative to track).
+      // For each sample build an orthonormal basis (forward, right, up) from yaw/pitch, then
+      // bank it: rotate (right, up) around forward by the baked roll angle so the rails tilt
+      // into turns. forward = view direction in MC convention.
       double[] fx = new double[n], fy = new double[n], fz = new double[n];
       double[] rx = new double[n], ry = new double[n], rz = new double[n];
       double[] ux = new double[n], uy = new double[n], uz = new double[n];
@@ -159,8 +146,7 @@ public final class SpaceMountainTrackRenderer {
         fx[i] = -Math.sin(yawRad) * cosP;
         fy[i] = -Math.sin(pitchRad);
         fz[i] = Math.cos(yawRad) * cosP;
-        // Horizontal "right": cross(forward, world_up) projected then normalized.
-        // Equivalent: rotate yaw 90° in horizontal plane.
+        // Horizontal "right": cross(forward, world_up). Equivalent: yaw rotated 90°.
         rx[i] = -Math.cos(yawRad);
         ry[i] = 0;
         rz[i] = -Math.sin(yawRad);
@@ -168,9 +154,26 @@ public final class SpaceMountainTrackRenderer {
         ux[i] = ry[i] * fz[i] - rz[i] * fy[i];
         uy[i] = rz[i] * fx[i] - rx[i] * fz[i];
         uz[i] = rx[i] * fy[i] - ry[i] * fx[i];
-        // up is unit-length when right and forward are perpendicular and unit; both true here
-        // (right is in horizontal plane perp to forward's horizontal projection; forward is unit
-        // by construction). Safety re-normalize anyway.
+        // Bank: rotate the (right, up) frame around forward by roll[i]. They are orthonormal,
+        // so the rotation keeps them unit-length; both flow through to the cross-sections and
+        // lateral rail offsets, so the whole track cross-section tilts into the turn.
+        double rollRad = Math.toRadians(roll[i]);
+        if (rollRad != 0.0) {
+          double cr = Math.cos(rollRad), sr = Math.sin(rollRad);
+          double nrx = cr * rx[i] + sr * ux[i];
+          double nry = cr * ry[i] + sr * uy[i];
+          double nrz = cr * rz[i] + sr * uz[i];
+          double nux = -sr * rx[i] + cr * ux[i];
+          double nuy = -sr * ry[i] + cr * uy[i];
+          double nuz = -sr * rz[i] + cr * uz[i];
+          rx[i] = nrx;
+          ry[i] = nry;
+          rz[i] = nrz;
+          ux[i] = nux;
+          uy[i] = nuy;
+          uz[i] = nuz;
+        }
+        // up is unit-length by construction; safety re-normalize anyway.
         double ulen = Math.sqrt(ux[i] * ux[i] + uy[i] * uy[i] + uz[i] * uz[i]);
         if (ulen > 1e-9) {
           ux[i] /= ulen;
@@ -282,7 +285,7 @@ public final class SpaceMountainTrackRenderer {
           n,
           total,
           strutCount);
-    } catch (IOException e) {
+    } catch (Exception e) {
       NotRidingAlertClient.LOGGER.error("[SpaceMountainTrackRenderer] load failed", e);
     }
   }

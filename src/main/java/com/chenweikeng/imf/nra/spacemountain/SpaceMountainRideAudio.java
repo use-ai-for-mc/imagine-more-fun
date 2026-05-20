@@ -1,7 +1,7 @@
 package com.chenweikeng.imf.nra.spacemountain;
 
 import com.chenweikeng.imf.nra.NotRidingAlertClient;
-import com.chenweikeng.imf.nra.audio.OpenAudioMcService;
+import com.chenweikeng.imf.nra.config.ModConfig;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.sounds.AbstractTickableSoundInstance;
@@ -130,15 +130,15 @@ public final class SpaceMountainRideAudio {
     havePrev = true;
 
     double sharpness = smoothedSpeed * Math.toRadians(smoothedYawRate);
-    // Both loops are coupled to OA's volume slider — riders treat OA as their de-facto master
-    // since the score plays through it. Disconnected (-1) mutes both: the ride loops are part of
-    // the OA-music experience and only play when OA is live.
-    double oaScale = oaVolumeScale();
+    // Master scale from the "Ride Audio Volume" config slider (Modifications → Space Mountain).
+    // The slider reads 0-200% but maps 2x: 100% = 2.0x the recorded mix, 200% = 4.0x, 0% mutes.
+    // Read fresh each tick so changing the slider takes effect without a restart.
+    double volScale = ModConfig.currentSetting.rideAudioVolume / 50.0;
 
     if (windLoop != null) {
       double frac = smoothstep(WIND_LO_SPEED, WIND_HI_SPEED, smoothedSpeed);
       float t = MAX_WIND_GAIN * (float) Math.pow(frac, WIND_CURVE_POWER);
-      windLoop.target = (float) (t * oaScale);
+      windLoop.target = (float) (t * volScale);
     }
     if (railLoop != null) {
       float vT =
@@ -150,7 +150,7 @@ public final class SpaceMountainRideAudio {
           RAIL_PITCH_LO
               + (RAIL_PITCH_HI - RAIL_PITCH_LO)
                   * (float) smoothstep(RAIL_SPEED_LO, WIND_HI_SPEED, smoothedSpeed);
-      railLoop.targetVol = (float) (vT * oaScale);
+      railLoop.targetVol = (float) (vT * volScale);
       railLoop.targetPitch = pT;
     }
   }
@@ -182,11 +182,6 @@ public final class SpaceMountainRideAudio {
   private static double smoothstep(double edge0, double edge1, double x) {
     double t = Math.max(0.0, Math.min(1.0, (x - edge0) / (edge1 - edge0)));
     return t * t * (3.0 - 2.0 * t);
-  }
-
-  private static double oaVolumeScale() {
-    int v = OpenAudioMcService.getInstance().getCurrentVolume();
-    return v < 0 ? 0.0 : v / 100.0;
   }
 
   private static class WindLoop extends AbstractTickableSoundInstance {

@@ -58,6 +58,9 @@ public class ConfigSetting {
   public boolean randomRideOverride = ConfigDefaults.RANDOM_RIDE_OVERRIDE;
   public RideHubMode rideHubMode = ConfigDefaults.RIDE_HUB_MODE;
   public boolean spaceMountainEnhancements = ConfigDefaults.SPACE_MOUNTAIN_ENHANCEMENTS;
+  public int rideAudioVolume = ConfigDefaults.RIDE_AUDIO_VOLUME;
+  public boolean spaceMountainBanking = ConfigDefaults.SPACE_MOUNTAIN_BANKING;
+  public int spaceMountainBankStrength = ConfigDefaults.SPACE_MOUNTAIN_BANK_STRENGTH;
 
   public int getAdvanceNoticeSeconds(RideName ride) {
     return advanceNoticeSeconds.getOrDefault(ride.toMatchString(), 0);
@@ -112,6 +115,9 @@ public class ConfigSetting {
     randomRideOverride = ConfigDefaults.RANDOM_RIDE_OVERRIDE;
     rideHubMode = ConfigDefaults.RIDE_HUB_MODE;
     spaceMountainEnhancements = ConfigDefaults.SPACE_MOUNTAIN_ENHANCEMENTS;
+    rideAudioVolume = ConfigDefaults.RIDE_AUDIO_VOLUME;
+    spaceMountainBanking = ConfigDefaults.SPACE_MOUNTAIN_BANKING;
+    spaceMountainBankStrength = ConfigDefaults.SPACE_MOUNTAIN_BANK_STRENGTH;
   }
 
   public ConfigSetting copy() {
@@ -162,6 +168,9 @@ public class ConfigSetting {
     copy.randomRideOverride = this.randomRideOverride;
     copy.rideHubMode = this.rideHubMode;
     copy.spaceMountainEnhancements = this.spaceMountainEnhancements;
+    copy.rideAudioVolume = this.rideAudioVolume;
+    copy.spaceMountainBanking = this.spaceMountainBanking;
+    copy.spaceMountainBankStrength = this.spaceMountainBankStrength;
     return copy;
   }
 
@@ -209,6 +218,9 @@ public class ConfigSetting {
         && randomRideOverride == that.randomRideOverride
         && rideHubMode == that.rideHubMode
         && spaceMountainEnhancements == that.spaceMountainEnhancements
+        && rideAudioVolume == that.rideAudioVolume
+        && spaceMountainBanking == that.spaceMountainBanking
+        && spaceMountainBankStrength == that.spaceMountainBankStrength
         && Objects.equals(soundId, that.soundId)
         && Objects.equals(minRideTimeMinutes, that.minRideTimeMinutes)
         && Objects.equals(hiddenRides, that.hiddenRides)
@@ -260,6 +272,9 @@ public class ConfigSetting {
         rideReportNotifyMode,
         randomRideOverride,
         rideHubMode,
-        spaceMountainEnhancements);
+        spaceMountainEnhancements,
+        rideAudioVolume,
+        spaceMountainBanking,
+        spaceMountainBankStrength);
   }
 }

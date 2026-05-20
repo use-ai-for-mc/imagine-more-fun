@@ -59,6 +59,12 @@ public final class SpaceMountainBlockOverride {
   private static boolean previousActive = false;
   private static boolean pendingRemesh = false;
 
+  // Ticks left before the dome overlay is removed after the ride ends; -1 = nothing pending. The
+  // deseal is deferred so the star effects — which stop the instant the gate flips — clear a few
+  // seconds before the dome geometry visibly reverts.
+  private static final int DESEAL_DELAY_TICKS = 60; // 3 s at 20 TPS
+  private static int desealCountdown = -1;
+
   private SpaceMountainBlockOverride() {}
 
   public static void init() {
@@ -67,6 +73,7 @@ public final class SpaceMountainBlockOverride {
         (handler, client) -> {
           previousActive = false;
           pendingRemesh = false;
+          desealCountdown = -1;
           originalStates.clear();
         });
   }
@@ -144,7 +151,8 @@ public final class SpaceMountainBlockOverride {
   // 2. Chunks not yet loaded when gate flips → arriving chunks pick up the overlay via
   //    handleLevelChunkWithLight mixin → sealChunk.
   // 3. DISCONNECT clears state so a fresh ride entry on rejoin re-seals.
-  // 4. Gate flip true→false restores originals so the rider sees the real wall.
+  // 4. Gate flip true→false defers the deseal (DESEAL_DELAY_TICKS) so the dome reverts a few
+  //    seconds after the ride ends, not instantly; re-entering the ride cancels the pending deseal.
   private static void onTick(Minecraft mc) {
     if (mc.levelRenderer == null || mc.level == null) return;
 
@@ -154,14 +162,11 @@ public final class SpaceMountainBlockOverride {
       previousActive = active;
       if (active) {
         pendingRemesh = true;
+        desealCountdown = -1; // re-entered before the deferred deseal fired — cancel it
       } else {
-        int restored = originalStates.size();
-        desealAll(mc);
-        // Cached section meshes don't repaint from a bare setBlockState — force a full re-mesh so
-        // the rider sees the restored geometry, not the stale sealed look.
-        mc.levelRenderer.allChanged();
-        NotRidingAlertClient.LOGGER.info(
-            "[SpaceMountainBlockOverride] inactive → restored {} cells", restored);
+        // Don't deseal now: hold the dome for DESEAL_DELAY_TICKS so the star effects (which stop
+        // the instant the gate flips) clear a few seconds before the geometry reverts.
+        desealCountdown = DESEAL_DELAY_TICKS;
       }
     }
 
@@ -175,6 +180,22 @@ public final class SpaceMountainBlockOverride {
       NotRidingAlertClient.LOGGER.info(
           "[SpaceMountainBlockOverride] active → sealed loaded chunks ({} cells)",
           originalStates.size());
+    }
+
+    // Deferred deseal: DESEAL_DELAY_TICKS after the ride ends, restore the dome — late enough that
+    // the star effects have already stopped, so they vanish a few seconds before the geometry
+    // reverts rather than at the same instant.
+    if (desealCountdown >= 0 && !active) {
+      if (desealCountdown == 0) {
+        int restored = originalStates.size();
+        desealAll(mc);
+        // Cached section meshes don't repaint from a bare setBlockState — force a full re-mesh so
+        // the rider sees the restored geometry, not the stale sealed look.
+        mc.levelRenderer.allChanged();
+        NotRidingAlertClient.LOGGER.info(
+            "[SpaceMountainBlockOverride] inactive → restored {} cells", restored);
+      }
+      desealCountdown--;
     }
   }
 

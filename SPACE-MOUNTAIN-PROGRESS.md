@@ -1,6 +1,6 @@
 # Space Mountain / Hyperspace Mountain client overrides
 
-Client-side effects layered onto Hyperspace Mountain (and seasonally Space Mountain — the same physical building) on the ImagineFun server: a projected starfield, a launch-tunnel cylinder, ride audio, dome block-overlay, and show-prop hiding. **The server is never modified** — everything is client-side rendering and client-side block-state replacement.
+Client-side effects layered onto Hyperspace Mountain (and seasonally Space Mountain — the same physical building) on the ImagineFun server: a projected starfield, a launch-tunnel cylinder, ride audio, coaster-turn banking, dome block-overlay, and show-prop hiding. **The server is never modified** — everything is client-side rendering and client-side block-state replacement.
 
 > **Rewritten 2026-05-17, updated 2026-05-19.** This version reflects the current code. The STL subsystem, the freestanding hyperspace-streak renderer, the `/imf dumpchunks` slash-command, and the animation recorder were all **deleted** — see "Removed" at the bottom. The 2026-05-19 update finalized the disco-ball starfield (spin easing, watertight-shell mask) and the static star layer, re-baked the dome overlay, and stripped the in-mod bridge bakers (`SpaceMountainChunkDump`, `SpaceMountainBorderBake`).
 
@@ -34,11 +34,13 @@ While the gate is active the fullbright override is also suppressed — the dome
 | `SpaceMountainEntryTunnelSeal.java` | Plugs the launch-tunnel entry mouth with black concrete once the red tunnel effect starts; restores on ride-end. |
 | `SpaceMountainRideAudio.java` | Wind + rail-friction audio loops. |
 | `SpaceMountainStarRenderer.java` | Static baked dome-wall starfield (~1000 stars) — a secondary layer rendered alongside the disco ball. |
-| `SpaceMountainTrackRenderer.java` | Baked coaster-tube geometry (rails + spine + V-struts), drawn as near-invisible dark metal. |
+| `SpaceMountainTrackData.java` | Shared parsed coaster path — loads `dome_track.bin` (x/y/z/yaw/pitch + per-sample bank `roll`) once for the track renderer and camera-bank; offers `nearestSample`. |
+| `SpaceMountainTrackRenderer.java` | Baked coaster-tube geometry (rails + spine + V-struts), banked into turns by the per-sample roll, drawn as near-invisible dark metal. |
+| `SpaceMountainCameraBank.java` | Rolls the rider's camera through banked turns — per-tick nearest-sample lookup → roll × strength, EMA-smoothed; applied by `NraCameraRollMixin`. |
 | `SpaceMountainEntityHider.java` | Whitelist of show-prop armor stands to hide; queried by `NraEntityRendererHideMixin`. |
 | `ImfRenderPipelines.java` | Custom render pipelines (`OPAQUE_SCREEN`, `ENTITY_THROUGH_WALLS`). |
 
-Registered in `ImfClient.onInitializeClient()` in this order: `SpaceMountainStarRenderer`, `SpaceMountainTrackRenderer`, `SpaceMountainBlockOverride.init()`, `SpaceMountainTunnelRenderer`, `SpaceMountainEntryTunnelSeal`, `SpaceMountainDiscoBall`, `SpaceMountainRideAudio`.
+Registered in `ImfClient.onInitializeClient()` in this order: `SpaceMountainStarRenderer`, `SpaceMountainTrackRenderer`, `SpaceMountainBlockOverride.init()`, `SpaceMountainTunnelRenderer`, `SpaceMountainEntryTunnelSeal`, `SpaceMountainDiscoBall`, `SpaceMountainRideAudio`, `SpaceMountainCameraBank`.
 
 ---
 
@@ -52,7 +54,7 @@ The primary starfield. Emulates disco-ball light projectors: a set of fixed "bal
 
 **Spin / auto-spin.** `setSpin(index, degPerSec)` spins one ball; auto-spin (`AUTO_SPIN_INTERVAL_SEC = 20`) hands the spin to a random ball every 20 s, never the same one twice. Spin eases in and out — a ball's angular velocity ramps toward its target rate at `SPIN_ACCEL_DEG_PER_SEC2`, so it accelerates from rest and decelerates to a stop rather than snapping. A spinning ball is re-projected each frame, so its dots sweep.
 
-**Rendering.** `render()` is a `WorldRenderEvents.AFTER_ENTITIES` callback. It guards in two steps: first `if (!ENABLED || balls.isEmpty()) return;`, then the master-gate check `if (!SpaceMountainOverride.isActive() && !(mc.hasSingleplayerServer() && spDevPreview)) return;`. It then draws every ball's cached dots as camera-facing quads with `RenderTypes.eyes` (emissive/full-bright, so stars stay visible in the dark dome). Like every other Space Mountain overlay, the disco ball routes through the `SpaceMountainOverride.isActive()` master gate — the stars render only while actually riding Space/Hyperspace Mountain on ImagineFun with the Space Mountain Enhancements toggle on, never on other servers. The one exception is `spDevPreview`, a bridge-only, non-persisted dev flag (`setSpDevPreview`) that lets the effect render in single-player for tuning against the SP simulator world. `ENABLED` is a secondary debug kill (defaults `true`); it can force the effect off but cannot bypass the gate.
+**Rendering.** `render()` is a `WorldRenderEvents.AFTER_ENTITIES` callback. It guards in three steps: the `ENABLED` / `balls.isEmpty()` check, the master gate (`SpaceMountainOverride.isActive()`, or `spDevPreview` in single-player), and a 1 s post-activation hold (`PROJECTION_DELAY_NANOS`) so `SpaceMountainBlockOverride` seals the dome before any beam is cast — `project()` raycasts world blocks and caches, so projecting against the un-sealed dome would stick. It then draws every ball's cached dots as camera-facing quads with `RenderTypes.eyes` (emissive/full-bright, so stars stay visible in the dark dome). Like every other Space Mountain overlay, the disco ball routes through the `SpaceMountainOverride.isActive()` master gate — the stars render only while actually riding Space/Hyperspace Mountain on ImagineFun with the Space Mountain Enhancements toggle on, never on other servers. The one exception is `spDevPreview`, a bridge-only, non-persisted dev flag (`setSpDevPreview`) that lets the effect render in single-player for tuning against the SP simulator world. `ENABLED` is a secondary debug kill (defaults `true`); it can force the effect off but cannot bypass the gate.
 
 **Persistence — config-dir file, JAR-bundled fallback.** `load()` / `loadExclusion()` go through `readConfigOrBundled()`: read `config/imaginemorefun/<file>` if it exists, else fall back to the copy bundled in the jar (`src/main/resources/imaginemorefun/`). The bundled copy ships the default starfield with the mod, so a fresh install — or a launcher migration that drops the config dir — still has working stars. Runtime-API writes (`addBall`, `setSpin`, …) always land in the config-dir file, which then takes precedence on the next load.
 - `disco_balls.json` — the balls (position/aim/spin/close-cap) plus `autoSpinEnabled`/`autoSpinRate`. Written on every change, read once in `register()` via `load()`.
@@ -74,7 +76,7 @@ Replaces dome block states while the ride gate is active. Reads a **single** bin
 
 - `loadOverlay()` parses the binary into `rawOverlayEntries` at class-load. Once `mc.level` is available, entries are parsed (via `BlockStateParser`) and indexed into `overlayByChunk` (keyed by chunk long-key) for O(1) per-chunk lookup.
 - `sealChunk(chunk)` / `sealCellIfNeeded(pos)` apply the overlay; `originalStates` records each replaced cell's pre-seal `BlockState`.
-- When the gate flips off, originals are restored (the client sees a "server update" reverting the geometry).
+- When the gate flips off the deseal is **deferred ~3 s** (`DESEAL_DELAY_TICKS`) — the star effects stop the instant the ride ends, so they clear a few seconds before the dome geometry reverts (the client then sees a "server update" restoring it). Re-entering the ride during the window cancels the pending deseal.
 - Packet hooks live in `NraClientPacketListenerChunkMixin` (`@At("TAIL")` on `ClientPacketListener.handleLevelChunkWithLight` / `handleBlockUpdate` / `handleChunkBlocksUpdate`). Mutating the chunk's stored block states (not per-cell `getBlockState`) is what survives Sodium.
 - `init()` watches the active flag each tick and forces a full re-mesh on transition.
 
@@ -88,6 +90,19 @@ Renders a cylindrical "launch-tunnel cover" around the rider during the tunnel w
 
 Two persistent looping sounds — wind and rail-friction — whose volume/pitch track the vehicle's per-tick speed and yaw rate. Started/stopped on the `SpaceMountainOverride.isActive()` transition. Coupled to the OpenAudioMc volume slider.
 
+## Track + camera banking — `SpaceMountainCameraBank`
+
+The vehicle recorder only ever captured yaw/pitch, so the baked track was cross-sectionally flat — no banking through turns. `dome_track.bin` is now **IFTC v2**: every sample carries a signed `roll` (bank) angle, computed offline from the path curvature by `~/imf-debug-dumps-archive/bake-roll.py` — `roll = clamp(BANK_SCALE · atan(v·ω/g), ±BANK_CAP)`, a fraction of the physically-balanced bank, tuned (`BANK_SCALE=0.55`, `BANK_CAP=38°`) to the ~30-40° a real coaster banks. `bake-roll.py` reads the existing bin and only *adds* the roll column, so the recorded geometry never moves.
+
+- `SpaceMountainTrackData` parses `dome_track.bin` (v1 *or* v2 — v1 → roll all zeros) once into shared arrays; `nearestSample(x,y,z)` is a full 3D scan.
+- `SpaceMountainTrackRenderer` banks the rail/spine/strut geometry by rotating each sample's (right, up) basis around forward by `roll` — the rails visibly tilt into turns. Unconditional: the rails always show their bank.
+- `SpaceMountainCameraBank` runs every client tick — matches the rider's vehicle position to the nearest baked sample, targets `roll × strength`, EMA-smooths it (`SMOOTH_ALPHA=0.2`), eases back to 0 when the ride gate flips off.
+- `NraCameraRollMixin` injects at `GameRenderer.renderLevel` HEAD and post-multiplies that roll into `camera.rotation()`, from which `renderLevel` builds the world modelview and frustum — so the whole view banks while the 2D HUD pass stays level. HEAD of `renderLevel` is reached *after* SmoothCoasters rewrites the camera at `updateCamera` RETURN (`camera.rotation().set(...)`), so our bank lands on top instead of being overwritten.
+
+**Config** (Modifications → Space Mountain): **Camera Banking** toggle (`spaceMountainBanking`, default on) and **Camera Bank Strength** 0-100% slider (`spaceMountainBankStrength`, default 60). Both gate/scale only the *camera* roll — the rails bank regardless. Read live each tick, so the in-game slider is the tuning knob.
+
+**Preliminary — still tuning.** Bake constants are at the top of `bake-roll.py`; re-run it on `dome_track.bin` to retune the roll shape. The roll sign is negated in `compute_roll` so the bank is inward — you lean *into* turns. The renderer and camera both read the baked value, so they flip together and stay consistent.
+
 ## `SpaceMountainEntityHider`
 
 A static whitelist of `(itemId, damage)` helmet signatures (e.g. the TIE Fighter / X-Wing shoulder-pet props, both `minecraft:diamond_sword` with custom-model damage). `NraEntityRendererHideMixin` queries `shouldHide(stand)` and skips rendering matching armor stands while riding.
@@ -100,7 +115,7 @@ A static whitelist of `(itemId, damage)` helmet signatures (e.g. the TIE Fighter
 |---|---|---|
 | `dome_overlay.bin` | `SpaceMountainBlockOverride` | IFOV v1 — the dome block diff. |
 | `dome_borders.bin` | `SpaceMountainStarRenderer`, `SpaceMountainDiscoBall` | IFDB v1 baked dome-wall faces. The star renderer places its static stars on them; the disco ball uses them as the `watertightWallCells` projection mask. Pre-baked offline — the bake tool was removed (see "Removed"). |
-| `dome_track.bin` | `SpaceMountainTrackRenderer` | Recorded vehicle path — the rail/spine geometry is baked from this. |
+| `dome_track.bin` | `SpaceMountainTrackData` | Recorded vehicle path. IFTC **v2**: x/y/z/yaw/pitch + a signed per-sample bank `roll`. Track geometry and camera banking both read it. Roll added offline by `~/imf-debug-dumps-archive/bake-roll.py` (v1→v2). |
 | `dome_track_stars.bin` | `SpaceMountainStarRenderer` | Track-surface stars — `INCLUDE_TRACK_STARS=false`. |
 | `disco_balls.json` | `SpaceMountainDiscoBall` | Bundled default projectors — `load()` fallback when no config-dir file. |
 | `disco_exclusion.json` | `SpaceMountainDiscoBall` | Bundled default prismarine-cover cells — `loadExclusion()` fallback. |

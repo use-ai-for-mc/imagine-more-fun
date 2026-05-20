@@ -120,6 +120,13 @@ public final class SpaceMountainDiscoBall {
 
   private static long lastNanos;
 
+  // After the ride gate flips active, hold the star projection back this long so
+  // SpaceMountainBlockOverride seals the dome first — project() raycasts world blocks and a
+  // non-spinning ball caches its hits, so projecting against the un-sealed dome would stick.
+  private static final long PROJECTION_DELAY_NANOS = 1_000_000_000L; // 1 s
+  // System.nanoTime() when the gate last flipped active; 0 = inactive.
+  private static long activeSinceNanos;
+
   // Auto-spin: every AUTO_SPIN_INTERVAL_SEC the spin hands off to a random ball, never a repeat.
   private static volatile boolean autoSpinEnabled;
   private static volatile double autoSpinRate = 10.0;
@@ -582,9 +589,25 @@ public final class SpaceMountainDiscoBall {
     // disco balls would render everywhere the moment the jar is installed.
     // Dev exception: spDevPreview also renders in single-player (where isActive() is false) so the
     // effect can be tuned against the SP simulator world — see setSpDevPreview.
-    if (!SpaceMountainOverride.isActive() && !(mc.hasSingleplayerServer() && spDevPreview)) return;
+    boolean active = SpaceMountainOverride.isActive();
+    boolean devPreview = mc.hasSingleplayerServer() && spDevPreview;
+    if (!active && !devPreview) {
+      activeSinceNanos = 0L;
+      return;
+    }
 
     long now = System.nanoTime();
+
+    // Hold the projection back for PROJECTION_DELAY_NANOS after the gate flips active, so
+    // SpaceMountainBlockOverride has sealed the dome first (block replacement applies on the same
+    // activation tick). Dev preview skips the delay — no block replacement runs in single-player.
+    if (active && !devPreview) {
+      if (activeSinceNanos == 0L) activeSinceNanos = now;
+      if (now - activeSinceNanos < PROJECTION_DELAY_NANOS) return;
+    } else {
+      activeSinceNanos = 0L;
+    }
+
     double dt = lastNanos == 0L ? 0.0 : Math.min((now - lastNanos) / 1.0e9, 0.1);
     lastNanos = now;
 
