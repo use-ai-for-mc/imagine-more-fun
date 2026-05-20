@@ -158,7 +158,14 @@ public class Page2VisualPreferences extends WizardPage {
     List<RenderBlock> disabledCol = new java.util.ArrayList<>();
     disabledCol.add(image(img0, 314, 61));
     disabledCol.add(
-        text(ccModeLine("Disabled", ClosedCaptionMode.NONE, current, "Keep CC in chat")));
+        text(ccModeLine("In Chat", ClosedCaptionMode.NONE, current, "Keep CC in chat")));
+    disabledCol.add(
+        text(
+            ccModeLine(
+                "Hidden",
+                ClosedCaptionMode.HIDDEN,
+                current,
+                "Suppress CC from both chat and overlay")));
     blocks.add(row(VerticalAlignment.CENTER, column(disabledCol.toArray(new RenderBlock[0]))));
 
     blocks.add(spacer(10));

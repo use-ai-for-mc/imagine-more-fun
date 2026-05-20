@@ -42,11 +42,17 @@ public class NraChatListenerMixin {
 
     String msg = message.getString();
 
-    if (msg.startsWith(CC_MARKER)
-        && ModConfig.currentSetting.closedCaptionMode != ClosedCaptionMode.NONE) {
-      handleClosedCaption(message);
-      ci.cancel();
-      return;
+    if (msg.startsWith(CC_MARKER)) {
+      ClosedCaptionMode mode = ModConfig.currentSetting.closedCaptionMode;
+      if (mode == ClosedCaptionMode.HIDDEN) {
+        ci.cancel();
+        return;
+      }
+      if (mode != ClosedCaptionMode.NONE) {
+        handleClosedCaption(message);
+        ci.cancel();
+        return;
+      }
     }
     if (ModConfig.currentSetting.hideLovePotionMessages && msg.contains(": §d§o")) {
       ci.cancel();

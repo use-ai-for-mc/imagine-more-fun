@@ -122,7 +122,8 @@ public abstract class NraGuiMixin {
       ci.cancel();
       return;
     }
-    if (ModConfig.currentSetting.closedCaptionMode == ClosedCaptionMode.NONE) {
+    ClosedCaptionMode ccMode = ModConfig.currentSetting.closedCaptionMode;
+    if (ccMode == ClosedCaptionMode.NONE || ccMode == ClosedCaptionMode.HIDDEN) {
       return;
     }
     if (!ClosedCaptionHolder.getInstance().shouldDisplay()) {
@@ -140,7 +141,8 @@ public abstract class NraGuiMixin {
     if (!NotRidingAlertClient.isImagineFunServer()) {
       return;
     }
-    if (ModConfig.currentSetting.closedCaptionMode == ClosedCaptionMode.NONE) {
+    ClosedCaptionMode ccMode = ModConfig.currentSetting.closedCaptionMode;
+    if (ccMode == ClosedCaptionMode.NONE || ccMode == ClosedCaptionMode.HIDDEN) {
       return;
     }
 
