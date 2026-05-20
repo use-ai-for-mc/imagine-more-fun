@@ -1,7 +1,7 @@
 package com.chenweikeng.imf.nra.spacemountain;
 
 import com.chenweikeng.imf.nra.NotRidingAlertClient;
-import com.chenweikeng.imf.nra.config.ModConfig;
+import com.chenweikeng.imf.nra.audio.OpenAudioMcService;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.sounds.AbstractTickableSoundInstance;
@@ -39,8 +39,19 @@ import net.minecraft.world.entity.Entity;
  * always "inside" them; no 3D positional panning.
  *
  * <p>Asset levels: pre-recorded sources differ in loudness, so each loop has its own {@code MAX_*}
- * ceiling. {@code MAX_RAIL_GAIN} is intentionally low because the source (a real train recorded at
- * speed) is bright and would dominate the mix at full output.
+ * ceiling. The source files were peak-normalized to roughly -2 dB / 0 dB (wind / rail) during the
+ * project's audio bake — the {@code MAX_*_GAIN} constants below are tuned against those peaks so
+ * the per-instance volume stays under {@code SoundEngine}'s 1.0 clamp across the full OAM range,
+ * while still reproducing the legacy "rideAudioVolume=100%" loudness at the OAM=25% calibration
+ * point.
+ *
+ * <p><b>Master loudness tracks OpenAudioMC.</b> The output is scaled by {@link
+ * OpenAudioMcService#getCurrentVolume()} so the wind and rail loops grow louder when the user
+ * cranks the OAM music slider and quieter when they pull it down — both layers stay in balance
+ * without a separate config knob. Calibration: OAM=25% reproduces the legacy "rideAudioVolume=100%"
+ * loudness; OAM=100% is roughly 4× that. The scaling is linear in OAM up to where the per-instance
+ * volume hits 1.0 (≈ OAM=100 for wind, ≈ OAM=87 for rail — rail's source asset was already nearly
+ * peak-normalized so its headroom is limited).
  */
 public final class SpaceMountainRideAudio {
 
@@ -49,10 +60,13 @@ public final class SpaceMountainRideAudio {
   private static final Identifier RAIL_ID =
       Identifier.fromNamespaceAndPath("imaginemorefun", "ride.rail_friction");
 
-  // Per-loop output ceilings. MAX_RAIL_GAIN is intentionally low — the rail source (a real train
-  // recorded at speed) is bright and would dominate the mix at full output.
-  private static final float MAX_WIND_GAIN = 0.40f;
-  private static final float MAX_RAIL_GAIN = 0.18f;
+  // Per-loop output ceilings. Tuned against the asset peaks (wind ≈ -2 dB, rail ≈ 0 dB) so the
+  // legacy "rideAudioVolume=100%" loudness lands at OAM=25%, and the per-instance volume stays
+  // under SoundEngine's 1.0 clamp across the OAM range. Rail's ceiling is lower than wind's
+  // because the rail source (a real train recorded at speed) is already louder and would
+  // dominate the mix at full output.
+  private static final float MAX_WIND_GAIN = 0.131f;
+  private static final float MAX_RAIL_GAIN = 0.141f;
 
   // Signal thresholds (blocks/s for speed; blocks/s² for sharpness).
   private static final double WIND_LO_SPEED = 8.0;
@@ -130,10 +144,16 @@ public final class SpaceMountainRideAudio {
     havePrev = true;
 
     double sharpness = smoothedSpeed * Math.toRadians(smoothedYawRate);
-    // Master scale from the "Ride Audio Volume" config slider (Modifications → Space Mountain).
-    // The slider reads 0-200% but maps 2x: 100% = 2.0x the recorded mix, 200% = 4.0x, 0% mutes.
-    // Read fresh each tick so changing the slider takes effect without a restart.
-    double volScale = ModConfig.currentSetting.rideAudioVolume / 50.0;
+    // Master scale = OpenAudioMC volume (0..100) / 12.5. Calibration: OAM=25 → 2.0, which
+    // reproduces the loudness the project had at the legacy "rideAudioVolume=100%" setting.
+    // OAM=50 → 4.0, OAM=100 → 8.0. The MAX_*_GAIN ceilings are sized against the amplified asset
+    // peaks so the per-instance volume stays under SoundEngine's 1.0 clamp across the OAM range —
+    // wind is fully linear to OAM=100, rail flattens slightly above OAM≈87 because its asset has
+    // less headroom. When OAM isn't reporting a volume yet (-1), fall back to the 25% baseline so
+    // users who haven't connected an OAM session still hear the calibrated mix.
+    int oamVol = OpenAudioMcService.getInstance().getCurrentVolume();
+    double effectiveVol = oamVol >= 0 ? oamVol : 25.0;
+    double volScale = effectiveVol / 12.5;
 
     if (windLoop != null) {
       double frac = smoothstep(WIND_LO_SPEED, WIND_HI_SPEED, smoothedSpeed);

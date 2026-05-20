@@ -17,10 +17,11 @@ import net.minecraft.world.phys.Vec3;
 
 /**
  * Renders the Space/Hyperspace Mountain coaster track as rail-and-spine tubes that hover just below
- * the vehicle path. Geometry is built at startup from {@link SpaceMountainTrackData} (the baked
- * recording {@code dome_track.bin}) — each sample's (yaw, pitch) becomes an orthonormal frame so
- * the rails curve and dive, and the per-sample {@code roll} (bank) angle rotates that frame around
- * its forward axis so the rails tilt into turns instead of lying flat.
+ * the vehicle path. Geometry is built at startup from the SM entry in {@link
+ * com.chenweikeng.imf.nra.coaster.CoasterTrackData} (the baked recording {@code dome_track.bin}) —
+ * each sample's (yaw, pitch) becomes an orthonormal frame so the rails curve and dive, and the
+ * per-sample {@code roll} (bank) angle rotates that frame around its forward axis so the rails tilt
+ * into turns instead of lying flat.
  *
  * <p>Render type is {@link RenderTypes#entityTranslucent} — lightmap-respecting and depth-tested,
  * drawn at a low fixed lightmap coord with vertex colour modulated to a dim dark-grey metal ({@code
@@ -111,7 +112,10 @@ public final class SpaceMountainTrackRenderer {
 
   private static void loadAndBuild() {
     try {
-      int n = SpaceMountainTrackData.count;
+      com.chenweikeng.imf.nra.coaster.CoasterTrackData.TrackSamples samples =
+          com.chenweikeng.imf.nra.coaster.CoasterTrackData.forRide(
+              com.chenweikeng.imf.nra.ride.RideName.SPACE_MOUNTAIN);
+      int n = samples.count;
       if (n < 2) {
         NotRidingAlertClient.LOGGER.error(
             "[SpaceMountainTrackRenderer] no track data — track will not render");
@@ -125,12 +129,12 @@ public final class SpaceMountainTrackRenderer {
       float[] pitch = new float[n];
       float[] roll = new float[n];
       for (int i = 0; i < n; i++) {
-        x[i] = SpaceMountainTrackData.x[i];
-        y[i] = SpaceMountainTrackData.y[i] + VEHICLE_Y_OFFSET;
-        z[i] = SpaceMountainTrackData.z[i];
-        yaw[i] = SpaceMountainTrackData.yaw[i];
-        pitch[i] = SpaceMountainTrackData.pitch[i];
-        roll[i] = SpaceMountainTrackData.roll[i];
+        x[i] = samples.x[i];
+        y[i] = samples.y[i] + VEHICLE_Y_OFFSET;
+        z[i] = samples.z[i];
+        yaw[i] = samples.yaw[i];
+        pitch[i] = samples.pitch[i];
+        roll[i] = samples.roll[i];
       }
 
       // For each sample build an orthonormal basis (forward, right, up) from yaw/pitch, then

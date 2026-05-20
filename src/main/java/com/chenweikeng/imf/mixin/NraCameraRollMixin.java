@@ -1,6 +1,6 @@
 package com.chenweikeng.imf.mixin;
 
-import com.chenweikeng.imf.nra.spacemountain.SpaceMountainCameraBank;
+import com.chenweikeng.imf.nra.coaster.CoasterCameraBank;
 import net.minecraft.client.Camera;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.renderer.GameRenderer;
@@ -11,13 +11,13 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Rolls the camera through banked Space/Hyperspace Mountain turns.
+ * Rolls the camera through banked coaster turns — any ride that has a baked track with per-sample
+ * roll, gated per-ride via {@link CoasterCameraBank}.
  *
  * <p>Injects at the HEAD of {@link GameRenderer#renderLevel} and post-multiplies a roll about the
- * view-forward axis into {@code camera.rotation()}, using the angle from {@link
- * SpaceMountainCameraBank}. {@code renderLevel} builds the world modelview straight from {@code
- * camera.rotation()} (and the frustum from it), so this banks the whole view while the separate 2D
- * HUD pass stays level.
+ * view-forward axis into {@code camera.rotation()}, using the angle from {@link CoasterCameraBank}.
+ * {@code renderLevel} builds the world modelview straight from {@code camera.rotation()} (and the
+ * frustum from it), so this banks the whole view while the separate 2D HUD pass stays level.
  *
  * <p><b>Why {@code renderLevel} HEAD and not {@code Camera.setRotation}:</b> SmoothCoasters injects
  * at the RETURN of {@code GameRenderer.updateCamera} and there does {@code camera.rotation().set(
@@ -34,7 +34,7 @@ public abstract class NraCameraRollMixin {
 
   @Inject(method = "renderLevel", at = @At("HEAD"))
   private void imf$applyBankRoll(DeltaTracker deltaTracker, CallbackInfo ci) {
-    float rollDeg = SpaceMountainCameraBank.getCurrentRoll();
+    float rollDeg = CoasterCameraBank.getCurrentRoll();
     if (Math.abs(rollDeg) > 0.01f) {
       Camera camera = getMainCamera();
       if (camera != null) {

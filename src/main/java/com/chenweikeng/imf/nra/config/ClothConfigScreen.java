@@ -337,20 +337,6 @@ public class ClothConfigScreen {
             .setSaveConsumer(newValue -> profile.spaceMountainEnhancements = newValue)
             .build();
     spaceMountainGroup.add(spaceMountainEnabledEntry);
-    // Ride Audio Volume — shown only while the master Space Mountain toggle above is on.
-    spaceMountainGroup.add(
-        entryBuilder
-            .startIntSlider(
-                Component.translatable("config.not-riding-alert.rideAudioVolume"),
-                profile.rideAudioVolume,
-                0,
-                200)
-            .setDefaultValue(ConfigDefaults.RIDE_AUDIO_VOLUME)
-            .setTooltip(Component.translatable("config.not-riding-alert.rideAudioVolume.tooltip"))
-            .setTextGetter(value -> Component.literal(value + "%"))
-            .setSaveConsumer(newValue -> profile.rideAudioVolume = newValue)
-            .setDisplayRequirement(Requirement.isValue(spaceMountainEnabledEntry, true))
-            .build());
     var spaceMountainBankingEntry =
         entryBuilder
             .startBooleanToggle(

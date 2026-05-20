@@ -47,7 +47,6 @@ public final class ConfigDefaults {
   public static final boolean RANDOM_RIDE_OVERRIDE = true;
   public static final RideHubMode RIDE_HUB_MODE = RideHubMode.RIDE_PLAN;
   public static final boolean SPACE_MOUNTAIN_ENHANCEMENTS = true;
-  public static final int RIDE_AUDIO_VOLUME = 100;
   public static final boolean SPACE_MOUNTAIN_BANKING = true;
   public static final int SPACE_MOUNTAIN_BANK_STRENGTH = 60;
 }
