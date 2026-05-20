@@ -638,7 +638,7 @@ public class ClothConfigScreen {
 
     for (RideName ride : RideName.sortedByDisplayName()) {
       boolean currentValue = !profile.hiddenRides.contains(ride.toMatchString());
-      rides.addEntry(
+      var visibilityEntry =
           entryBuilder
               .startBooleanToggle(formatRideLabel(ride), currentValue)
               .setDefaultValue(!ride.isSeasonal())
@@ -651,6 +651,30 @@ public class ClothConfigScreen {
                       profile.hiddenRides.remove(ride.toMatchString());
                     }
                   })
+              .build();
+      rides.addEntry(visibilityEntry);
+
+      RideMaxGoalOverride currentGoalOverride =
+          profile.rideGoalOverrides.getOrDefault(
+              ride.toMatchString(), RideMaxGoalOverride.USE_SYSTEM);
+      rides.addEntry(
+          entryBuilder
+              .startEnumSelector(
+                  Component.literal("  ↳ Max goal"), RideMaxGoalOverride.class, currentGoalOverride)
+              .setDefaultValue(RideMaxGoalOverride.USE_SYSTEM)
+              .setTooltip(
+                  Component.translatable("config.not-riding-alert.rideGoalOverride.tooltip"))
+              .setEnumNameProvider(
+                  override -> Component.literal(((RideMaxGoalOverride) override).getDisplayName()))
+              .setSaveConsumer(
+                  newValue -> {
+                    if (newValue == null || newValue == RideMaxGoalOverride.USE_SYSTEM) {
+                      profile.rideGoalOverrides.remove(ride.toMatchString());
+                    } else {
+                      profile.rideGoalOverrides.put(ride.toMatchString(), newValue);
+                    }
+                  })
+              .setDisplayRequirement(Requirement.isValue(visibilityEntry, true))
               .build());
     }
 

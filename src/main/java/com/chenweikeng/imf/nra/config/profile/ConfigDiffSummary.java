@@ -186,6 +186,9 @@ public final class ConfigDiffSummary {
     if (!Objects.equals(a.advanceNoticeSeconds, b.advanceNoticeSeconds)) {
       diffs.add("advance notice changed");
     }
+    if (!Objects.equals(a.rideGoalOverrides, b.rideGoalOverrides)) {
+      diffs.add("ride goal overrides changed");
+    }
     // Skip color diffs — too noisy for a brief summary
 
     return diffs;

@@ -82,7 +82,6 @@ public final class DailyPlanGenerator {
   }
 
   public static List<RideName> buildEligibleRides() {
-    int maxGoal = ModConfig.currentSetting.maxGoal.getValue();
     boolean onlyAutograbbing = ModConfig.currentSetting.onlyAutograbbing;
     RideCountManager counts = RideCountManager.getInstance();
 
@@ -97,7 +96,7 @@ public final class DailyPlanGenerator {
       if (ride.getRideTime() >= 99999) {
         continue;
       }
-      if (counts.getRideCount(ride) >= maxGoal) {
+      if (counts.getRideCount(ride) >= ModConfig.currentSetting.getMaxGoalForRide(ride)) {
         continue;
       }
       eligible.add(ride);

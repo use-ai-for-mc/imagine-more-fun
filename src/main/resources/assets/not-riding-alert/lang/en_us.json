@@ -45,6 +45,7 @@
   "config.not-riding-alert.rideDisplayCount.tooltip": "Number of rides to show in the tracker (1-60)",
   "config.not-riding-alert.category.rideDisplay": "Rides",
   "config.not-riding-alert.rideDisplay.tooltip": "Toggle whether this ride appears in the tracker",
+  "config.not-riding-alert.rideGoalOverride.tooltip": "Override the system max goal for this ride. 'Use system' falls back to the global setting (capped at 10K); 20K/50K/100K let this ride exceed the system cap.",
   "config.not-riding-alert.minRideTimeMinutes": "Minimum ride time filter (minutes)",
   "config.not-riding-alert.minRideTimeMinutes.tooltip": "Do not display rides lower than this ride time in the tracker (0 = no filter)",
   "config.not-riding-alert.maxGoal": "Maximum ride goals",

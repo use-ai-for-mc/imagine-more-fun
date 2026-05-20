@@ -40,14 +40,14 @@ public class StrategyCalculator {
 
       int currentCount = countManager.getRideCount(ride);
 
-      int maxGoal = ModConfig.currentSetting.maxGoal.getValue();
+      int maxGoal = ModConfig.currentSetting.getMaxGoalForRide(ride);
 
       if (currentCount >= maxGoal) {
         continue;
       }
 
       // Find the next goal
-      int nextGoal = findNextGoal(currentCount);
+      int nextGoal = findNextGoal(currentCount, maxGoal);
 
       if (nextGoal == -1) {
         continue; // No more goals
@@ -132,8 +132,8 @@ public class StrategyCalculator {
     }
     RideCountManager countManager = RideCountManager.getInstance();
     int currentCount = countManager.getRideCount(ride);
-    int nextGoal = findNextGoal(currentCount);
-    int maxGoal = ModConfig.currentSetting.maxGoal.getValue();
+    int maxGoal = ModConfig.currentSetting.getMaxGoalForRide(ride);
+    int nextGoal = findNextGoal(currentCount, maxGoal);
 
     int rideTimeSeconds = ride.getRideTime();
     if (rideTimeSeconds >= 99999) {
@@ -167,13 +167,14 @@ public class StrategyCalculator {
   }
 
   /**
-   * Finds the next goal for a given current count.
+   * Finds the next goal for a given current count, ramping up through the goal ladder until {@code
+   * maxGoal} is reached.
    *
    * @param currentCount The current ride count
+   * @param maxGoal The effective max goal for the ride (per-ride override or system value)
    * @return The next goal, or -1 if no more goals (already at max)
    */
-  private static int findNextGoal(int currentCount) {
-    int maxGoal = ModConfig.currentSetting.maxGoal.getValue();
+  private static int findNextGoal(int currentCount, int maxGoal) {
     for (int goal : BASE_GOALS) {
       if (currentCount < goal) {
         return goal;
@@ -182,6 +183,9 @@ public class StrategyCalculator {
     if (currentCount < 1000) return 1000;
     if (maxGoal >= 5000 && currentCount < 5000) return 5000;
     if (maxGoal >= 10000 && currentCount < 10000) return 10000;
+    if (maxGoal >= 20000 && currentCount < 20000) return 20000;
+    if (maxGoal >= 50000 && currentCount < 50000) return 50000;
+    if (maxGoal >= 100000 && currentCount < 100000) return 100000;
     return -1;
   }
 }

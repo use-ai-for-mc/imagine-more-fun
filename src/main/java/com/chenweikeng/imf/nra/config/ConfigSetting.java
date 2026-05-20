@@ -50,6 +50,7 @@ public class ConfigSetting {
   public HideCrosshairMode hideCrosshairMode = ConfigDefaults.HIDE_CROSSHAIR_MODE;
   public TrackerDisplayMode trackerDisplayMode = ConfigDefaults.TRACKER_DISPLAY_MODE;
   public MaxGoal maxGoal = ConfigDefaults.MAX_GOAL;
+  public Map<String, RideMaxGoalOverride> rideGoalOverrides = new HashMap<>();
   public SortingRules sortingRules = ConfigDefaults.SORTING_RULES;
   public Map<String, Integer> advanceNoticeSeconds = new HashMap<>();
   public boolean showSessionStats = ConfigDefaults.SHOW_SESSION_STATS;
@@ -64,6 +65,18 @@ public class ConfigSetting {
 
   public int getAdvanceNoticeSeconds(RideName ride) {
     return advanceNoticeSeconds.getOrDefault(ride.toMatchString(), 0);
+  }
+
+  /**
+   * Returns the effective maximum ride goal for the given ride: the per-ride override if one is set
+   * and isn't {@link RideMaxGoalOverride#USE_SYSTEM}, otherwise the global {@link #maxGoal}.
+   */
+  public int getMaxGoalForRide(RideName ride) {
+    RideMaxGoalOverride override = rideGoalOverrides.get(ride.toMatchString());
+    if (override != null && override != RideMaxGoalOverride.USE_SYSTEM) {
+      return override.getValue();
+    }
+    return maxGoal.getValue();
   }
 
   public void resetToDefaults() {
@@ -107,6 +120,7 @@ public class ConfigSetting {
     hideCrosshairMode = ConfigDefaults.HIDE_CROSSHAIR_MODE;
     trackerDisplayMode = ConfigDefaults.TRACKER_DISPLAY_MODE;
     maxGoal = ConfigDefaults.MAX_GOAL;
+    rideGoalOverrides = new HashMap<>();
     sortingRules = ConfigDefaults.SORTING_RULES;
     advanceNoticeSeconds = new HashMap<>();
     showSessionStats = ConfigDefaults.SHOW_SESSION_STATS;
@@ -157,6 +171,8 @@ public class ConfigSetting {
     copy.hideCrosshairMode = this.hideCrosshairMode;
     copy.trackerDisplayMode = this.trackerDisplayMode;
     copy.maxGoal = this.maxGoal;
+    copy.rideGoalOverrides =
+        this.rideGoalOverrides != null ? new HashMap<>(this.rideGoalOverrides) : new HashMap<>();
     copy.sortingRules = this.sortingRules;
     copy.advanceNoticeSeconds =
         this.advanceNoticeSeconds != null
@@ -224,6 +240,7 @@ public class ConfigSetting {
         && Objects.equals(soundId, that.soundId)
         && Objects.equals(minRideTimeMinutes, that.minRideTimeMinutes)
         && Objects.equals(hiddenRides, that.hiddenRides)
+        && Objects.equals(rideGoalOverrides, that.rideGoalOverrides)
         && Objects.equals(advanceNoticeSeconds, that.advanceNoticeSeconds);
   }
 
@@ -265,6 +282,7 @@ public class ConfigSetting {
         hideCrosshairMode,
         trackerDisplayMode,
         maxGoal,
+        rideGoalOverrides,
         sortingRules,
         advanceNoticeSeconds,
         showSessionStats,
