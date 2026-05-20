@@ -342,7 +342,221 @@ public class NotRidingAlertClient implements ClientModInitializer {
                                                 "\u00A76\u2728 \u00A7e[IMF] \u00A7f" + msg)));
                           }
                           return 1;
-                        })));
+                        }))
+            .then(
+                ClientCommandManager.literal("list")
+                    .executes(context -> runAudioList(false))
+                    .then(
+                        ClientCommandManager.literal("all")
+                            .executes(context -> runAudioList(true))))
+            .then(ClientCommandManager.literal("names").executes(context -> runAudioNames()))
+            .then(
+                ClientCommandManager.literal("console")
+                    .executes(context -> runConsoleDump(30))
+                    .then(
+                        ClientCommandManager.argument(
+                                "n",
+                                com.mojang.brigadier.arguments.IntegerArgumentType.integer(1, 300))
+                            .executes(
+                                context ->
+                                    runConsoleDump(
+                                        com.mojang.brigadier.arguments.IntegerArgumentType
+                                            .getInteger(context, "n")))))
+            .then(
+                ClientCommandManager.literal("stopall")
+                    .executes(
+                        context -> {
+                          OpenAudioMcService.getInstance()
+                              .stopAllAudio()
+                              .thenAccept(
+                                  result -> {
+                                    int n = result == null ? 0 : result.optInt("value", 0);
+                                    sendAudioChat("Stopped " + n + " audio element(s).");
+                                  });
+                          return 1;
+                        }))
+            .then(
+                ClientCommandManager.literal("stop")
+                    .then(
+                        ClientCommandManager.argument(
+                                "id", com.mojang.brigadier.arguments.IntegerArgumentType.integer(1))
+                            .executes(
+                                context -> {
+                                  int id =
+                                      com.mojang.brigadier.arguments.IntegerArgumentType.getInteger(
+                                          context, "id");
+                                  OpenAudioMcService.getInstance()
+                                      .stopAudio(id)
+                                      .thenAccept(
+                                          result -> {
+                                            boolean ok =
+                                                result != null && result.optBoolean("value", false);
+                                            sendAudioChat(
+                                                ok ? "Stopped #" + id : "No audio with id " + id);
+                                          });
+                                  return 1;
+                                })))
+            .then(
+                ClientCommandManager.literal("vol")
+                    .then(
+                        ClientCommandManager.argument(
+                                "id", com.mojang.brigadier.arguments.IntegerArgumentType.integer(1))
+                            .then(
+                                ClientCommandManager.argument(
+                                        "pct",
+                                        com.mojang.brigadier.arguments.IntegerArgumentType.integer(
+                                            0, 100))
+                                    .executes(
+                                        context -> {
+                                          int id =
+                                              com.mojang.brigadier.arguments.IntegerArgumentType
+                                                  .getInteger(context, "id");
+                                          int pct =
+                                              com.mojang.brigadier.arguments.IntegerArgumentType
+                                                  .getInteger(context, "pct");
+                                          OpenAudioMcService.getInstance()
+                                              .setAudioVolume(id, pct / 100.0)
+                                              .thenAccept(
+                                                  result -> {
+                                                    boolean ok =
+                                                        result != null
+                                                            && result.optBoolean("value", false);
+                                                    sendAudioChat(
+                                                        ok
+                                                            ? "Set #"
+                                                                + id
+                                                                + " volume to "
+                                                                + pct
+                                                                + "%"
+                                                            : "No audio with id " + id);
+                                                  });
+                                          return 1;
+                                        })))));
+  }
+
+  /**
+   * /oa list and /oa list all \u2014 fetches the live audio registry and prints a one-line summary
+   * per element. Skips data: URLs and ended elements unless `all` is passed.
+   */
+  private static int runAudioList(boolean includeAll) {
+    OpenAudioMcService service = OpenAudioMcService.getInstance();
+    java.util.concurrent.CompletableFuture<org.json.JSONObject> future =
+        includeAll ? service.listAudioAll() : service.listAudio();
+    future.thenAccept(
+        result -> {
+          if (result == null) {
+            sendAudioChat("Audio bridge not running.");
+            return;
+          }
+          org.json.JSONArray arr = result.optJSONArray("value");
+          if (arr == null || arr.isEmpty()) {
+            sendAudioChat(includeAll ? "Registry empty." : "No active audio.");
+            return;
+          }
+          sendAudioChat(
+              "Audio registry (" + arr.length() + (includeAll ? ", including data/ended):" : "):"));
+          for (int i = 0; i < arr.length() && i < 30; i++) {
+            org.json.JSONObject e = arr.optJSONObject(i);
+            if (e == null) continue;
+            int id = e.optInt("id", -1);
+            String tag = e.optString("tag", "?");
+            double vol = e.optDouble("volume", 0);
+            boolean paused = e.optBoolean("paused", true);
+            double dur = e.optDouble("duration", -1);
+            String src = e.optString("src", "");
+            String shortSrc = src.length() > 60 ? src.substring(src.length() - 60) : src;
+            String line =
+                String.format(
+                    java.util.Locale.ROOT,
+                    "#%d %s vol=%.2f %s dur=%s \u2026%s",
+                    id,
+                    tag,
+                    vol,
+                    paused ? "paused" : "play",
+                    Double.isNaN(dur) || dur < 0 ? "?" : String.format("%.1fs", dur),
+                    shortSrc);
+            sendAudioChat(line);
+          }
+        });
+    return 1;
+  }
+
+  private static void sendAudioChat(String msg) {
+    Minecraft client = Minecraft.getInstance();
+    if (client == null) return;
+    client.execute(
+        () ->
+            client
+                .gui
+                .getChat()
+                .addMessage(
+                    net.minecraft.network.chat.Component.literal(
+                        "\u00A76\u2728 \u00A7e[IMF] \u00A7f" + msg)));
+  }
+
+  /**
+   * /oa names \u2014 list registry elements enriched with the soundId recovered from the OAM
+   * socket.io ClientCreateMediaPayload. Elements created before the WS hook landed (or whose
+   * CREATE_MEDIA frame went through a different code path) show {@code soundId: null} \u2014 that's
+   * not a bug, the data simply isn't on the wire for them anymore.
+   */
+  private static int runAudioNames() {
+    OpenAudioMcService.getInstance()
+        .namesAudio()
+        .thenAccept(
+            result -> {
+              if (result == null) {
+                sendAudioChat("Audio bridge not running.");
+                return;
+              }
+              org.json.JSONArray arr = result.optJSONArray("value");
+              if (arr == null || arr.isEmpty()) {
+                sendAudioChat("No registry entries.");
+                return;
+              }
+              sendAudioChat("Audio with names (" + arr.length() + "):");
+              for (int i = 0; i < arr.length() && i < 30; i++) {
+                org.json.JSONObject e = arr.optJSONObject(i);
+                if (e == null) continue;
+                int id = e.optInt("id", -1);
+                double vol = e.optDouble("volume", 0);
+                boolean paused = e.optBoolean("paused", true);
+                String soundId = e.optString("soundId", "null");
+                if ("null".equals(soundId) || soundId.isEmpty()) soundId = "?";
+                double dur = e.optDouble("duration", -1);
+                String line =
+                    String.format(
+                        java.util.Locale.ROOT,
+                        "#%d %s vol=%.2f %s%s",
+                        id,
+                        soundId,
+                        vol,
+                        paused ? "paused" : "play",
+                        Double.isNaN(dur) || dur < 0 ? "" : " " + String.format("%.0fs", dur));
+                sendAudioChat(line);
+              }
+            });
+    return 1;
+  }
+
+  /** /oa console [n] \u2014 dump the last n captured WKWebView console messages. */
+  private static int runConsoleDump(int n) {
+    java.util.List<com.chenweikeng.imf.nra.audio.WebViewBridge.ConsoleLog> logs =
+        OpenAudioMcService.getInstance().recentConsoleLogs(n);
+    if (logs.isEmpty()) {
+      sendAudioChat("Console buffer empty (bridge not running, or no messages yet).");
+      return 1;
+    }
+    sendAudioChat("Last " + logs.size() + " console line(s):");
+    long now = System.currentTimeMillis();
+    for (com.chenweikeng.imf.nra.audio.WebViewBridge.ConsoleLog log : logs) {
+      long ageSec = (now - log.timestampMs()) / 1000;
+      String msg = log.message();
+      if (msg.length() > 220) msg = msg.substring(0, 220) + "\u2026";
+      sendAudioChat(
+          String.format(java.util.Locale.ROOT, "[%02ds %s] %s", ageSec, log.level(), msg));
+    }
+    return 1;
   }
 
   private static void registerRideReportCommand(

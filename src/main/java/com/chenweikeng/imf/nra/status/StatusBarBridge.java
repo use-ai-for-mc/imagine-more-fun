@@ -4,13 +4,10 @@ import com.chenweikeng.imf.ImfStorage;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.json.JSONObject;
@@ -165,37 +162,11 @@ public class StatusBarBridge {
 
     String binaryName = isMac ? "status-helper" : "status-helper.exe";
     Path dir = ImfStorage.nativeHelperDir();
-
-    Path userPath = dir.resolve(binaryName);
-    if (Files.isExecutable(userPath)) {
-      return userPath;
-    }
-
-    return extractResource(
-        "/native/" + (isMac ? "macos/" : "windows/") + binaryName, dir.resolve(binaryName));
-  }
-
-  private Path extractResource(String resourcePath, Path targetPath) {
-    try (InputStream in = StatusBarBridge.class.getResourceAsStream(resourcePath)) {
-      if (in == null) {
-        LOGGER.warn("Status helper resource not found in JAR: {}", resourcePath);
-        return null;
-      }
-      Files.createDirectories(targetPath.getParent());
-      Path tempPath =
-          targetPath.resolveSibling(
-              targetPath.getFileName() + ".tmp" + Thread.currentThread().threadId());
-      try {
-        Files.copy(in, tempPath, StandardCopyOption.REPLACE_EXISTING);
-        tempPath.toFile().setExecutable(true);
-        Files.move(tempPath, targetPath, StandardCopyOption.REPLACE_EXISTING);
-      } finally {
-        Files.deleteIfExists(tempPath);
-      }
-      return targetPath;
-    } catch (IOException e) {
-      LOGGER.error("Failed to extract status helper {}: {}", resourcePath, e.getMessage());
-      return null;
-    }
+    // Hash-checked extraction: see NativeHelperExtractor — re-extracts on mod-version mismatch.
+    return com.chenweikeng.imf.NativeHelperExtractor.findOrExtract(
+        StatusBarBridge.class,
+        "/native/" + (isMac ? "macos/" : "windows/") + binaryName,
+        dir.resolve(binaryName),
+        true);
   }
 }

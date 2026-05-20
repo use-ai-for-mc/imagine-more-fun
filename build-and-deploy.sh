@@ -18,6 +18,10 @@ SOURCE_JAR="${PROJECT_DIR}/build/libs/${JAR_NAME}"
 TARGET_JAR="${TARGET_DIR}/${JAR_NAME}"
 
 # After first run, ImfMigration moves the native helpers here.
+# PrismLauncher (current launcher) and ModrinthApp (older launcher) use
+# different game-dir roots; clear both so a rebuilt helper is re-extracted from
+# the JAR on next launch regardless of which one the user runs.
+PRISM_NATIVE_CACHE_DIR="/Users/cusgadmin/Library/Application Support/PrismLauncher/instances/ImagineFun/.minecraft/config/imaginemorefun/native"
 NATIVE_CACHE_DIR="/Users/cusgadmin/Library/Application Support/ModrinthApp/profiles/ImagineFun/config/imaginemorefun/native"
 # Legacy NRA location — ImfMigration.runOnce() will have moved anything useful
 # away from here on first launch, but we clear it too in case a prior run left
@@ -68,7 +72,7 @@ if [ ! -f "${SOURCE_JAR}" ]; then
 fi
 
 # Clear cached native binaries so the updated ones from the JAR get extracted on next launch.
-for dir in "${NATIVE_CACHE_DIR}" "${LEGACY_NATIVE_CACHE_DIR}"; do
+for dir in "${PRISM_NATIVE_CACHE_DIR}" "${NATIVE_CACHE_DIR}" "${LEGACY_NATIVE_CACHE_DIR}"; do
     if [ -d "${dir}" ]; then
         echo "Clearing cached native binaries: ${dir}"
         rm -rf "${dir}"

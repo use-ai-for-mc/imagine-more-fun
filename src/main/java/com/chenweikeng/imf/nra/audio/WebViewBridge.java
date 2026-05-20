@@ -4,13 +4,11 @@ import com.chenweikeng.imf.ImfStorage;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -45,10 +43,16 @@ public class WebViewBridge {
   private static final Logger LOGGER = LoggerFactory.getLogger("WebViewBridge");
   private static final long EVAL_TIMEOUT_SECONDS = 10;
 
+  /** Max console messages retained for {@link #recentConsoleLogs(int)}. */
+  private static final int CONSOLE_BUFFER_SIZE = 300;
+
   /** Directory (under configDir) where we extract/cache native WebView helpers. */
   private static Path helperDir() {
     return ImfStorage.nativeHelperDir();
   }
+
+  /** One captured console line from the WKWebView (forwarded by the native helper). */
+  public record ConsoleLog(long timestampMs, String level, String message) {}
 
   private Process process;
   private BufferedWriter writer;
@@ -56,6 +60,7 @@ public class WebViewBridge {
   private volatile boolean running;
   private final Map<String, CompletableFuture<JSONObject>> pendingEvals = new ConcurrentHashMap<>();
   private final CompletableFuture<Void> readyFuture = new CompletableFuture<>();
+  private final java.util.Deque<ConsoleLog> consoleBuffer = new java.util.ArrayDeque<>();
 
   public boolean start() {
     Path helperPath = findHelperBinary();
@@ -152,6 +157,28 @@ public class WebViewBridge {
     return running && process != null && process.isAlive();
   }
 
+  /**
+   * Snapshot of the last {@code n} console messages forwarded from the WKWebView (newest last). The
+   * buffer is shared across all log levels — `log`/`info` lines that slf4j drops still land here,
+   * which is what makes the OpenAudioMC playlist/MediaTrack chatter retrievable via {@code /oa
+   * console}.
+   */
+  public java.util.List<ConsoleLog> recentConsoleLogs(int n) {
+    if (n <= 0) return java.util.List.of();
+    synchronized (consoleBuffer) {
+      int size = consoleBuffer.size();
+      if (n >= size) return new java.util.ArrayList<>(consoleBuffer);
+      int skip = size - n;
+      java.util.List<ConsoleLog> out = new java.util.ArrayList<>(n);
+      int i = 0;
+      for (ConsoleLog log : consoleBuffer) {
+        if (i++ < skip) continue;
+        out.add(log);
+      }
+      return out;
+    }
+  }
+
   private void sendCommand(JSONObject command) {
     if (writer == null || !isRunning()) {
       return;
@@ -214,6 +241,15 @@ public class WebViewBridge {
       case "console":
         String level = response.optString("level", "log");
         String msg = response.optString("message", "");
+        // Always retain in the ring buffer regardless of level so `/oa console` can
+        // surface the chatty `[Playlist …]` / `[MediaTrack …]` lines OAM emits at
+        // console.log — Java's slf4j routing only logs warn/error to the file.
+        synchronized (consoleBuffer) {
+          consoleBuffer.addLast(new ConsoleLog(System.currentTimeMillis(), level, msg));
+          while (consoleBuffer.size() > CONSOLE_BUFFER_SIZE) {
+            consoleBuffer.pollFirst();
+          }
+        }
         if ("error".equals(level) || "uncaught".equals(level) || "rejection".equals(level)) {
           LOGGER.warn("[JS {}] {}", level, msg);
         } else if ("warn".equals(level)) {
@@ -241,21 +277,13 @@ public class WebViewBridge {
     String binaryName = isMac ? "webview-helper" : "webview-helper.exe";
     Path dir = helperDir();
 
-    // 1. Check cached location first (previously extracted binary)
-    Path userPath = dir.resolve(binaryName);
-    if (Files.isExecutable(userPath)) {
-      LOGGER.debug("Using existing WebView helper at: {}", userPath);
-      return userPath;
-    }
-
-    // 2. Check alongside game JAR
+    // Check alongside the running game JAR first — explicit override for dev setups.
     Path gameDirPath = Path.of(binaryName);
     if (Files.isExecutable(gameDirPath)) {
       LOGGER.debug("Using existing WebView helper at: {}", gameDirPath);
       return gameDirPath;
     }
 
-    // 3. Extract pre-compiled binary from JAR resources
     if (isWin && !isWindowsDesktopRuntimeAvailable()) {
       LOGGER.error(
           "WebView helper requires .NET 8 Desktop Runtime on Windows."
@@ -263,11 +291,19 @@ public class WebViewBridge {
       return null;
     }
 
+    // Extract from the JAR; NativeHelperExtractor compares the JAR resource hash to a
+    // sidecar of the cached copy and re-extracts on mismatch — so a stale cached binary
+    // from a previous mod version cannot shadow the one we just shipped.
+    String resourcePath = "/native/" + (isMac ? "macos/" : "windows/") + binaryName;
     Path extracted =
-        extractResource(
-            "/native/" + (isMac ? "macos/" : "windows/") + binaryName, dir.resolve(binaryName));
+        com.chenweikeng.imf.NativeHelperExtractor.findOrExtract(
+            WebViewBridge.class, resourcePath, dir.resolve(binaryName), true);
     if (extracted != null && isWin) {
-      extractResource("/native/windows/WebView2Loader.dll", dir.resolve("WebView2Loader.dll"));
+      com.chenweikeng.imf.NativeHelperExtractor.findOrExtract(
+          WebViewBridge.class,
+          "/native/windows/WebView2Loader.dll",
+          dir.resolve("WebView2Loader.dll"),
+          false);
     }
     return extracted;
   }
@@ -289,37 +325,6 @@ public class WebViewBridge {
       return entries.anyMatch(p -> p.getFileName().toString().startsWith("8."));
     } catch (IOException e) {
       return false;
-    }
-  }
-
-  private Path extractResource(String resourcePath, Path targetPath) {
-    try (InputStream in = WebViewBridge.class.getResourceAsStream(resourcePath)) {
-      if (in == null) {
-        LOGGER.warn("Resource not found in JAR: {}", resourcePath);
-        return null;
-      }
-
-      Files.createDirectories(targetPath.getParent());
-      // Write to a temp file first, then atomically replace the target. This avoids
-      // the FileAlreadyExistsException race that occurs when multiple threads call
-      // Files.copy(..., REPLACE_EXISTING) concurrently (it internally does
-      // deleteIfExists + CREATE_NEW, which races).
-      Path tempPath =
-          targetPath.resolveSibling(
-              targetPath.getFileName() + ".tmp" + Thread.currentThread().getId());
-      try {
-        Files.copy(in, tempPath, StandardCopyOption.REPLACE_EXISTING);
-        tempPath.toFile().setExecutable(true);
-        Files.move(tempPath, targetPath, StandardCopyOption.REPLACE_EXISTING);
-      } finally {
-        Files.deleteIfExists(tempPath);
-      }
-
-      LOGGER.debug("Extracted resource {} to {}", resourcePath, targetPath);
-      return targetPath;
-    } catch (IOException e) {
-      LOGGER.error("Failed to extract resource {} to {}", resourcePath, targetPath, e);
-      return null;
     }
   }
 }

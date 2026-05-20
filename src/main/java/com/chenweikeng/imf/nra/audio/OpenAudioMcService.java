@@ -514,6 +514,67 @@ public class OpenAudioMcService {
     return bridge.evaluateJs(js);
   }
 
+  // ---- window.__nra_audio bridge ---------------------------------------------------------------
+  //
+  // The macOS WebViewHelper installs a per-element audio registry at document-start
+  // (window.__nra_audio). These helpers wrap evaluateJs to expose enumerate / stop /
+  // per-element-volume control on top of the React master-volume slider.
+  // Result shape: { value: [...summaries] } for list*, { value: <boolean> } for others.
+
+  private static final String AUDIO_LIST_JS =
+      "(function(){return window.__nra_audio?window.__nra_audio.list():[];})()";
+  private static final String AUDIO_LIST_ALL_JS =
+      "(function(){return window.__nra_audio?window.__nra_audio.listAll():[];})()";
+  private static final String AUDIO_NAMES_JS =
+      "(function(){return window.__nra_audio?window.__nra_audio.names():[];})()";
+  private static final String AUDIO_STOP_TPL =
+      "(function(){return !!(window.__nra_audio&&window.__nra_audio.stop(%d));})()";
+  private static final String AUDIO_STOP_ALL_JS =
+      "(function(){return window.__nra_audio?window.__nra_audio.stopAll():0;})()";
+  private static final String AUDIO_SET_VOLUME_TPL =
+      "(function(){return !!(window.__nra_audio&&window.__nra_audio.setVolume(%d,%s));})()";
+
+  /** Lists the audio elements the registry knows about. Skips data: URLs and ended elements. */
+  public CompletableFuture<JSONObject> listAudio() {
+    return evaluateJs(AUDIO_LIST_JS);
+  }
+
+  /** Lists every audio element including data: URLs (the NoSleep video) and ended elements. */
+  public CompletableFuture<JSONObject> listAudioAll() {
+    return evaluateJs(AUDIO_LIST_ALL_JS);
+  }
+
+  /** Stops one element by registry id (pauses and seeks to 0). */
+  public CompletableFuture<JSONObject> stopAudio(int id) {
+    return evaluateJs(String.format(AUDIO_STOP_TPL, id));
+  }
+
+  /** Pauses every non-data: element (preserves the NoSleep keep-alive video). */
+  public CompletableFuture<JSONObject> stopAllAudio() {
+    return evaluateJs(AUDIO_STOP_ALL_JS);
+  }
+
+  /** Sets per-element volume (0..1). The engine may overwrite this on the next tick. */
+  public CompletableFuture<JSONObject> setAudioVolume(int id, double v01) {
+    double clamped = Math.max(0.0, Math.min(1.0, v01));
+    return evaluateJs(String.format(java.util.Locale.ROOT, AUDIO_SET_VOLUME_TPL, id, clamped));
+  }
+
+  /**
+   * Returns the registry list enriched with the server-assigned {@code soundId} for each element
+   * (recovered from socket.io {@code ClientCreateMediaPayload} frames captured by the WS hook).
+   * Tracks whose CREATE_MEDIA frame predates the hook will have {@code soundId: null}.
+   */
+  public CompletableFuture<JSONObject> namesAudio() {
+    return evaluateJs(AUDIO_NAMES_JS);
+  }
+
+  /** Last n WKWebView console messages buffered by the bridge. Empty if not connected. */
+  public java.util.List<WebViewBridge.ConsoleLog> recentConsoleLogs(int n) {
+    if (bridge == null) return java.util.List.of();
+    return bridge.recentConsoleLogs(n);
+  }
+
   private void startMonitoring() {
     stopMonitoring();
     if (scheduler == null || scheduler.isShutdown()) {
@@ -562,6 +623,17 @@ public class OpenAudioMcService {
     String currentUrl = result.optString("currentUrl", "");
     boolean hasSession = result.optBoolean("hasSession", false);
     boolean wasConnected = isConnected;
+
+    // Server told us the session is over (via the "Your audio session has been ended" chat
+    // message). React typically keeps the volume slider mounted for ~3 s after the underlying
+    // socket dies, so a naive hasRangeInput check here would re-declare us connected and fire
+    // a misleading "Audio connected!" notification. Treat this as a soft terminate that drops
+    // the dead session URL but keeps the bridge subprocess alive, and request a fresh /audio
+    // so OpenAudioMC issues a brand-new signed URL.
+    if (serverEndedSession) {
+      handleServerEndedReconnect();
+      return;
+    }
 
     if (hasRangeInput) {
       // Track volume from the range input
@@ -615,16 +687,13 @@ public class OpenAudioMcService {
       }
     }
 
-    // Detect mid-session drop (was connected but volume slider disappeared)
+    // Detect mid-session drop (was connected but volume slider disappeared).
+    // serverEndedSession is handled by the early-return above, so it can't reach here.
     if (wasConnected && !hasRangeInput) {
       isConnected = false;
       ReminderHandler.getInstance().setAudioConnected(false);
 
-      if (serverEndedSession) {
-        // Server already told us the session is over — no point reconnecting
-        LOGGER.info("Audio session ended by server, closing gracefully");
-        handleFailure("server_ended");
-      } else if (midSessionDropAttempts < MAX_MID_SESSION_DROP_ATTEMPTS) {
+      if (midSessionDropAttempts < MAX_MID_SESSION_DROP_ATTEMPTS) {
         midSessionDropAttempts++;
         LOGGER.warn(
             "Audio session dropped, reconnecting (attempt {}/{})",
@@ -639,6 +708,40 @@ public class OpenAudioMcService {
             "Audio session lost after multiple reconnection attempts. Use /audio to reconnect.");
       }
     }
+  }
+
+  /**
+   * Soft-terminates the current session in response to a "Your audio session has been ended" chat
+   * message from the server, then schedules a single {@code /audio} request so the server issues a
+   * fresh signed URL. The bridge subprocess is kept alive — the new URL will be loaded into the
+   * existing WKWebView. If the user explicitly meant to end audio (e.g. they ran {@code /audio
+   * off}) they can run {@code /oa disconnect} within the retry window; the fresh /audio request
+   * will then no-op because savedSessionUrl is null and isActive=false.
+   */
+  private void handleServerEndedReconnect() {
+    LOGGER.info("Server ended the audio session; soft-terminating and requesting fresh /audio");
+    stopMonitoring();
+    isActive = false;
+    isConnected = false;
+    currentVolume = -1;
+    savedSessionUrl = null;
+    serverEndedSession = false;
+    midSessionDropAttempts = 0;
+    reconnectAttempts = 0;
+    ReminderHandler.getInstance().setAudioConnected(false);
+    notifyUser("Audio session ended by server. Requesting a fresh one...");
+
+    if (scheduler == null || scheduler.isShutdown()) {
+      scheduler =
+          Executors.newSingleThreadScheduledExecutor(
+              r -> {
+                Thread t = new Thread(r, "OpenAudioMC-Monitor");
+                t.setDaemon(true);
+                return t;
+              });
+    }
+    // Give the server 3 s to settle before asking for a new session URL.
+    scheduler.schedule(this::connectViaCommand, 3, TimeUnit.SECONDS);
   }
 
   private void handleFailure(String reason) {
