@@ -10,6 +10,9 @@
     <!-- StatusHelper is a sibling project under status/ with its own bin/obj. Keep
          MSBuild's default `**/*.cs` glob from descending into it. -->
     <DefaultItemExcludes>$(DefaultItemExcludes);status/**</DefaultItemExcludes>
+    <!-- When built framework-dependent, let the host roll forward onto a newer major
+         (.NET 9/10/…) instead of the default "Minor" policy that refuses to cross majors. -->
+    <RollForward>LatestMajor</RollForward>
   </PropertyGroup>
 
   <ItemGroup>

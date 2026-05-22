@@ -28,6 +28,7 @@ public final class StatusBarController {
   private StatusBarBridge bridge;
   private final AtomicBoolean starting = new AtomicBoolean(false);
   private volatile boolean shutdownHookRegistered;
+  private volatile boolean disabledForSession;
   private String lastTextSent = "";
 
   private StatusBarController() {}
@@ -97,6 +98,12 @@ public final class StatusBarController {
   }
 
   private void ensureStarted() {
+    // A prior launch attempt failed (most often: no compatible .NET runtime). Don't retry on
+    // every ride tick — that's what produced a relaunch (and, before the popup fix, a dialog)
+    // roughly every READY_TIMEOUT_SECONDS. Stays disabled until the game restarts.
+    if (disabledForSession) {
+      return;
+    }
     StatusBarBridge existing = bridge;
     if (existing != null && existing.isRunning()) {
       return;
@@ -113,10 +120,16 @@ public final class StatusBarController {
                   bridge = b;
                   registerShutdownHookOnce();
                 } else {
-                  LOGGER.debug("Status helper failed to start; countdown disabled");
+                  disabledForSession = true;
+                  LOGGER.info(
+                      "Status helper unavailable; tray countdown disabled for this session");
                 }
               } catch (RuntimeException e) {
-                LOGGER.warn("Unexpected error starting status helper", e);
+                disabledForSession = true;
+                LOGGER.warn(
+                    "Unexpected error starting status helper; tray countdown disabled for this"
+                        + " session",
+                    e);
               } finally {
                 starting.set(false);
               }

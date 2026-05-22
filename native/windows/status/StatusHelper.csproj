@@ -8,6 +8,10 @@
     <RootNamespace>StatusHelper</RootNamespace>
     <AssemblyName>status-helper</AssemblyName>
     <Nullable>enable</Nullable>
+    <!-- Built framework-dependent against net8.0, but let the host roll forward onto a
+         newer major (.NET 9/10/…) when no 8.x Desktop Runtime is present. The default
+         policy is "Minor", which refuses to cross major versions. -->
+    <RollForward>LatestMajor</RollForward>
   </PropertyGroup>
 
 </Project>

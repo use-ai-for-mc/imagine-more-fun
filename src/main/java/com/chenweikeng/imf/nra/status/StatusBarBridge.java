@@ -42,6 +42,7 @@ public class StatusBarBridge {
   private Thread readerThread;
   private volatile boolean running;
   private final CompletableFuture<Void> readyFuture = new CompletableFuture<>();
+  private final StringBuilder stderrTail = new StringBuilder();
 
   public boolean start() {
     Path helperPath = findHelperBinary();
@@ -50,9 +51,15 @@ public class StatusBarBridge {
       return false;
     }
 
+    Thread stderrThread = null;
     try {
       ProcessBuilder pb = new ProcessBuilder(helperPath.toAbsolutePath().toString());
       pb.redirectErrorStream(false);
+      // A framework-dependent .NET helper whose runtime is missing/mismatched would otherwise
+      // pop a blocking GUI error dialog on every launch. This redirects that to stderr (drained
+      // and logged below) so a misconfigured machine degrades quietly instead of spamming a
+      // popup on every ride tick. Harmless for the non-.NET macOS helper.
+      pb.environment().put("DOTNET_DISABLE_GUI_ERRORS", "1");
       process = pb.start();
 
       writer =
@@ -64,10 +71,31 @@ public class StatusBarBridge {
       readerThread.setDaemon(true);
       readerThread.start();
 
+      stderrThread = new Thread(this::drainStderr, "StatusBarBridge-Stderr");
+      stderrThread.setDaemon(true);
+      stderrThread.start();
+
       try {
         readyFuture.get(READY_TIMEOUT_SECONDS, TimeUnit.SECONDS);
       } catch (Exception e) {
-        LOGGER.error("Status helper did not become ready within {}s", READY_TIMEOUT_SECONDS, e);
+        // Let the stderr drain catch up so we can log the host's actual failure reason.
+        try {
+          stderrThread.join(500);
+        } catch (InterruptedException ignore) {
+          Thread.currentThread().interrupt();
+        }
+        String diag;
+        synchronized (stderrTail) {
+          diag = stderrTail.toString().trim();
+        }
+        if (diag.isEmpty()) {
+          LOGGER.warn(
+              "Status helper did not become ready within {}s; tray countdown disabled."
+                  + " On Windows this usually means no compatible .NET Desktop Runtime (8+).",
+              READY_TIMEOUT_SECONDS);
+        } else {
+          LOGGER.warn("Status helper failed to start; tray countdown disabled. Reason: {}", diag);
+        }
         stop();
         return false;
       }
@@ -75,7 +103,7 @@ public class StatusBarBridge {
       LOGGER.info("Status helper started (pid={})", process.pid());
       return true;
     } catch (IOException e) {
-      LOGGER.error("Failed to start status helper process", e);
+      LOGGER.warn("Failed to start status helper process: {}", e.getMessage());
       return false;
     }
   }
@@ -148,8 +176,37 @@ public class StatusBarBridge {
       if (running) {
         LOGGER.warn("Status helper stdout read error: {}", e.getMessage());
       }
+    } finally {
+      // If stdout closed before we ever saw "ready", the helper exited early (e.g. no
+      // compatible .NET runtime). Unblock start()'s wait now instead of letting it sit out
+      // the full timeout.
+      if (!readyFuture.isDone()) {
+        readyFuture.completeExceptionally(
+            new IllegalStateException("status helper exited before signaling ready"));
+      }
     }
     running = false;
+  }
+
+  private void drainStderr() {
+    try (BufferedReader reader =
+        new BufferedReader(
+            new InputStreamReader(process.getErrorStream(), StandardCharsets.UTF_8))) {
+      String line;
+      while ((line = reader.readLine()) != null) {
+        if (line.isBlank()) {
+          continue;
+        }
+        synchronized (stderrTail) {
+          if (stderrTail.length() > 0) {
+            stderrTail.append(" | ");
+          }
+          stderrTail.append(line);
+        }
+      }
+    } catch (IOException ignore) {
+      // Process gone; nothing left to drain.
+    }
   }
 
   private Path findHelperBinary() {
