@@ -125,6 +125,7 @@ public class ImfDailyObjectivesScreenMixin {
     DailyPlanManager.getInstance()
         .reconcileSpecialQuestLayers(net.minecraft.client.Minecraft.getInstance(), snap);
     DailyPlanManager.getInstance().pruneStalePriorQuestLayers(snap);
+    DailyPlanManager.getInstance().pruneCompletedRideQuestLayers(snap);
     DailyPlanManager.getInstance().injectPendingQuestLayers();
     imf$dailyQuestCaptured = true;
   }

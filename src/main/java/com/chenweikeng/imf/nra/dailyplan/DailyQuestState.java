@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.HashSet;
@@ -85,6 +86,17 @@ public final class DailyQuestState {
     String currentWindow = currentWindowKey();
     DailyQuestSnapshot snap = getSnapshot();
     if (!isFresh(snap, currentWindow)) {
+      return Optional.empty();
+    }
+    // The plan is a per-local-day artifact (DailyPlanManager keys regeneration off
+    // LocalDate.now()),
+    // but quest windows are Pacific. For a player east of Pacific, local midnight lands inside a
+    // still-current PT window, so without this guard a plan regenerated at local midnight would
+    // re-pin the previous local day's quest — with a baseline reset to the current ride count — as
+    // its first layer, before the user re-opens Daily Objectives. Requiring a same-local-day
+    // capture
+    // defers pinning to the next snapshot capture, where the quest re-pins with a correct baseline.
+    if (!LocalDate.now().toString().equals(snap.capturedDate)) {
       return Optional.empty();
     }
     Set<String> alreadyPinned = ridesPinnedInWindow(plan, currentWindow);

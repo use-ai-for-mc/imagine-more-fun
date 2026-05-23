@@ -159,6 +159,72 @@ public final class DailyPlanManager {
     }
   }
 
+  /**
+   * Removes uncompleted RIDE-kind daily-quest layers whose ride is absent from a freshly captured
+   * snapshot. The IF server never resets daily objectives — they only leave the list when the
+   * player completes them — so a pinned ride quest dropping out of the snapshot means it was
+   * completed on the server. Genuine in-session completions are already flipped to {@code
+   * completed} by count-based progress tracking and are skipped here (this only touches uncompleted
+   * layers); so what this catches is a stale re-pin whose baseline was reset — e.g. a quest the
+   * user finished yesterday that got re-pinned across the local-midnight plan rollover and now
+   * demands fresh rides the server isn't asking for.
+   *
+   * <p>Guarded to a snapshot captured on the current local day so a stale (prior-day) reading can't
+   * drop a still-valid quest. Special kinds (riddle / npc / land / task) are left to {@link
+   * #reconcileSpecialQuestLayers}. Persists the plan if anything was removed.
+   */
+  public synchronized boolean pruneCompletedRideQuestLayers(DailyQuestSnapshot fresh) {
+    if (fresh == null || !LocalDate.now().toString().equals(fresh.capturedDate)) {
+      return false;
+    }
+    DailyPlan plan = getOrCreateToday();
+    if (plan == null || plan.layers == null) {
+      return false;
+    }
+    Set<String> liveRideKeys = new HashSet<>();
+    if (fresh.quests != null) {
+      for (DailyQuest q : fresh.quests) {
+        if (q != null && q.rideMatchName != null && q.kindOrDefault() == DailyQuest.Kind.RIDE) {
+          liveRideKeys.add(q.rideMatchName);
+        }
+      }
+    }
+    boolean anyRemoved = false;
+    for (int i = plan.layers.size() - 1; i >= 0; i--) {
+      DailyPlanLayer layer = plan.layers.get(i);
+      if (!layer.fromDailyQuest || layer.completed || layer.nodes == null) {
+        continue;
+      }
+      boolean anyRideNode = false;
+      boolean allRideNodesAbsent = true;
+      for (DailyPlanNode node : layer.nodes) {
+        if (node == null || node.ride == null) {
+          continue;
+        }
+        if (isSpecialPinKey(node.ride)) {
+          allRideNodesAbsent = false; // special kinds reconcile elsewhere
+          break;
+        }
+        anyRideNode = true;
+        if (liveRideKeys.contains(node.ride)) {
+          allRideNodesAbsent = false;
+          break;
+        }
+      }
+      if (anyRideNode && allRideNodesAbsent) {
+        plan.layers.remove(i);
+        anyRemoved = true;
+      }
+    }
+    if (anyRemoved) {
+      DailyPlanStorage.save(plan);
+    }
+    // The plan is topped back up to its usual size by DailyPlanGenerator.ensureTailCapacity, which
+    // every getOrCreateToday() call runs — including the injectPendingQuestLayers() that follows
+    // this prune in the capture flow — so a removed ghost doesn't leave the plan short.
+    return anyRemoved;
+  }
+
   private static boolean isSpecialPinKey(String pinKey) {
     return pinKey.startsWith(":riddle:")
         || pinKey.startsWith(":npc:")

@@ -105,9 +105,14 @@ public final class DailyPlanGenerator {
   }
 
   /**
-   * Ensures there are at least {@link #MIN_UNFINISHED_TAIL} unfinished layers at the tail of the
-   * plan. Returns true if the plan was extended (caller should persist). Cheap no-op when the
-   * invariant already holds.
+   * Tops the plan up against two floors: at least {@link #MIN_UNFINISHED_TAIL} unfinished layers
+   * ahead, and at least {@link #INITIAL_LAYER_COUNT} layers total. Returns true if the plan was
+   * extended (caller should persist). Cheap no-op when both already hold.
+   *
+   * <p>The total-size floor matters early in the day: the HUD shows {@code min(total, WINDOW_SIZE)}
+   * columns until 2+ layers are completed, so a plan that lost a layer to pruning (e.g. a stale
+   * daily-quest ghost) would display short until enough completions let the sliding window fill on
+   * its own. Topping total back to {@link #INITIAL_LAYER_COUNT} keeps it at its usual width.
    */
   public static boolean ensureTailCapacity(DailyPlan plan) {
     if (plan == null || plan.layers == null) {
@@ -119,7 +124,8 @@ public final class DailyPlanGenerator {
         unfinished++;
       }
     }
-    int needed = MIN_UNFINISHED_TAIL - unfinished;
+    int needed =
+        Math.max(MIN_UNFINISHED_TAIL - unfinished, INITIAL_LAYER_COUNT - plan.layers.size());
     if (needed <= 0) {
       return false;
     }
