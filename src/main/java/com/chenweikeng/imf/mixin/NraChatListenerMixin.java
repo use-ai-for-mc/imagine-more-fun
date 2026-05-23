@@ -67,9 +67,12 @@ public class NraChatListenerMixin {
       return;
     }
     if (msg.equals("You are already connected to the web client")) {
-      ReminderHandler.getInstance().setAudioConnected(true);
       if (ModConfig.currentSetting.enableOpenAudioMc) {
-        OpenAudioMcService.getInstance().onServerConfirmedConnection();
+        // May be benign (we're genuinely connected) or a desync (server holds the old
+        // session while our webview lost it). The service decides and recovers.
+        OpenAudioMcService.getInstance().onServerAlreadyConnected();
+      } else {
+        ReminderHandler.getInstance().setAudioConnected(true);
       }
       return;
     }

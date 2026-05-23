@@ -54,6 +54,20 @@ public class WebViewBridge {
   /** One captured console line from the WKWebView (forwarded by the native helper). */
   public record ConsoleLog(long timestampMs, String level, String message) {}
 
+  /** Callback fired when WKWebView's content process terminates (a real WebKit crash). */
+  private volatile Runnable onContentProcessTerminated;
+
+  public void setOnContentProcessTerminated(Runnable cb) {
+    this.onContentProcessTerminated = cb;
+  }
+
+  /** When true, the helper is launched with NRA_OA_TEST_MODE=1 (skips our page injections). */
+  private boolean testMode;
+
+  public void setTestMode(boolean testMode) {
+    this.testMode = testMode;
+  }
+
   private Process process;
   private BufferedWriter writer;
   private Thread readerThread;
@@ -76,6 +90,9 @@ public class WebViewBridge {
     try {
       ProcessBuilder pb = new ProcessBuilder(helperPath.toAbsolutePath().toString());
       pb.redirectErrorStream(false);
+      if (testMode) {
+        pb.environment().put("NRA_OA_TEST_MODE", "1");
+      }
       process = pb.start();
 
       writer =
@@ -258,6 +275,17 @@ public class WebViewBridge {
         break;
       case "error":
         LOGGER.warn("WebView helper error: {}", response.optString("message", ""));
+        break;
+      case "web_content_terminated":
+        LOGGER.warn("WebKit content process terminated (WebView audio engine crashed)");
+        Runnable cb = onContentProcessTerminated;
+        if (cb != null) {
+          try {
+            cb.run();
+          } catch (Exception e) {
+            LOGGER.warn("onContentProcessTerminated callback threw: {}", e.getMessage());
+          }
+        }
         break;
       default:
         LOGGER.debug("Unknown helper response type: {}", type);

@@ -349,7 +349,6 @@ public class NotRidingAlertClient implements ClientModInitializer {
                     .then(
                         ClientCommandManager.literal("all")
                             .executes(context -> runAudioList(true))))
-            .then(ClientCommandManager.literal("names").executes(context -> runAudioNames()))
             .then(
                 ClientCommandManager.literal("console")
                     .executes(context -> runConsoleDump(30))
@@ -362,6 +361,59 @@ public class NotRidingAlertClient implements ClientModInitializer {
                                     runConsoleDump(
                                         com.mojang.brigadier.arguments.IntegerArgumentType
                                             .getInteger(context, "n")))))
+            .then(
+                ClientCommandManager.literal("disconnects")
+                    .executes(context -> runDisconnectsDump(10))
+                    .then(
+                        ClientCommandManager.argument(
+                                "n",
+                                com.mojang.brigadier.arguments.IntegerArgumentType.integer(1, 30))
+                            .executes(
+                                context ->
+                                    runDisconnectsDump(
+                                        com.mojang.brigadier.arguments.IntegerArgumentType
+                                            .getInteger(context, "n")))))
+            .then(
+                ClientCommandManager.literal("disconnect")
+                    .then(
+                        ClientCommandManager.argument(
+                                "i",
+                                com.mojang.brigadier.arguments.IntegerArgumentType.integer(1, 30))
+                            .executes(
+                                context ->
+                                    runDisconnectDetail(
+                                        com.mojang.brigadier.arguments.IntegerArgumentType
+                                            .getInteger(context, "i")))))
+            .then(
+                ClientCommandManager.literal("testmode")
+                    .executes(
+                        context -> {
+                          boolean on = OpenAudioMcService.getInstance().isTestMode();
+                          sendAudioChat(
+                              "OA test mode is " + (on ? "ON (page injections disabled)" : "OFF"));
+                          return 1;
+                        })
+                    .then(
+                        ClientCommandManager.literal("on")
+                            .executes(
+                                context -> {
+                                  OpenAudioMcService.getInstance().setTestMode(true);
+                                  sendAudioChat(
+                                      "OA test mode ON. Restart MC to apply (page injections will"
+                                          + " be skipped). Disconnects still logged to"
+                                          + " oa-disconnects.csv tagged 'test'.");
+                                  return 1;
+                                }))
+                    .then(
+                        ClientCommandManager.literal("off")
+                            .executes(
+                                context -> {
+                                  OpenAudioMcService.getInstance().setTestMode(false);
+                                  sendAudioChat(
+                                      "OA test mode OFF. Restart MC to apply (normal injections"
+                                          + " restored).");
+                                  return 1;
+                                })))
             .then(
                 ClientCommandManager.literal("stopall")
                     .executes(
@@ -495,47 +547,106 @@ public class NotRidingAlertClient implements ClientModInitializer {
   }
 
   /**
-   * /oa names \u2014 list registry elements enriched with the soundId recovered from the OAM
-   * socket.io ClientCreateMediaPayload. Elements created before the WS hook landed (or whose
-   * CREATE_MEDIA frame went through a different code path) show {@code soundId: null} \u2014 that's
-   * not a bug, the data simply isn't on the wire for them anymore.
+   * /oa disconnects [n] \u2014 dump the last n recorded audio disconnect events with cause, session
+   * duration before disconnect, and reconnect latency. Causes that have been seen to date: {@code
+   * server_ended} (ImagineFun closed the session), {@code mid_session_drop} (volume slider vanished
+   * without a chat warning), {@code content_process_terminated} (WKWebView crash), {@code timeout},
+   * {@code max_reconnect}, {@code user_disconnect}.
    */
-  private static int runAudioNames() {
-    OpenAudioMcService.getInstance()
-        .namesAudio()
-        .thenAccept(
-            result -> {
-              if (result == null) {
-                sendAudioChat("Audio bridge not running.");
-                return;
-              }
-              org.json.JSONArray arr = result.optJSONArray("value");
-              if (arr == null || arr.isEmpty()) {
-                sendAudioChat("No registry entries.");
-                return;
-              }
-              sendAudioChat("Audio with names (" + arr.length() + "):");
-              for (int i = 0; i < arr.length() && i < 30; i++) {
-                org.json.JSONObject e = arr.optJSONObject(i);
-                if (e == null) continue;
-                int id = e.optInt("id", -1);
-                double vol = e.optDouble("volume", 0);
-                boolean paused = e.optBoolean("paused", true);
-                String soundId = e.optString("soundId", "null");
-                if ("null".equals(soundId) || soundId.isEmpty()) soundId = "?";
-                double dur = e.optDouble("duration", -1);
-                String line =
-                    String.format(
-                        java.util.Locale.ROOT,
-                        "#%d %s vol=%.2f %s%s",
-                        id,
-                        soundId,
-                        vol,
-                        paused ? "paused" : "play",
-                        Double.isNaN(dur) || dur < 0 ? "" : " " + String.format("%.0fs", dur));
-                sendAudioChat(line);
-              }
-            });
+  private static int runDisconnectsDump(int n) {
+    java.util.List<com.chenweikeng.imf.nra.audio.OpenAudioMcService.DisconnectEvent> events =
+        OpenAudioMcService.getInstance().recentDisconnects(n);
+    if (events.isEmpty()) {
+      sendAudioChat("No disconnects recorded yet.");
+      return 1;
+    }
+    sendAudioChat("Last " + events.size() + " disconnect(s):");
+    long now = System.currentTimeMillis();
+    for (com.chenweikeng.imf.nra.audio.OpenAudioMcService.DisconnectEvent e : events) {
+      long ageS = (now - e.timestampMs()) / 1000;
+      String sessStr =
+          e.sessionDurationMs() < 0
+              ? "?"
+              : String.format(
+                  java.util.Locale.ROOT,
+                  "%dm%ds",
+                  e.sessionDurationMs() / 60000,
+                  (e.sessionDurationMs() / 1000) % 60);
+      String reconStr =
+          e.reconnectLatencyMs() < 0
+              ? "pending"
+              : String.format(java.util.Locale.ROOT, "%ds", e.reconnectLatencyMs() / 1000);
+      sendAudioChat(
+          String.format(
+              java.util.Locale.ROOT,
+              "[%ds ago] %s  uptime=%s  reconnect=%s",
+              ageS,
+              e.cause(),
+              sessStr,
+              reconStr));
+    }
+    return 1;
+  }
+
+  /**
+   * /oa disconnect &lt;i&gt; \u2014 print full detail for the i-th most recent disconnect (1 =
+   * newest), including the WKWebView console snapshot captured at the moment the disconnect was
+   * recorded. Console line times are shown as offsets relative to the disconnect (negative =
+   * before).
+   */
+  private static int runDisconnectDetail(int i) {
+    java.util.List<com.chenweikeng.imf.nra.audio.OpenAudioMcService.DisconnectEvent> events =
+        OpenAudioMcService.getInstance().recentDisconnects(30);
+    if (events.isEmpty()) {
+      sendAudioChat("No disconnects recorded yet.");
+      return 1;
+    }
+    // recentDisconnects returns oldest-first; convert i (1-based newest) into index.
+    int idx = events.size() - i;
+    if (idx < 0 || idx >= events.size()) {
+      sendAudioChat("Disconnect #" + i + " not in history (have " + events.size() + " event(s)).");
+      return 1;
+    }
+    com.chenweikeng.imf.nra.audio.OpenAudioMcService.DisconnectEvent e = events.get(idx);
+    long t = e.timestampMs();
+    long now = System.currentTimeMillis();
+    String sessStr =
+        e.sessionDurationMs() < 0
+            ? "?"
+            : String.format(
+                java.util.Locale.ROOT,
+                "%dm%ds",
+                e.sessionDurationMs() / 60000,
+                (e.sessionDurationMs() / 1000) % 60);
+    String reconStr =
+        e.reconnectLatencyMs() < 0
+            ? "pending"
+            : String.format(java.util.Locale.ROOT, "%ds", e.reconnectLatencyMs() / 1000);
+    sendAudioChat(
+        String.format(
+            java.util.Locale.ROOT,
+            "Disconnect #%d (%ds ago) cause=%s uptime=%s reconnect=%s",
+            i,
+            (now - t) / 1000,
+            e.cause(),
+            sessStr,
+            reconStr));
+    java.util.List<com.chenweikeng.imf.nra.audio.WebViewBridge.ConsoleLog> snap =
+        e.consoleSnapshot();
+    if (snap == null || snap.isEmpty()) {
+      sendAudioChat("(no console snapshot)");
+      return 1;
+    }
+    sendAudioChat("Console (last " + snap.size() + " lines before disconnect):");
+    for (com.chenweikeng.imf.nra.audio.WebViewBridge.ConsoleLog log : snap) {
+      long offsetMs = log.timestampMs() - t;
+      String offset =
+          String.format(
+              java.util.Locale.ROOT, "%+d.%02ds", offsetMs / 1000, Math.abs(offsetMs % 1000) / 10);
+      String msg = log.message();
+      if (msg.length() > 200) msg = msg.substring(0, 200) + "\u2026";
+      sendAudioChat(String.format(java.util.Locale.ROOT, "[%s %s] %s", offset, log.level(), msg));
+    }
     return 1;
   }
 

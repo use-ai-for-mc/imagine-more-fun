@@ -331,14 +331,25 @@ class WebViewManager: NSObject, WKNavigationDelegate, WKUIDelegate {
                 return _origPlay.apply(this, arguments);
               };
 
-              // 4) volume setter — instrument with an event log so we can see what the
-              //    engine is doing. We don't override the value; just observe.
+              // 4) volume setter — three jobs:
+              //    a) write the value through to the native setter (observability for engine)
+              //    b) mirror into the per-element volGain inserted by the createMediaElementSource
+              //       hook below, so spatial-routed speakers honor the value
+              //    c) drive .muted from the value (true iff v<=0). This is the belt-and-
+              //       suspenders against WebKit's quirk: even if (b) doesn't catch an
+              //       element (e.g., the element was created before our injection),
+              //       .muted is honored by a different WebKit code path so v=0 still
+              //       silences the track.
               var desc = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'volume');
               if (desc && desc.set) {
                 Object.defineProperty(HTMLMediaElement.prototype, 'volume', {
                   get: desc.get,
                   set: function (v) {
                     desc.set.call(this, v);
+                    var g = registry.elementGains && registry.elementGains.get(this);
+                    if (g) g.gain.value = v;
+                    var shouldMute = !(v > 0);
+                    if (this.muted !== shouldMute) this.muted = shouldMute;
                     if (this.__nra_id != null) {
                       registry.pushEvent('volume', { id: this.__nra_id, v: v });
                     }
@@ -348,94 +359,57 @@ class WebViewManager: NSObject, WKNavigationDelegate, WKUIDelegate {
                 });
               }
 
-              // 5) WebSocket hook — OAM uses socket.io on top of WebSocket. Each incoming
-              //    server frame looks like an engine.io packet `42["data",{type:"...",
-              //    payload:{...}}]`. The payload of a ClientCreateMediaPayload carries
-              //    BOTH the source URL and the server-assigned soundId — i.e. the only
-              //    way the client knows what a track is "called". We capture and index
-              //    those frames so /oa names can map registry IDs to human-readable soundIds.
-              registry.socketLog = [];
-              registry.urlToSoundId = new Map();
-              registry.parseEngineIoFrame = function (raw) {
-                if (typeof raw !== 'string' || raw.length < 3) return null;
-                // engine.io: digits at start = packet type. socket.io message packets start
-                // with 4 (engine message) + sub-type digit. EVENT = 42.
-                if (raw.charCodeAt(0) !== 52 /* '4' */) return null;
-                var tail = raw.indexOf('[');
-                if (tail < 0) return null;
-                try { return JSON.parse(raw.slice(tail)); } catch (e) { return null; }
-              };
-              registry.observeSocketMessage = function (raw) {
-                var arr = registry.parseEngineIoFrame(raw);
-                if (!arr || arr.length < 2) return;
-                var evt = arr[0]; var data = arr[1];
-                if (evt !== 'data' || !data || !data.type) return;
-                var t = String(data.type);
-                var shortType = t.slice(t.lastIndexOf('.') + 1);
-                var payload = data.payload || {};
-                // Field shape varies by payload type:
-                //   ClientCreateMediaPayload     → payload.media.{mediaId, source, loop, fadeTime, ...}
-                //   ClientUpdateMediaPayload     → payload.mediaOptions.target (no source)
-                //   ClientPreFetchPayload        → payload.source, payload.origin (no id)
-                //   ClientSpeakerCreatePayload   → payload.clientSpeaker.{id, source, ...}
-                var media = payload.media || {};
-                var speaker = payload.clientSpeaker || {};
-                var id = media.mediaId || speaker.id || payload.mediaId || payload.id || null;
-                var src = media.source || speaker.source || payload.source || null;
-                registry.socketLog.push({
-                  t: Date.now(), type: shortType,
-                  id: id, source: src ? String(src).slice(0, 200) : null,
-                  origin: payload.origin || null,
-                  loop: media.loop != null ? media.loop : payload.loop,
-                  fadeTime: media.fadeTime != null ? media.fadeTime : payload.fadeTime,
-                });
-                if (registry.socketLog.length > 200) registry.socketLog.shift();
-                if (src && id) registry.urlToSoundId.set(String(src), String(id));
-                // PreFetch has no mediaId — record the origin context as a fallback label so
-                // /oa names can still distinguish e.g. region-vs-global prefetches.
-                if (src && !id && payload.origin && !registry.urlToSoundId.has(String(src))) {
-                  registry.urlToSoundId.set(String(src), 'origin:' + payload.origin);
-                }
-              };
-
-              var OrigWS = window.WebSocket;
-              if (OrigWS) {
-                var PatchedWS = function (url, protocols) {
-                  var ws = protocols === undefined
-                    ? new OrigWS(url) : new OrigWS(url, protocols);
-                  try {
-                    ws.addEventListener('message', function (e) {
-                      try { registry.observeSocketMessage(e.data); } catch (err) {}
-                    });
-                  } catch (e) {}
-                  return ws;
+              // 4b) Restore the createMediaElementSource interception specifically for
+              //     WebKit's audio.volume quirk: once an HTMLMediaElement has been routed
+              //     through createMediaElementSource(), subsequent writes to element.volume
+              //     are silently ignored by the engine (the graph runs at unity regardless).
+              //     This bites OpenAudioMC's *speaker* path — OAM's CustomSpatialRenderer
+              //     wires `<audio>` → MediaElementSource → workletNode → gainNode → dest,
+              //     and the spatial worklet applies its own gain independent of element.volume.
+              //     We insert a `volGain` GainNode between MediaElementSource and the next
+              //     node it gets connected to, mirroring element.volume into volGain.gain so
+              //     master-volume = 0 actually mutes spatial speakers. Music elements that
+              //     never reach createMediaElementSource are unaffected.
+              registry.elementGains = new WeakMap();
+              if (typeof AudioContext !== 'undefined' || typeof webkitAudioContext !== 'undefined') {
+                var AC = window.AudioContext || window.webkitAudioContext;
+                var _createMES = AC.prototype.createMediaElementSource;
+                AC.prototype.createMediaElementSource = function (mediaEl) {
+                  var sourceNode = _createMES.call(this, mediaEl);
+                  var volGain = this.createGain();
+                  volGain.gain.value = mediaEl.volume;
+                  registry.elementGains.set(mediaEl, volGain);
+                  sourceNode.connect(volGain);
+                  sourceNode.connect = function () {
+                    return volGain.connect.apply(volGain, arguments);
+                  };
+                  sourceNode.disconnect = function () {
+                    return volGain.disconnect.apply(volGain, arguments);
+                  };
+                  return sourceNode;
                 };
-                PatchedWS.prototype = OrigWS.prototype;
-                PatchedWS.CONNECTING = OrigWS.CONNECTING;
-                PatchedWS.OPEN = OrigWS.OPEN;
-                PatchedWS.CLOSING = OrigWS.CLOSING;
-                PatchedWS.CLOSED = OrigWS.CLOSED;
-                window.WebSocket = PatchedWS;
               }
 
-              // /oa names backing query: for each registered audio element, look up its
-              // FULL src (not the 240-char-truncated summary src) against the urlToSoundId
-              // index. OAM signed URLs are 450-470 chars long so the lookup must use the
-              // untruncated element source — otherwise every match silently misses.
-              registry.names = function (opts) {
-                opts = opts || {};
-                var items = registry.list(opts);
-                items.forEach(function (it) {
-                  var rec = registry.byId.get(it.id);
-                  if (!rec) return;
-                  var fullSrc = rec.el.currentSrc || rec.el.src || '';
-                  it.soundId = fullSrc ? (registry.urlToSoundId.get(fullSrc) || null) : null;
-                });
-                return items;
-              };
+              // NOTE: a window.WebSocket wrapper used to live here (engine.io frame parsing for
+              // /oa names + close-code capture). It was removed — observational data showed
+              // sessions staying up far longer with it gone, and the per-frame parse / socket
+              // diagnostics weren't worth the apparent relay-stability cost. We deliberately do
+              // NOT touch window.WebSocket anymore.
             })();
             """, injectionTime: .atDocumentStart, forMainFrameOnly: false)
-        config.userContentController.addUserScript(audioRegistry)
+        // A/B test mode: when NRA_OA_TEST_MODE=1, skip ALL of our page-level injections
+        // (registry, WebSocket wrapper, volGain createMediaElementSource hook, muted-driving
+        // volume setter) so the page runs vanilla. The webrtc/console/audio polyfills above
+        // are kept since they predate this work and are needed for basic playback. Used to
+        // measure whether our modifications affect the relay disconnect rate. Disconnect
+        // recording is Java-side and works in both modes.
+        let testMode = ProcessInfo.processInfo.environment["NRA_OA_TEST_MODE"] == "1"
+        if testMode {
+            writeLine(jsonLine(["type": "console", "level": "info",
+                                "message": "[NRA] OA test mode: page injections DISABLED"]))
+        } else {
+            config.userContentController.addUserScript(audioRegistry)
+        }
 
         // Create an offscreen window (1x1 pixel, hidden)
         window = NSWindow(
@@ -514,6 +488,15 @@ class WebViewManager: NSObject, WKNavigationDelegate, WKUIDelegate {
         writeLine(jsonLine(["type": "error", "message": "Load failed: \(error.localizedDescription)"]))
     }
 
+    // WebKit's content-process (com.apple.WebKit.WebContent) crashed. Audio stops,
+    // the WKWebView remains alive but blank, and the only way to recover is to
+    // reload the URL. Emit a dedicated signal so the Java side can distinguish
+    // this from a server-initiated session end (which has identical user-visible
+    // symptoms: audio stops, slider disappears) and record it for /oa disconnects.
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        writeLine(jsonLine(["type": "web_content_terminated"]))
+    }
+
     // MARK: - WKUIDelegate (handle JS alerts, confirm, etc.)
 
     func webView(_ webView: WKWebView, runJavaScriptAlertPanelWithMessage message: String,
@@ -588,8 +571,20 @@ class StdinReader {
 class AppDelegate: NSObject, NSApplicationDelegate {
     var manager: WebViewManager!
     var reader: StdinReader!
+    // Held for the process lifetime to keep App Nap from throttling this helper.
+    var activityToken: NSObjectProtocol?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // Disable App Nap. This helper runs offscreen (1x1 hidden window), so macOS
+        // would otherwise classify it as a background app and coalesce/throttle its
+        // timers during silent stretches — delaying OpenAudioMC's socket.io keepalive
+        // pings until the relay declares the connection dead (a 1006 abnormal close).
+        // .userInitiatedAllowingIdleSystemSleep prevents the throttling but still lets
+        // the whole Mac sleep normally; we are not pinning the machine awake.
+        activityToken = ProcessInfo.processInfo.beginActivity(
+            options: .userInitiatedAllowingIdleSystemSleep,
+            reason: "OpenAudioMC headless audio session keepalive")
+
         manager = WebViewManager()
         reader = StdinReader(manager: manager)
         reader.startReading()
