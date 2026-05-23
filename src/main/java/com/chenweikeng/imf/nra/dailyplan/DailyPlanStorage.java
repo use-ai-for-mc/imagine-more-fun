@@ -1,6 +1,7 @@
 package com.chenweikeng.imf.nra.dailyplan;
 
 import com.chenweikeng.imf.ImfStorage;
+import com.chenweikeng.imf.nra.NotRidingAlertClient;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import java.io.File;
@@ -39,7 +40,7 @@ public final class DailyPlanStorage {
         GSON.toJson(plan, writer);
       }
     } catch (IOException e) {
-      e.printStackTrace();
+      NotRidingAlertClient.LOGGER.error("Failed to save daily plan", e);
     }
   }
 }

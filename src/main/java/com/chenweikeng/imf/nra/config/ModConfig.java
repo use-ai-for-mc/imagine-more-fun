@@ -1,6 +1,7 @@
 package com.chenweikeng.imf.nra.config;
 
 import com.chenweikeng.imf.ImfStorage;
+import com.chenweikeng.imf.nra.NotRidingAlertClient;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import java.io.File;
@@ -43,7 +44,7 @@ public class ModConfig {
         GSON.toJson(currentSetting, writer);
       }
     } catch (IOException e) {
-      e.printStackTrace();
+      NotRidingAlertClient.LOGGER.error("Failed to save NRA config", e);
     }
   }
 

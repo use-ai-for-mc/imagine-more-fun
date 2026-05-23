@@ -110,7 +110,7 @@ public final class TextureCache {
                   try {
                     saveIndex();
                   } catch (Exception e) {
-                    System.err.println("[SkinCache] shutdown saveIndex failed: " + e);
+                    SkinCacheMod.LOGGER.warn("[SkinCache] shutdown saveIndex failed", e);
                   }
                 },
                 "skincache-shutdown"));
