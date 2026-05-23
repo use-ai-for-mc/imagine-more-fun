@@ -29,8 +29,11 @@ NATIVE_CACHE_DIR="/Users/cusgadmin/Library/Application Support/ModrinthApp/profi
 LEGACY_NATIVE_CACHE_DIR="/Users/cusgadmin/Library/Application Support/ModrinthApp/profiles/ImagineFun/config/not-riding-alert/native"
 
 # Rebuild native helper binaries (must happen before gradlew build so the JAR includes them).
-# macOS helpers are built here; Windows is best-effort (skipped if dotnet is missing) — the
-# standalone native/build-all.sh remains the source of truth for CI Windows builds.
+# macOS helpers are built with swiftc; the two Windows helpers are dotnet cross-compiles,
+# best-effort (skipped if dotnet is missing). The binaries are NOT committed to git, so this
+# local build is the source of truth for a shippable cross-platform JAR — CI on Linux can't
+# produce the macOS Swift helper. (native/build-all.sh assumes a mods/<version>/ monorepo
+# layout and does NOT work in this standalone repo, so do not rely on it here.)
 echo "Rebuilding macOS native WebView helper..."
 swiftc -O \
     -o "${PROJECT_DIR}/src/main/resources/native/macos/webview-helper" \
@@ -44,6 +47,26 @@ swiftc -O \
     -framework AppKit
 
 if command -v dotnet &>/dev/null; then
+    echo "Rebuilding Windows native WebView helper (dotnet cross-compile)..."
+    (
+        cd "${PROJECT_DIR}/native/windows"
+        dotnet publish WebViewHelper.csproj -c Release -r win-x64 --no-self-contained \
+            -p:PublishSingleFile=true -o publish 2>&1 | grep -v "warning MSB3277" || true
+    )
+    WEBVIEW_EXE="${PROJECT_DIR}/native/windows/publish/webview-helper.exe"
+    WEBVIEW2_DLL="${PROJECT_DIR}/native/windows/publish/runtimes/win-x64/native/WebView2Loader.dll"
+    if [ -f "${WEBVIEW_EXE}" ]; then
+        cp "${WEBVIEW_EXE}" "${PROJECT_DIR}/src/main/resources/native/windows/webview-helper.exe"
+        # WebView2Loader.dll is the unmanaged loader webview-helper.exe needs at runtime;
+        # WebViewBridge extracts it alongside the exe on Windows.
+        if [ -f "${WEBVIEW2_DLL}" ]; then
+            cp "${WEBVIEW2_DLL}" "${PROJECT_DIR}/src/main/resources/native/windows/WebView2Loader.dll"
+        fi
+        echo "Copied webview-helper.exe (+ WebView2Loader.dll) into resources."
+    else
+        echo "WARNING: webview-helper.exe not produced; Windows OpenAudioMc audio will be unavailable."
+    fi
+
     echo "Rebuilding Windows native Status helper (dotnet cross-compile)..."
     (
         cd "${PROJECT_DIR}/native/windows/status"
@@ -58,7 +81,7 @@ if command -v dotnet &>/dev/null; then
         echo "WARNING: status-helper.exe not produced; skipping."
     fi
 else
-    echo "dotnet not found; skipping Windows Status helper build."
+    echo "dotnet not found; skipping Windows helper builds (webview + status)."
 fi
 
 echo "Building ImagineMoreFun mod..."
