@@ -86,18 +86,4 @@ public final class ImfStorage {
   public static Path ridePlanNudgeMarker() {
     return root().resolve(".ride-plan-nudge");
   }
-
-  /**
-   * Marker file: when present, the OpenAudioMc helper runs in "vanilla" test mode — none of our
-   * page-level JS injections (registry, WebSocket wrapper, volGain hook, muted-setter) are added.
-   * Used to A/B whether our modifications affect the relay drop rate.
-   */
-  public static Path oaTestModeMarker() {
-    return root().resolve(".oa-test-mode");
-  }
-
-  /** Append-only CSV of audio disconnect events, tagged by mode, for cross-restart comparison. */
-  public static Path oaDisconnectsCsv() {
-    return root().resolve("oa-disconnects.csv");
-  }
 }

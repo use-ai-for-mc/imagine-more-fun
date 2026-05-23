@@ -254,32 +254,6 @@ public final class SpaceMountainDiscoBall {
     return ENABLED;
   }
 
-  public static String describe() {
-    StringBuilder sb = new StringBuilder();
-    sb.append("balls=").append(balls.size()).append(" enabled=").append(ENABLED);
-    sb.append(" spDevPreview=").append(spDevPreview);
-    sb.append(" autoSpin=").append(autoSpinEnabled).append(" rate=").append(autoSpinRate);
-    sb.append(" exclusionCells=").append(exclusionCells.size());
-    sb.append(" watertightCells=").append(watertightWallCells.size());
-    int i = 0;
-    for (Ball b : balls) {
-      sb.append(
-          String.format(
-              "  [%d] pos=(%.1f,%.1f,%.1f) aim=(%.0f,%.0f) spin=%.0f rate=%.0f vel=%.1f dots=%d",
-              i++,
-              b.x,
-              b.y,
-              b.z,
-              b.aimYaw,
-              b.aimPitch,
-              b.spinDeg,
-              b.spinRate,
-              b.spinVel,
-              b.dotCount));
-    }
-    return sb.toString();
-  }
-
   // --- Persistence ----------------------------------------------------------
 
   /**

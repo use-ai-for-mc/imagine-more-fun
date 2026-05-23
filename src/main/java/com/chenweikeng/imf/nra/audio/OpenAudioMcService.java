@@ -1,6 +1,5 @@
 package com.chenweikeng.imf.nra.audio;
 
-import com.chenweikeng.imf.ImfStorage;
 import com.chenweikeng.imf.nra.handler.ReminderHandler;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
@@ -127,39 +126,10 @@ public class OpenAudioMcService {
 
   private static OpenAudioMcService instance;
 
-  /**
-   * One disconnect/reconnect cycle observed by the mod.
-   *
-   * @param timestampMs when the disconnect was recorded.
-   * @param cause one of "server_ended", "mid_session_drop", "max_reconnect", "timeout",
-   *     "user_disconnect", "content_process_terminated", "server_ended_loop".
-   * @param sessionDurationMs how long the session lasted before disconnect (-1 if unknown).
-   * @param reconnectLatencyMs millis from disconnect to next confirmed reconnect (-1 if no
-   *     reconnect yet — either still pending or terminal failure).
-   * @param consoleSnapshot last ~20 WKWebView console messages at the moment of disconnect,
-   *     captured so {@code /oa disconnect <n>} can show what the OpenAudioMC client was logging
-   *     immediately before the session ended.
-   */
-  public record DisconnectEvent(
-      long timestampMs,
-      String cause,
-      long sessionDurationMs,
-      long reconnectLatencyMs,
-      java.util.List<WebViewBridge.ConsoleLog> consoleSnapshot) {}
-
-  private static final int DISCONNECT_HISTORY_SIZE = 30;
-  private final java.util.Deque<DisconnectEvent> disconnectHistory = new java.util.ArrayDeque<>();
-  private long connectStartMs = 0;
-  private DisconnectEvent pendingDisconnect = null;
-
   // "You are already connected to the web client" desync recovery (Option A).
   private static final int MAX_ALREADY_CONNECTED_RETRIES = 4;
   private static final int ALREADY_CONNECTED_RETRY_DELAY_MS = 5000;
   private int alreadyConnectedRetries = 0;
-
-  // Vanilla A/B test mode: when on, the helper skips all our page injections. Read from a
-  // marker file at startup so it survives restarts; toggled via /oa testmode.
-  private boolean testMode = java.nio.file.Files.exists(ImfStorage.oaTestModeMarker());
 
   private WebViewBridge bridge;
   private String savedSessionUrl;
@@ -252,10 +222,6 @@ public class OpenAudioMcService {
     if (bridge == null) {
       notifyUser("Starting audio engine...");
       bridge = new WebViewBridge();
-      bridge.setTestMode(testMode);
-      // Surface WKWebView content-process crashes as a distinct disconnect cause so
-      // /oa disconnects can tell us whether dropouts are server-side or local.
-      bridge.setOnContentProcessTerminated(() -> recordDisconnect("content_process_terminated"));
       if (!bridge.start()) {
         LOGGER.error("Failed to start WebView bridge — OpenAudioMC audio will not work");
         notifyUser("Failed to start audio engine.");
@@ -282,7 +248,6 @@ public class OpenAudioMcService {
   /** Stops the current audio session. Navigates the webview to about:blank (stops audio). */
   public void disconnect() {
     LOGGER.info("Disconnecting OpenAudioMC");
-    if (isConnected) recordDisconnect("user_disconnect");
     stopMonitoring();
     isActive = false;
     isConnected = false;
@@ -666,136 +631,6 @@ public class OpenAudioMcService {
     return evaluateJs(String.format(java.util.Locale.ROOT, AUDIO_SET_VOLUME_TPL, id, clamped));
   }
 
-  /** Last n WKWebView console messages buffered by the bridge. Empty if not connected. */
-  public java.util.List<WebViewBridge.ConsoleLog> recentConsoleLogs(int n) {
-    if (bridge == null) return java.util.List.of();
-    return bridge.recentConsoleLogs(n);
-  }
-
-  /**
-   * Records a disconnect with the given cause. The entry is appended to {@code disconnectHistory};
-   * its {@code reconnectLatencyMs} is filled in later by {@link #recordReconnect()} when the next
-   * confirmed-connected transition happens.
-   */
-  private void recordDisconnect(String cause) {
-    long now = System.currentTimeMillis();
-    long sessionDur = connectStartMs > 0 ? now - connectStartMs : -1;
-    java.util.List<WebViewBridge.ConsoleLog> snapshot =
-        bridge != null ? bridge.recentConsoleLogs(20) : java.util.List.of();
-    DisconnectEvent evt = new DisconnectEvent(now, cause, sessionDur, -1, snapshot);
-    synchronized (disconnectHistory) {
-      disconnectHistory.addLast(evt);
-      while (disconnectHistory.size() > DISCONNECT_HISTORY_SIZE) {
-        disconnectHistory.pollFirst();
-      }
-      pendingDisconnect = evt;
-    }
-    connectStartMs = 0;
-    LOGGER.info(
-        "Disconnect recorded: cause={} sessionMs={}", cause, sessionDur >= 0 ? sessionDur : "?");
-    appendDisconnectCsv(evt);
-  }
-
-  /**
-   * Appends one disconnect to {@link ImfStorage#oaDisconnectsCsv()}, tagged with the current mode
-   * ("test" = our injections off, "normal" = on) and the WebSocket close code pulled from the
-   * snapshot (absent in test mode — no WS wrapper). This is the cross-restart artifact for the A/B
-   * comparison; columns: isoTime, mode, cause, sessionMs, closeCode.
-   */
-  private void appendDisconnectCsv(DisconnectEvent evt) {
-    String closeCode = "na";
-    if (evt.consoleSnapshot() != null) {
-      for (WebViewBridge.ConsoleLog log : evt.consoleSnapshot()) {
-        int idx = log.message().indexOf("[NRA-WS] close code=");
-        if (idx >= 0) {
-          String tail = log.message().substring(idx + "[NRA-WS] close code=".length());
-          int sp = tail.indexOf(' ');
-          closeCode = sp > 0 ? tail.substring(0, sp) : tail;
-        }
-      }
-    }
-    String line =
-        String.format(
-            java.util.Locale.ROOT,
-            "%s,%s,%s,%d,%s%n",
-            java.time.Instant.ofEpochMilli(evt.timestampMs()).toString(),
-            testMode ? "test" : "normal",
-            evt.cause(),
-            evt.sessionDurationMs(),
-            closeCode);
-    try {
-      java.nio.file.Path csv = ImfStorage.oaDisconnectsCsv();
-      if (!java.nio.file.Files.exists(csv)) {
-        java.nio.file.Files.writeString(
-            csv, "isoTime,mode,cause,sessionMs,closeCode" + System.lineSeparator());
-      }
-      java.nio.file.Files.writeString(
-          csv,
-          line,
-          java.nio.file.StandardOpenOption.CREATE,
-          java.nio.file.StandardOpenOption.APPEND);
-    } catch (java.io.IOException e) {
-      LOGGER.warn("Failed to append disconnect CSV: {}", e.getMessage());
-    }
-  }
-
-  /** True when the helper is running in vanilla test mode (our page injections disabled). */
-  public boolean isTestMode() {
-    return testMode;
-  }
-
-  /**
-   * Toggles vanilla test mode by writing/removing the marker file. The change only takes effect
-   * after the helper relaunches (full MC restart), since the page injections are decided at
-   * WebView-creation time. Returns the new state.
-   */
-  public boolean setTestMode(boolean enabled) {
-    testMode = enabled;
-    try {
-      if (enabled) {
-        java.nio.file.Files.writeString(ImfStorage.oaTestModeMarker(), "1");
-      } else {
-        java.nio.file.Files.deleteIfExists(ImfStorage.oaTestModeMarker());
-      }
-    } catch (java.io.IOException e) {
-      LOGGER.warn("Failed to persist OA test-mode marker: {}", e.getMessage());
-    }
-    return testMode;
-  }
-
-  /** Fills the {@code reconnectLatencyMs} of the most recent pending disconnect, if any. */
-  private void recordReconnect() {
-    synchronized (disconnectHistory) {
-      DisconnectEvent pd = pendingDisconnect;
-      if (pd == null) return;
-      long latency = System.currentTimeMillis() - pd.timestampMs();
-      // Pending entry is also the last in the deque — replace it in place.
-      if (!disconnectHistory.isEmpty() && disconnectHistory.peekLast() == pd) {
-        disconnectHistory.removeLast();
-      }
-      disconnectHistory.addLast(
-          new DisconnectEvent(
-              pd.timestampMs(), pd.cause(), pd.sessionDurationMs(), latency, pd.consoleSnapshot()));
-      pendingDisconnect = null;
-    }
-  }
-
-  /** Returns the last n disconnect events, oldest first. */
-  public java.util.List<DisconnectEvent> recentDisconnects(int n) {
-    synchronized (disconnectHistory) {
-      int size = disconnectHistory.size();
-      if (n >= size) return new java.util.ArrayList<>(disconnectHistory);
-      int skip = size - n;
-      java.util.List<DisconnectEvent> out = new java.util.ArrayList<>(n);
-      int i = 0;
-      for (DisconnectEvent e : disconnectHistory) {
-        if (i++ < skip) continue;
-        out.add(e);
-      }
-      return out;
-    }
-  }
-
   private void startMonitoring() {
     stopMonitoring();
     if (scheduler == null || scheduler.isShutdown()) {
@@ -869,8 +704,6 @@ public class OpenAudioMcService {
         isConnected = true;
         reconnectAttempts = 0;
         ReminderHandler.getInstance().setAudioConnected(true);
-        recordReconnect();
-        connectStartMs = System.currentTimeMillis();
         notifyUser(
             "Audio connected! Volume: "
                 + (volume >= 0 ? volume + "%" : "unknown")
@@ -915,7 +748,6 @@ public class OpenAudioMcService {
     if (wasConnected && !hasRangeInput) {
       isConnected = false;
       ReminderHandler.getInstance().setAudioConnected(false);
-      recordDisconnect("mid_session_drop");
 
       if (midSessionDropAttempts < MAX_MID_SESSION_DROP_ATTEMPTS) {
         midSessionDropAttempts++;
@@ -944,7 +776,6 @@ public class OpenAudioMcService {
    */
   private void handleServerEndedReconnect() {
     LOGGER.info("Server ended the audio session; soft-terminating and requesting fresh /audio");
-    recordDisconnect("server_ended");
     stopMonitoring();
     isActive = false;
     isConnected = false;
@@ -971,7 +802,6 @@ public class OpenAudioMcService {
 
   private void handleFailure(String reason) {
     LOGGER.error("OpenAudioMC connection failed: {}", reason);
-    recordDisconnect(reason);
     hasReportedFailure = true;
     isActive = false;
     isConnected = false;

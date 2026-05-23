@@ -397,19 +397,7 @@ class WebViewManager: NSObject, WKNavigationDelegate, WKUIDelegate {
               // NOT touch window.WebSocket anymore.
             })();
             """, injectionTime: .atDocumentStart, forMainFrameOnly: false)
-        // A/B test mode: when NRA_OA_TEST_MODE=1, skip ALL of our page-level injections
-        // (registry, WebSocket wrapper, volGain createMediaElementSource hook, muted-driving
-        // volume setter) so the page runs vanilla. The webrtc/console/audio polyfills above
-        // are kept since they predate this work and are needed for basic playback. Used to
-        // measure whether our modifications affect the relay disconnect rate. Disconnect
-        // recording is Java-side and works in both modes.
-        let testMode = ProcessInfo.processInfo.environment["NRA_OA_TEST_MODE"] == "1"
-        if testMode {
-            writeLine(jsonLine(["type": "console", "level": "info",
-                                "message": "[NRA] OA test mode: page injections DISABLED"]))
-        } else {
-            config.userContentController.addUserScript(audioRegistry)
-        }
+        config.userContentController.addUserScript(audioRegistry)
 
         // Create an offscreen window (1x1 pixel, hidden)
         window = NSWindow(

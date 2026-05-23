@@ -43,29 +43,9 @@ public class WebViewBridge {
   private static final Logger LOGGER = LoggerFactory.getLogger("WebViewBridge");
   private static final long EVAL_TIMEOUT_SECONDS = 10;
 
-  /** Max console messages retained for {@link #recentConsoleLogs(int)}. */
-  private static final int CONSOLE_BUFFER_SIZE = 300;
-
   /** Directory (under configDir) where we extract/cache native WebView helpers. */
   private static Path helperDir() {
     return ImfStorage.nativeHelperDir();
-  }
-
-  /** One captured console line from the WKWebView (forwarded by the native helper). */
-  public record ConsoleLog(long timestampMs, String level, String message) {}
-
-  /** Callback fired when WKWebView's content process terminates (a real WebKit crash). */
-  private volatile Runnable onContentProcessTerminated;
-
-  public void setOnContentProcessTerminated(Runnable cb) {
-    this.onContentProcessTerminated = cb;
-  }
-
-  /** When true, the helper is launched with NRA_OA_TEST_MODE=1 (skips our page injections). */
-  private boolean testMode;
-
-  public void setTestMode(boolean testMode) {
-    this.testMode = testMode;
   }
 
   private Process process;
@@ -74,7 +54,6 @@ public class WebViewBridge {
   private volatile boolean running;
   private final Map<String, CompletableFuture<JSONObject>> pendingEvals = new ConcurrentHashMap<>();
   private final CompletableFuture<Void> readyFuture = new CompletableFuture<>();
-  private final java.util.Deque<ConsoleLog> consoleBuffer = new java.util.ArrayDeque<>();
 
   public boolean start() {
     Path helperPath = findHelperBinary();
@@ -90,9 +69,6 @@ public class WebViewBridge {
     try {
       ProcessBuilder pb = new ProcessBuilder(helperPath.toAbsolutePath().toString());
       pb.redirectErrorStream(false);
-      if (testMode) {
-        pb.environment().put("NRA_OA_TEST_MODE", "1");
-      }
       process = pb.start();
 
       writer =
@@ -174,28 +150,6 @@ public class WebViewBridge {
     return running && process != null && process.isAlive();
   }
 
-  /**
-   * Snapshot of the last {@code n} console messages forwarded from the WKWebView (newest last). The
-   * buffer is shared across all log levels — `log`/`info` lines that slf4j drops still land here,
-   * which is what makes the OpenAudioMC playlist/MediaTrack chatter retrievable via {@code /oa
-   * console}.
-   */
-  public java.util.List<ConsoleLog> recentConsoleLogs(int n) {
-    if (n <= 0) return java.util.List.of();
-    synchronized (consoleBuffer) {
-      int size = consoleBuffer.size();
-      if (n >= size) return new java.util.ArrayList<>(consoleBuffer);
-      int skip = size - n;
-      java.util.List<ConsoleLog> out = new java.util.ArrayList<>(n);
-      int i = 0;
-      for (ConsoleLog log : consoleBuffer) {
-        if (i++ < skip) continue;
-        out.add(log);
-      }
-      return out;
-    }
-  }
-
   private void sendCommand(JSONObject command) {
     if (writer == null || !isRunning()) {
       return;
@@ -258,15 +212,6 @@ public class WebViewBridge {
       case "console":
         String level = response.optString("level", "log");
         String msg = response.optString("message", "");
-        // Always retain in the ring buffer regardless of level so `/oa console` can
-        // surface the chatty `[Playlist …]` / `[MediaTrack …]` lines OAM emits at
-        // console.log — Java's slf4j routing only logs warn/error to the file.
-        synchronized (consoleBuffer) {
-          consoleBuffer.addLast(new ConsoleLog(System.currentTimeMillis(), level, msg));
-          while (consoleBuffer.size() > CONSOLE_BUFFER_SIZE) {
-            consoleBuffer.pollFirst();
-          }
-        }
         if ("error".equals(level) || "uncaught".equals(level) || "rejection".equals(level)) {
           LOGGER.warn("[JS {}] {}", level, msg);
         } else if ("warn".equals(level)) {
@@ -278,14 +223,6 @@ public class WebViewBridge {
         break;
       case "web_content_terminated":
         LOGGER.warn("WebKit content process terminated (WebView audio engine crashed)");
-        Runnable cb = onContentProcessTerminated;
-        if (cb != null) {
-          try {
-            cb.run();
-          } catch (Exception e) {
-            LOGGER.warn("onContentProcessTerminated callback threw: {}", e.getMessage());
-          }
-        }
         break;
       default:
         LOGGER.debug("Unknown helper response type: {}", type);

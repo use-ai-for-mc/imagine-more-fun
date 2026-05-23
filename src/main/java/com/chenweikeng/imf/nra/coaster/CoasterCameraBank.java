@@ -92,22 +92,4 @@ public final class CoasterCameraBank {
   public static float getCurrentRoll() {
     return currentRoll;
   }
-
-  /** DebugBridge health check: {@code java.import("...CoasterCameraBank"):describe()}. */
-  public static String describe() {
-    RideName ride = lastRide;
-    int trackCount = ride != null ? CoasterTrackData.forRide(ride).count : 0;
-    boolean bankingOn = false;
-    int strength = 0;
-    if (ride != null) {
-      CoasterEntry entry = ENTRIES.get(ride);
-      if (entry != null) {
-        bankingOn = entry.bankingOn().getAsBoolean();
-        strength = entry.strengthPercent().getAsInt();
-      }
-    }
-    return String.format(
-        "ride=%s banking=%s strength=%d%% currentRoll=%.1f deg sample=%d/%d",
-        ride, bankingOn, strength, currentRoll, lastSample, trackCount);
-  }
 }
