@@ -82,6 +82,9 @@
       <p>Manual period override (s):
          <input id="cOv" type="number" step="0.01" placeholder="auto" />
          <button id="cSave">set</button> <button id="cClear">auto</button></p>
+      <p>Anchor from a timestamp (Unix&nbsp;s):
+         <input id="anIn" type="number" step="0.1" placeholder="from /imf rct calib" />
+         <button id="anSet">add</button> — paste a GotG-departure time the mod logged.</p>
       <p>Use <b>reset</b> after a server restart (the cycle starts over, so old taps no longer line up),
          or <b>undo</b> to drop a mistimed tap. Taps older than 48&nbsp;h are forgotten automatically.</p>
     </details>
@@ -271,6 +274,10 @@
     if (isFinite(v) && v > 0) { overrideC = v; localStorage.setItem("rct_period", v); recalc(); }
   };
   $("cClear").onclick = function () { overrideC = null; localStorage.removeItem("rct_period"); recalc(); };
+  $("anSet").onclick = function () {
+    var v = parseFloat($("anIn").value);
+    if (isFinite(v) && v > 1e9) { anchors.push(v); recalc(); $("anIn").value = ""; }
+  };
 
   recalc();
   setInterval(tick, 250);
