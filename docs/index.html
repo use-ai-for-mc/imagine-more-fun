@@ -88,8 +88,8 @@
   </div>
 
 <script>
-  var SEED_C = 679.77;        // period from the original ~5-cycle capture
-  var SEED_SIGMA = 0.20;      // its uncertainty (prior); live taps sharpen this
+  var SEED_C = 680.0;         // even-second period: direct capture ~679.77 + observed drift ⇒ 680
+  var SEED_SIGMA = 0.15;      // prior uncertainty; live taps sharpen this
   var TAP_SIGMA = 1.0;        // a human button-tap pins a phase-0 crossing to ~±1 s
   var BV_ARRIVE = 306, BV_DEPART = 316.3, GOTG_ARRIVE = 622.3; // phase landmarks; GotG dwell flexes with C
   var EPOCH0_DEFAULT = 518.1; // rough phase offset shown before any live anchor
