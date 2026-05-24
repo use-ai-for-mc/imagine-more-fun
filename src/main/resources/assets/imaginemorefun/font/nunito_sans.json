@@ -1,0 +1,11 @@
+{
+  "providers": [
+    {
+      "type": "ttf",
+      "file": "imaginemorefun:nunito_sans.ttf",
+      "size": 12.0,
+      "oversample": 8.0,
+      "shift": [0, 1]
+    }
+  ]
+}

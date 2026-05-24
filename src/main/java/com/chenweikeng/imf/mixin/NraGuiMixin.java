@@ -1,5 +1,6 @@
 package com.chenweikeng.imf.mixin;
 
+import com.chenweikeng.imf.ImfClient;
 import com.chenweikeng.imf.nra.GameState;
 import com.chenweikeng.imf.nra.NotRidingAlertClient;
 import com.chenweikeng.imf.nra.config.ClosedCaptionMode;
@@ -13,8 +14,10 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.FontDescription;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.ARGB;
 import net.minecraft.world.scores.Objective;
 import org.spongepowered.asm.mixin.Final;
@@ -28,6 +31,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(Gui.class)
 public abstract class NraGuiMixin {
   @Shadow @Final private Minecraft minecraft;
+
+  // Font id path = the font/ JSON filename (nunito_sans.json) under assets/imaginemorefun/.
+  private static final FontDescription NUNITO_SANS_FONT =
+      new FontDescription.Resource(
+          Identifier.fromNamespaceAndPath(ImfClient.MOD_ID, "nunito_sans"));
 
   @Inject(
       at = @At("HEAD"),
@@ -165,10 +173,11 @@ public abstract class NraGuiMixin {
     int maxWidth = (int) (guiWidth * 0.8f / scale);
     int textColor = ARGB.color(255, 255, 255, 255);
     int shadowColor = ARGB.color(128, 255, 255, 255);
-    Component shadowCaption = scaleCaptionColors(caption);
+    Component fontedCaption = applyNunitoToWhitelist(caption);
+    Component shadowCaption = applyNunitoToWhitelist(scaleCaptionColors(caption));
     List<net.minecraft.util.FormattedCharSequence> linesShadow =
         font.split(shadowCaption, maxWidth);
-    List<net.minecraft.util.FormattedCharSequence> lines = font.split(caption, maxWidth);
+    List<net.minecraft.util.FormattedCharSequence> lines = font.split(fontedCaption, maxWidth);
 
     if (lines.isEmpty()) {
       return;
@@ -221,6 +230,44 @@ public abstract class NraGuiMixin {
 
     guiGraphics.pose().popMatrix();
     guiGraphics.pose().popMatrix();
+  }
+
+  // Apply Nunito Sans only to whitelisted (normal ASCII) codepoints; leave everything else in the
+  // inherited default font. Server resource-pack symbols (e.g. note icons) live in Private-Use-Area
+  // codepoints that Nunito has no glyph for, so forcing our font on them would show missing-glyph
+  // boxes — keeping the default font lets the server pack draw them.
+  private static Component applyNunitoToWhitelist(Component component) {
+    MutableComponent result = Component.empty();
+    for (Component part : component.toFlatList(Style.EMPTY)) {
+      Style style = part.getStyle();
+      String text = part.getString();
+      int i = 0;
+      int n = text.length();
+      while (i < n) {
+        int cp = text.codePointAt(i);
+        boolean nunito = isNunitoGlyph(cp);
+        int start = i;
+        i += Character.charCount(cp);
+        while (i < n) {
+          int next = text.codePointAt(i);
+          if (isNunitoGlyph(next) != nunito) {
+            break;
+          }
+          i += Character.charCount(next);
+        }
+        Style runStyle = nunito ? style.withFont(NUNITO_SANS_FONT) : style;
+        result.append(Component.literal(text.substring(start, i)).setStyle(runStyle));
+      }
+    }
+    return result;
+  }
+
+  // Printable ASCII (0x20-0x7E) + printable Latin-1 Supplement (0xA0-0xFF) — the ranges Nunito Sans
+  // covers. Everything else (e.g. server resource-pack symbols in Private-Use-Area codepoints)
+  // falls
+  // back to the default font.
+  private static boolean isNunitoGlyph(int codePoint) {
+    return (codePoint >= 0x20 && codePoint <= 0x7E) || (codePoint >= 0xA0 && codePoint <= 0xFF);
   }
 
   private static Component scaleCaptionColors(Component component) {
