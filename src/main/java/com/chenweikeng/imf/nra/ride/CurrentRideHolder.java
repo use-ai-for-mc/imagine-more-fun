@@ -17,6 +17,7 @@ public class CurrentRideHolder {
 
   public static void setCurrentRide(RideName ride) {
     boolean isNewRide = currentRide == null && ride != null;
+    boolean rideChanged = ride != currentRide;
     currentRide = ride;
     if (ride == null) {
       currentProgressPercent = null;
@@ -24,6 +25,9 @@ public class CurrentRideHolder {
     }
     if (isNewRide) {
       ClosedCaptionHolder.getInstance().randomizeColorSeed();
+    }
+    if (rideChanged) {
+      ClosedCaptionHolder.getInstance().onRideChanged(ride);
     }
   }
 

@@ -1,6 +1,8 @@
 package com.chenweikeng.imf.nra.handler;
 
 import com.chenweikeng.imf.nra.GameState;
+import com.chenweikeng.imf.nra.ride.CurrentRideHolder;
+import com.chenweikeng.imf.nra.ride.RideName;
 import java.awt.Color;
 import java.util.Random;
 import net.minecraft.network.chat.Component;
@@ -14,6 +16,7 @@ public class ClosedCaptionHolder {
   private Component pendingCaption = null;
   private int delayCounter = 0;
   private int displayTicks = 0;
+  private RideName captionRide = null;
   private int colorSeed = 0;
   private String firstAnnouncerName = null;
   private final Random random = new Random();
@@ -45,6 +48,7 @@ public class ClosedCaptionHolder {
   }
 
   public void setCaption(Component caption) {
+    captionRide = CurrentRideHolder.getCurrentRide();
     if (pendingCaption != null) {
       pendingCaption = caption;
       displayTicks = DEFAULT_DISPLAY_TICKS;
@@ -56,6 +60,20 @@ public class ClosedCaptionHolder {
       pendingCaption = caption;
       delayCounter = DELAY_TICKS;
       displayTicks = DEFAULT_DISPLAY_TICKS;
+    }
+  }
+
+  /**
+   * Drops a retained caption when the player has moved to a different ride than the one it was
+   * shown for. {@link #tick()} only counts the caption down while not riding, so without this a
+   * caption lingers onto the next ride when the player switches rides without a gap.
+   */
+  public void onRideChanged(RideName newRide) {
+    if ((currentCaption != null || pendingCaption != null)
+        && captionRide != null
+        && newRide != null
+        && newRide != captionRide) {
+      clear();
     }
   }
 
@@ -72,6 +90,7 @@ public class ClosedCaptionHolder {
     pendingCaption = null;
     delayCounter = 0;
     displayTicks = 0;
+    captionRide = null;
   }
 
   public void randomizeColorSeed() {
