@@ -27,7 +27,8 @@
   .bar { position:relative; height:8px; background:#232a36; border-radius:4px; margin:32px 0 8px; }
   .endlabel { position:absolute; top:-23px; font-size:12px; color:#9aa3b2; }
   .dot { position:absolute; top:-6px; width:18px; height:18px; border-radius:50%;
-         transform:translateX(-50%); transition:left .25s linear; box-shadow:0 0 9px currentColor; }
+         transform:translateX(-50%); transition:left .25s linear;
+         display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; color:#0d0f14; }
   .footer { width:100%; max-width:660px; font-size:12px; color:#7b8494; line-height:1.6; }
   .footer input { width:92px; background:#0d0f14; color:#e8eaed; border:1px solid #2a3340;
                   border-radius:6px; padding:3px 6px; font-variant-numeric:tabular-nums; }
@@ -50,14 +51,14 @@
     <div class="bar">
       <span class="endlabel" style="left:0">GotG</span>
       <span class="endlabel" style="right:0">Buena Vista</span>
-      <div class="dot" id="dotA" style="color:#55ff77;background:#55ff77"></div>
-      <div class="dot" id="dotB" style="color:#ffaa00;background:#ffaa00"></div>
+      <div class="dot" id="dotA" style="background:#55ff77;box-shadow:0 0 9px #55ff77">A</div>
+      <div class="dot" id="dotB" style="background:#ffaa00;box-shadow:0 0 9px #ffaa00">B</div>
     </div>
   </div>
 
   <div class="row">
-    <div class="card"><div class="name">Car 1</div><div class="state" id="aState">–</div><div class="note" id="aDetail"></div></div>
-    <div class="card"><div class="name">Car 2</div><div class="state" id="bState">–</div><div class="note" id="bDetail"></div></div>
+    <div class="card"><div class="name">Car A</div><div class="state" id="aState">–</div><div class="note" id="aDetail"></div></div>
+    <div class="card"><div class="name">Car B</div><div class="state" id="bState">–</div><div class="note" id="bDetail"></div></div>
   </div>
 
   <div class="footer">
