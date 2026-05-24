@@ -12,49 +12,44 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.item.ItemStack;
 
 /**
- * Owns the canoe logger lifecycle (CSV per session under {@code <gameDir>/canoe-logs/}) and exposes
- * signals other features need:
+ * Tracks the player's canoe session on "Davy Crockett's Explorer Canoes" and exposes two signals
+ * other features need:
  *
  * <ul>
  *   <li>{@link #hasCanoeStarted()} — used by {@code CursorManager} to defer window minimisation
  *       until the player has actually started the canoe (first speed-bar update).
- *   <li>The session log — captures TICK / AB / CLICK rows for offline analysis.
+ *   <li>Progress percent — projects the boat's position onto the baked reference track and
+ *       publishes it to {@link CurrentRideHolder} for the ride-plan HUD, strategy hub, and macOS
+ *       status bar.
  * </ul>
  *
- * <p>All accesses are routed through {@link #get()}; the mixin classes call {@link #onClick} and
- * {@link #onActionBar} from their respective hooks.
+ * <p>All accesses are routed through {@link #get()}; {@link com.chenweikeng.imf.mixin
+ * .CanoeGuiSetOverlayMessageMixin} calls {@link #onActionBar} from its hook.
  */
 public final class CanoeHelperClient {
 
   /** The display name of the paddle item. Used as the activation gate. */
   public static final String PADDLE_NAME = "Canoe Paddle";
 
-  /** How long the paddle must be missing before the log file is closed. */
+  /** How long the paddle must be missing before the canoe session is considered over. */
   private static final long IDLE_CLOSE_MS = 5_000;
+
+  /** If the boat strays farther than this from the reference path, drop the progress reading. */
+  private static final float OFF_TRACK_THRESHOLD_BLOCKS = 15f;
 
   private static final CanoeHelperClient INSTANCE = new CanoeHelperClient();
 
-  /** Last parsed action-bar state (so click rows can include the current speed snapshot). */
-  private volatile CanoeBarParser.Parsed lastBar = new CanoeBarParser.Parsed("", Float.NaN, -1, -1);
-
-  /** Wall-clock millis at which the most recent canoe-bar AB landed. */
-  private volatile long lastCanoeBarMs = 0;
-
   /**
-   * True once any canoe-bar AB has been received in the current paddle session. Cleared whenever
-   * the helper closes a session (paddle gone for {@link #IDLE_CLOSE_MS}). This is the "the canoe
-   * actually started moving" signal — used by {@code CursorManager} to defer window minimisation
-   * until the player has had a chance to make the start click.
+   * True once any canoe-bar action-bar has been received in the current paddle session. Cleared
+   * whenever the session ends (paddle gone for {@link #IDLE_CLOSE_MS}, or the player leaves the
+   * server). This is the "the canoe actually started moving" signal — used by {@code CursorManager}
+   * to defer window minimisation until the player has had a chance to make the start click, and as
+   * the gate for publishing progress.
    */
   private volatile boolean canoeStarted = false;
 
-  private CanoeLogger logger;
-
   /** Wall-clock millis at which we last saw the player holding the paddle. */
   private long lastPaddleSeenMs = 0;
-
-  /** True while a session log file is open. */
-  private boolean active = false;
 
   private CanoeHelperClient() {}
 
@@ -77,30 +72,10 @@ public final class CanoeHelperClient {
     return canoeStarted;
   }
 
-  /* -------- intercepted from mixins -------- */
-
   /** Called from {@link com.chenweikeng.imf.mixin.CanoeGuiSetOverlayMessageMixin}. */
   public void onActionBar(Component component) {
-    CanoeBarParser.Parsed parsed = CanoeBarParser.parse(component);
-    lastBar = parsed;
-    if (parsed.isCanoeBar()) {
-      lastCanoeBarMs = System.currentTimeMillis();
+    if (CanoeBarParser.parse(component).isCanoeBar()) {
       canoeStarted = true;
-    }
-    if (active && logger != null && parsed.isCanoeBar()) {
-      writeRow(CanoeLogger.EventType.AB, parsed);
-    }
-  }
-
-  /**
-   * Called from {@link com.chenweikeng.imf.mixin.CanoeMinecraftClickMixin}. {@code right} is true
-   * for {@code startUseItem}, false for {@code startAttack}.
-   */
-  public void onClick(boolean right) {
-    LocalPlayer player = Minecraft.getInstance().player;
-    if (player == null || !isHoldingPaddle(player)) return;
-    if (active && logger != null) {
-      writeRow(right ? CanoeLogger.EventType.CLICK_R : CanoeLogger.EventType.CLICK_L, lastBar);
     }
   }
 
@@ -108,29 +83,20 @@ public final class CanoeHelperClient {
 
   private void onClientTick(Minecraft client) {
     if (!ServerState.isImagineFunServer()) {
-      closeIfActive();
+      canoeStarted = false;
       return;
     }
     LocalPlayer player = client.player;
     if (player == null) {
-      closeIfActive();
+      canoeStarted = false;
       return;
     }
 
     long now = System.currentTimeMillis();
-    boolean holding = isHoldingPaddle(player);
-
-    if (holding) {
+    if (isHoldingPaddle(player)) {
       lastPaddleSeenMs = now;
-      if (!active) {
-        startSession();
-      }
-    } else if (active && now - lastPaddleSeenMs > IDLE_CLOSE_MS) {
-      closeIfActive();
-    }
-
-    if (active && logger != null) {
-      writeRow(CanoeLogger.EventType.TICK, lastBar);
+    } else if (canoeStarted && now - lastPaddleSeenMs > IDLE_CLOSE_MS) {
+      canoeStarted = false;
     }
 
     publishProgress(player);
@@ -158,27 +124,6 @@ public final class CanoeHelperClient {
     CurrentRideHolder.setCurrentProgressPercent(p);
   }
 
-  /** If the boat strays farther than this from the reference path, drop the progress reading. */
-  private static final float OFF_TRACK_THRESHOLD_BLOCKS = 15f;
-
-  private void startSession() {
-    CanoeLogger l = CanoeLogger.open();
-    if (l == null) return;
-    logger = l;
-    active = true;
-    lastBar = new CanoeBarParser.Parsed("", Float.NaN, -1, -1);
-  }
-
-  private void closeIfActive() {
-    if (active && logger != null) {
-      logger.close();
-    }
-    logger = null;
-    active = false;
-    canoeStarted = false;
-    lastCanoeBarMs = 0;
-  }
-
   /* -------- helpers -------- */
 
   private static boolean isHoldingPaddle(LocalPlayer player) {
@@ -189,32 +134,5 @@ public final class CanoeHelperClient {
     if (stack == null || stack.isEmpty()) return false;
     String name = stack.getHoverName().getString();
     return PADDLE_NAME.equals(name);
-  }
-
-  private void writeRow(CanoeLogger.EventType type, CanoeBarParser.Parsed bar) {
-    Minecraft mc = Minecraft.getInstance();
-    LocalPlayer player = mc.player;
-    if (player == null || logger == null) return;
-    Entity v = player.getVehicle();
-    int vehicleId = v == null ? -1 : v.getId();
-    Double vx = v == null ? null : v.getX();
-    Double vy = v == null ? null : v.getY();
-    Double vz = v == null ? null : v.getZ();
-    Float vyaw = v == null ? null : v.getYRot();
-    logger.write(
-        type,
-        player.getX(),
-        player.getY(),
-        player.getZ(),
-        player.getYRot(),
-        vehicleId,
-        vx,
-        vy,
-        vz,
-        vyaw,
-        bar.speed,
-        bar.fill,
-        bar.total,
-        bar.raw);
   }
 }
