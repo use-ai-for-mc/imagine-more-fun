@@ -2,10 +2,9 @@ package com.chenweikeng.imf.nra.canoe;
 
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
-import net.minecraft.network.chat.TextColor;
 
 /**
- * Parses the canoe speed bar text from the action-bar {@link Component}.
+ * Detects the canoe speed bar in the action-bar {@link Component}.
  *
  * <p>The server sends a styled component shaped like:
  *
@@ -17,41 +16,26 @@ import net.minecraft.network.chat.TextColor;
  *     "檡檡]"   color=#C8D6E5   (gray, empty bar segments + close bracket)
  * </pre>
  *
- * <p>The bar holds 16 segments total. Each segment is {@code U+6AA1} ('檡'), interleaved with
- * invisible {@code U+F001} kerning glyphs from a custom resource-pack font.
+ * <p>Each bar segment is {@code U+6AA1} ('檡'), interleaved with invisible {@code U+F001} kerning
+ * glyphs from a custom resource-pack font. We only need to recognise "this is a canoe bar", so we
+ * extract the leading speed value and a count of segment glyphs (regardless of fill colour) — see
+ * {@link Parsed#isCanoeBar()}.
  */
 public final class CanoeBarParser {
-
-  /** Hex color used for the "filled" portion of the bar. */
-  public static final int FILL_COLOR = 0x32FF7E;
 
   /** The bar segment glyph (U+6AA1, '檡'). */
   public static final int SEGMENT_CODEPOINT = 0x6AA1;
 
-  /** Number of bar segments at full speed. */
-  public static final int TOTAL_SEGMENTS = 16;
-
-  /** Maximum boat speed. */
-  public static final float MAX_SPEED = 3.5f;
-
   /** Result of parsing the action-bar component. */
   public static final class Parsed {
-    /** Raw plain-text contents of the component (for logging). */
-    public final String raw;
-
     /** Parsed speed value (e.g. {@code 3.1f}), or {@code Float.NaN} if not detected. */
     public final float speed;
-
-    /** Number of green-colored bar segments (filled). {@code -1} if no bar present. */
-    public final int fill;
 
     /** Total number of bar segments seen. {@code -1} if no bar present. */
     public final int total;
 
-    Parsed(String raw, float speed, int fill, int total) {
-      this.raw = raw;
+    Parsed(float speed, int total) {
       this.speed = speed;
-      this.fill = fill;
       this.total = total;
     }
 
@@ -66,12 +50,11 @@ public final class CanoeBarParser {
   /** Parse the given component. Never returns null. */
   public static Parsed parse(Component component) {
     if (component == null) {
-      return new Parsed("", Float.NaN, -1, -1);
+      return new Parsed(Float.NaN, -1);
     }
-    String raw = component.getString();
 
     float[] speedHolder = {Float.NaN};
-    int[] counts = {0, 0}; // [fill, total]
+    int[] totalHolder = {0};
 
     component.visit(
         (style, text) -> {
@@ -85,23 +68,12 @@ public final class CanoeBarParser {
               // not a speed
             }
           }
-          // Count segment glyphs and how many of them carry the green fill color.
-          int segs = countSegments(text);
-          if (segs > 0) {
-            counts[1] += segs;
-            if (isFillColor(style)) {
-              counts[0] += segs;
-            }
-          }
+          totalHolder[0] += countSegments(text);
           return java.util.Optional.empty();
         },
         Style.EMPTY);
 
-    return new Parsed(
-        raw,
-        speedHolder[0],
-        counts[0] == 0 && counts[1] == 0 ? -1 : counts[0],
-        counts[1] == 0 ? -1 : counts[1]);
+    return new Parsed(speedHolder[0], totalHolder[0] == 0 ? -1 : totalHolder[0]);
   }
 
   private static boolean looksLikeSpeed(String s) {
@@ -127,11 +99,5 @@ public final class CanoeBarParser {
       i += Character.charCount(cp);
     }
     return n;
-  }
-
-  private static boolean isFillColor(Style style) {
-    if (style == null) return false;
-    TextColor color = style.getColor();
-    return color != null && (color.getValue() & 0xFFFFFF) == FILL_COLOR;
   }
 }
