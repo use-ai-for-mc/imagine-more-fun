@@ -51,20 +51,20 @@
     <div class="bar">
       <span class="endlabel" style="left:0">GotG</span>
       <span class="endlabel" style="right:0">Buena Vista</span>
-      <div class="dot" id="dotA" style="background:#55ff77;box-shadow:0 0 9px #55ff77">A</div>
+      <div class="dot" id="dotA" style="background:#55ff77;box-shadow:0 0 9px #55ff77">G</div>
       <div class="dot" id="dotB" style="background:#ffaa00;box-shadow:0 0 9px #ffaa00">B</div>
     </div>
   </div>
 
   <div class="row">
-    <div class="card"><div class="name">Car A</div><div class="state" id="aState">–</div><div class="note" id="aDetail"></div></div>
-    <div class="card"><div class="name">Car B</div><div class="state" id="bState">–</div><div class="note" id="bDetail"></div></div>
+    <div class="card"><div class="name" style="color:#55ff77">Good car</div><div class="state" id="aState">–</div><div class="note" id="aDetail"></div></div>
+    <div class="card"><div class="name" style="color:#ffaa00">Bad car</div><div class="state" id="bState">–</div><div class="note" id="bDetail"></div></div>
   </div>
 
   <div class="footer">
-    <p><button id="anchor">▶ a trolley just left GotG</button>
+    <p><button id="anchor">▶ the Good car just left GotG</button>
        &nbsp; or set anchor manually: <input id="ep" type="number" step="0.01" /> <button id="save">save</button></p>
-    <p><b>Calibrate me.</b> Tap the button the instant a trolley pulls out of GotG — that locks the
+    <p><b>Calibrate me.</b> Tap the button the instant the Good car pulls out of GotG — that locks the
        phase to real life. After that it's accurate for a few hours; re-tap if it drifts or after a
        server restart. (A hardcoded absolute time can't stay accurate: the ~680&nbsp;s cycle is only
        known to ±0.25&nbsp;s, which over millions of cycles makes the absolute phase unknowable, and
@@ -104,7 +104,7 @@
 
   function calib() {
     var el = $("calib");
-    if (!anchoredAt) { el.className = "bad"; el.textContent = "⚠ not calibrated — showing a rough estimate. Tap “a trolley just left GotG” when you see it."; return; }
+    if (!anchoredAt) { el.className = "bad"; el.textContent = "⚠ not calibrated — showing a rough estimate. Tap “the Good car just left GotG” when you see it."; return; }
     var mins = Math.floor((Date.now() - anchoredAt) / 60000);
     if (mins >= 180) { el.className = "bad"; el.textContent = "⚠ calibrated " + mins + " min ago — may have drifted; re-calibrate."; }
     else { el.className = "ok"; el.textContent = "✓ calibrated " + mins + " min ago"; }
