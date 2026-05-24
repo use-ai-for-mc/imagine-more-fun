@@ -192,185 +192,49 @@ class WebViewManager: NSObject, WKNavigationDelegate, WKUIDelegate {
             """, injectionTime: .atDocumentStart, forMainFrameOnly: false)
         config.userContentController.addUserScript(audioPolyfill)
 
-        // Per-element audio registry. OpenAudioMC v367's MediaTrack class wraps
-        // `new Audio()` (detached HTMLAudioElement, never appended to the DOM)
-        // and drives volume through `this.audio.volume` directly — no
-        // createMediaElementSource and no AudioContext in the music path. This
-        // registry intercepts element creation so the Java side can enumerate
-        // and control individual tracks (list / stop / per-element volume) in
-        // addition to the React master-volume slider.
-        //
-        // Surface: window.__nra_audio
-        //   .list({ includeAll }) -> [{id, tag, src, volume, paused, ...}]
-        //   .setVolume(id, 0..1)
-        //   .stop(id) | .pause(id) | .resume(id) | .stopAll()
-        //   .events (capped log of register / volume changes)
-        let audioRegistry = WKUserScript(source: """
+        // WebKit audio-volume fix. Once an <audio> is routed through
+        // createMediaElementSource() WebKit ignores element.volume, so two pieces work
+        // together: (1) intercept createMediaElementSource to splice in a volGain GainNode,
+        // and (2) override the HTMLMediaElement.prototype volume setter to mirror the value
+        // into that gain and to force .muted when v<=0 (so volume 0 actually silences,
+        // including OAM's detached-`new Audio()` music elements that never reach a
+        // MediaElementSource). This deliberately does NOT touch window.Audio,
+        // document.createElement, HTMLMediaElement.prototype.play, or window.WebSocket — a
+        // per-element registry that hooked those to back /oa list|stop|vol was removed
+        // because it retained every Audio element forever and leaked GPU/media memory.
+        let audioVolumeFix = WKUserScript(source: """
             (function () {
-              if (window.__nra_audio) return;
-              var registry = {
-                byId: new Map(),
-                nextId: 1,
-                events: [],
-                pushEvent: function (kind, info) {
-                  this.events.push({ t: Date.now(), kind: kind, info: info });
-                  if (this.events.length > 200) this.events.shift();
-                },
-                isData: function (el) {
-                  var s = (el && (el.currentSrc || el.src)) || '';
-                  return s.indexOf('data:') === 0;
-                },
-                register: function (el, source) {
-                  if (!el || el.__nra_id != null) return el.__nra_id;
-                  var id = this.nextId++;
-                  el.__nra_id = id;
-                  this.byId.set(id, { el: el, createdAt: Date.now(), source: source || 'unknown' });
-                  this.pushEvent('register', {
-                    id: id, source: source,
-                    src: (el.src || el.currentSrc || '').slice(0, 200)
-                  });
-                  return id;
-                },
-                summarize: function (rec) {
-                  var el = rec.el;
-                  return {
-                    id: el.__nra_id,
-                    tag: el.tagName,
-                    paused: el.paused,
-                    volume: el.volume,
-                    muted: el.muted,
-                    currentTime: el.currentTime,
-                    duration: isFinite(el.duration) ? el.duration : null,
-                    loop: el.loop,
-                    ended: el.ended,
-                    readyState: el.readyState,
-                    src: (el.currentSrc || el.src || '').slice(0, 240),
-                    createdAt: rec.createdAt,
-                    source: rec.source,
-                    inDom: document.contains(el),
-                    isData: registry.isData(el)
-                  };
-                },
-                list: function (opts) {
-                  opts = opts || {};
-                  var out = [];
-                  registry.byId.forEach(function (rec) {
-                    var s = registry.summarize(rec);
-                    if (!opts.includeAll && (s.isData || s.ended)) return;
-                    out.push(s);
-                  });
-                  return out;
-                },
-                listAll: function () { return this.list({ includeAll: true }); },
-                setVolume: function (id, v) {
-                  var rec = this.byId.get(id); if (!rec) return false;
-                  rec.el.volume = Math.max(0, Math.min(1, v));
-                  return true;
-                },
-                setMuted: function (id, m) {
-                  var rec = this.byId.get(id); if (!rec) return false;
-                  rec.el.muted = !!m;
-                  return true;
-                },
-                stop: function (id) {
-                  var rec = this.byId.get(id); if (!rec) return false;
-                  try { rec.el.pause(); } catch (e) {}
-                  try { rec.el.currentTime = 0; } catch (e) {}
-                  return true;
-                },
-                pause: function (id) {
-                  var rec = this.byId.get(id); if (!rec) return false;
-                  try { rec.el.pause(); } catch (e) {}
-                  return true;
-                },
-                resume: function (id) {
-                  var rec = this.byId.get(id); if (!rec) return false;
-                  try { rec.el.play(); } catch (e) {}
-                  return true;
-                },
-                stopAll: function () {
-                  var n = 0;
-                  registry.byId.forEach(function (rec) {
-                    if (registry.isData(rec.el)) return;
-                    try { rec.el.pause(); n++; } catch (e) {}
-                  });
-                  return n;
-                }
-              };
-              window.__nra_audio = registry;
+              if (window.__nra_volume_fix) return;
+              window.__nra_volume_fix = true;
 
-              // 1) Audio constructor — caught at construct time so we record the element
-              //    even if OAM never inserts it into the DOM (which it doesn't).
-              var OrigAudio = window.Audio;
-              if (OrigAudio) {
-                window.Audio = function (src) {
-                  var el = new OrigAudio(src);
-                  registry.register(el, 'Audio()');
-                  return el;
-                };
-                window.Audio.prototype = OrigAudio.prototype;
-              }
+              // Gains spliced in by the createMediaElementSource hook below, keyed by media
+              // element in a WeakMap so finished elements are GC'd normally (no retention).
+              var elementGains = new WeakMap();
 
-              // 2) document.createElement('audio'|'video') — catches the rare path that
-              //    builds elements manually instead of via new Audio().
-              var _ce = document.createElement.bind(document);
-              document.createElement = function (name, opts) {
-                var el = _ce(name, opts);
-                if (name && (name.toLowerCase() === 'audio' || name.toLowerCase() === 'video')) {
-                  registry.register(el, 'createElement(' + name + ')');
-                }
-                return el;
-              };
-
-              // 3) play() — late-register safety net for any element created before our
-              //    constructor hook (e.g., if an extension or earlier inline script
-              //    cached a reference to the unpatched constructor).
-              var _origPlay = HTMLMediaElement.prototype.play;
-              HTMLMediaElement.prototype.play = function () {
-                registry.register(this, 'play()-late');
-                return _origPlay.apply(this, arguments);
-              };
-
-              // 4) volume setter — three jobs:
-              //    a) write the value through to the native setter (observability for engine)
-              //    b) mirror into the per-element volGain inserted by the createMediaElementSource
-              //       hook below, so spatial-routed speakers honor the value
-              //    c) drive .muted from the value (true iff v<=0). This is the belt-and-
-              //       suspenders against WebKit's quirk: even if (b) doesn't catch an
-              //       element (e.g., the element was created before our injection),
-              //       .muted is honored by a different WebKit code path so v=0 still
-              //       silences the track.
+              // volume setter: (a) write through to the native setter; (b) mirror into the
+              // volGain for createMediaElementSource-routed spatial speakers; (c) force
+              // .muted when v<=0 so volume 0 actually silences despite WebKit's quirk.
               var desc = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'volume');
               if (desc && desc.set) {
                 Object.defineProperty(HTMLMediaElement.prototype, 'volume', {
                   get: desc.get,
                   set: function (v) {
                     desc.set.call(this, v);
-                    var g = registry.elementGains && registry.elementGains.get(this);
+                    var g = elementGains.get(this);
                     if (g) g.gain.value = v;
                     var shouldMute = !(v > 0);
                     if (this.muted !== shouldMute) this.muted = shouldMute;
-                    if (this.__nra_id != null) {
-                      registry.pushEvent('volume', { id: this.__nra_id, v: v });
-                    }
                   },
                   configurable: true,
                   enumerable: true
                 });
               }
 
-              // 4b) Restore the createMediaElementSource interception specifically for
-              //     WebKit's audio.volume quirk: once an HTMLMediaElement has been routed
-              //     through createMediaElementSource(), subsequent writes to element.volume
-              //     are silently ignored by the engine (the graph runs at unity regardless).
-              //     This bites OpenAudioMC's *speaker* path — OAM's CustomSpatialRenderer
-              //     wires `<audio>` → MediaElementSource → workletNode → gainNode → dest,
-              //     and the spatial worklet applies its own gain independent of element.volume.
-              //     We insert a `volGain` GainNode between MediaElementSource and the next
-              //     node it gets connected to, mirroring element.volume into volGain.gain so
-              //     master-volume = 0 actually mutes spatial speakers. Music elements that
-              //     never reach createMediaElementSource are unaffected.
-              registry.elementGains = new WeakMap();
+              // createMediaElementSource interception: OAM's CustomSpatialRenderer wires
+              // <audio> -> MediaElementSource -> worklet -> gain -> dest, and the worklet runs
+              // at unity regardless of element.volume. Splice a volGain between the source and
+              // whatever it connects to, mirroring element.volume into it so master-volume 0
+              // actually mutes spatial speakers.
               if (typeof AudioContext !== 'undefined' || typeof webkitAudioContext !== 'undefined') {
                 var AC = window.AudioContext || window.webkitAudioContext;
                 var _createMES = AC.prototype.createMediaElementSource;
@@ -378,7 +242,7 @@ class WebViewManager: NSObject, WKNavigationDelegate, WKUIDelegate {
                   var sourceNode = _createMES.call(this, mediaEl);
                   var volGain = this.createGain();
                   volGain.gain.value = mediaEl.volume;
-                  registry.elementGains.set(mediaEl, volGain);
+                  elementGains.set(mediaEl, volGain);
                   sourceNode.connect(volGain);
                   sourceNode.connect = function () {
                     return volGain.connect.apply(volGain, arguments);
@@ -389,15 +253,9 @@ class WebViewManager: NSObject, WKNavigationDelegate, WKUIDelegate {
                   return sourceNode;
                 };
               }
-
-              // NOTE: a window.WebSocket wrapper used to live here (engine.io frame parsing for
-              // /oa names + close-code capture). It was removed — observational data showed
-              // sessions staying up far longer with it gone, and the per-frame parse / socket
-              // diagnostics weren't worth the apparent relay-stability cost. We deliberately do
-              // NOT touch window.WebSocket anymore.
             })();
             """, injectionTime: .atDocumentStart, forMainFrameOnly: false)
-        config.userContentController.addUserScript(audioRegistry)
+        config.userContentController.addUserScript(audioVolumeFix)
 
         // Create an offscreen window (1x1 pixel, hidden)
         window = NSWindow(

@@ -1,7 +1,6 @@
 package com.chenweikeng.imf.nra.audio;
 
 import com.chenweikeng.imf.nra.handler.ReminderHandler;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -574,61 +573,6 @@ public class OpenAudioMcService {
                 notifyUser("Failed to set volume — slider not found.");
               }
             });
-  }
-
-  /**
-   * Evaluates JavaScript in the webview. Returns a future that completes with the result, or null
-   * if the bridge is not available.
-   */
-  public CompletableFuture<JSONObject> evaluateJs(String js) {
-    if (bridge == null || !bridge.isRunning()) {
-      return CompletableFuture.completedFuture(null);
-    }
-    return bridge.evaluateJs(js);
-  }
-
-  // ---- window.__nra_audio bridge ---------------------------------------------------------------
-  //
-  // The macOS WebViewHelper installs a per-element audio registry at document-start
-  // (window.__nra_audio). These helpers wrap evaluateJs to expose enumerate / stop /
-  // per-element-volume control on top of the React master-volume slider.
-  // Result shape: { value: [...summaries] } for list*, { value: <boolean> } for others.
-
-  private static final String AUDIO_LIST_JS =
-      "(function(){return window.__nra_audio?window.__nra_audio.list():[];})()";
-  private static final String AUDIO_LIST_ALL_JS =
-      "(function(){return window.__nra_audio?window.__nra_audio.listAll():[];})()";
-  private static final String AUDIO_STOP_TPL =
-      "(function(){return !!(window.__nra_audio&&window.__nra_audio.stop(%d));})()";
-  private static final String AUDIO_STOP_ALL_JS =
-      "(function(){return window.__nra_audio?window.__nra_audio.stopAll():0;})()";
-  private static final String AUDIO_SET_VOLUME_TPL =
-      "(function(){return !!(window.__nra_audio&&window.__nra_audio.setVolume(%d,%s));})()";
-
-  /** Lists the audio elements the registry knows about. Skips data: URLs and ended elements. */
-  public CompletableFuture<JSONObject> listAudio() {
-    return evaluateJs(AUDIO_LIST_JS);
-  }
-
-  /** Lists every audio element including data: URLs (the NoSleep video) and ended elements. */
-  public CompletableFuture<JSONObject> listAudioAll() {
-    return evaluateJs(AUDIO_LIST_ALL_JS);
-  }
-
-  /** Stops one element by registry id (pauses and seeks to 0). */
-  public CompletableFuture<JSONObject> stopAudio(int id) {
-    return evaluateJs(String.format(AUDIO_STOP_TPL, id));
-  }
-
-  /** Pauses every non-data: element (preserves the NoSleep keep-alive video). */
-  public CompletableFuture<JSONObject> stopAllAudio() {
-    return evaluateJs(AUDIO_STOP_ALL_JS);
-  }
-
-  /** Sets per-element volume (0..1). The engine may overwrite this on the next tick. */
-  public CompletableFuture<JSONObject> setAudioVolume(int id, double v01) {
-    double clamped = Math.max(0.0, Math.min(1.0, v01));
-    return evaluateJs(String.format(java.util.Locale.ROOT, AUDIO_SET_VOLUME_TPL, id, clamped));
   }
 
   private void startMonitoring() {
