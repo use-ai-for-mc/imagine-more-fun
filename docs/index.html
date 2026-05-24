@@ -67,6 +67,7 @@
 
   <div class="footer">
     <p><button id="anchor">▶ the Good car just left GotG</button>
+       <button id="swap" title="if Good/Bad are on the wrong cars, swap them">⇄ swap A/B</button>
        <button id="undo" title="remove the most recent tap">↶ undo</button>
        <button id="reset" title="clear all calibration">reset</button></p>
     <p id="calStats"></p>
@@ -75,8 +76,9 @@
        longer your taps span (an hour → ±0.1&nbsp;s, a day → ±0.02&nbsp;s), the slower it drifts. A
        single hardcoded period can't stay accurate: it's only known to ±0.2&nbsp;s, which over many
        cycles accumulates real drift, and a server restart resets the cycle entirely — so it has to be
-       anchored to live sightings, just like the in-game mod. The two cars run half a cycle apart.
-       Track is schematic; countdowns are exact.</p>
+       anchored to live sightings, just like the in-game mod. The two cars run half a cycle apart and
+       are identical, so which one is “Good” can't be derived from the anchor — if the labels land on
+       the wrong cars, hit <b>⇄ swap A/B</b> once. Track is schematic; countdowns are exact.</p>
     <details>
       <summary>advanced — force a period or reset after a restart</summary>
       <p>Manual period override (s):
@@ -111,6 +113,7 @@
   // ---- calibration state ----
   var anchors = loadAnchors();      // sorted Unix-second timestamps of "Good car left GotG"
   var overrideC = loadOverride();   // manual period, or null
+  var swap = localStorage.getItem("rct_swap") === "1"; // which car is A — unobservable from anchors
   var cal = { C: SEED_C, epoch: EPOCH0_DEFAULT, sigma: SEED_SIGMA, n: 0, calibrated: false, latest: 0, baseline: 0 };
 
   function loadAnchors() {
@@ -250,7 +253,8 @@
 
   function tick() {
     var T = Date.now() / 1000, C = cal.C, HALF = C / 2;
-    var A = car(mod(T - cal.epoch, C), C), B = car(mod(T - cal.epoch + HALF, C), C);
+    var off = swap ? HALF : 0; // the anchor fixes phase only mod half-cycle; this picks which car is A
+    var A = car(mod(T - cal.epoch + off, C), C), B = car(mod(T - cal.epoch + off + HALF, C), C);
     $("aState").textContent = A.state; $("aDetail").textContent = A.detail;
     $("bState").textContent = B.state; $("bDetail").textContent = B.detail;
     $("dotA").style.left = (A.frac * 100) + "%";
@@ -261,6 +265,11 @@
   }
 
   $("anchor").onclick = function () { anchors.push(Date.now() / 1000); recalc(); };
+  $("swap").onclick = function () {
+    swap = !swap;
+    localStorage.setItem("rct_swap", swap ? "1" : "0");
+    tick();
+  };
   $("undo").onclick = function () { if (anchors.length) { anchors.pop(); recalc(); } };
   $("reset").onclick = function () {
     anchors = [];
