@@ -249,6 +249,20 @@ public final class SpaceMountainTunnelRenderer {
   }
 
   /**
+   * True if a world point lies inside the launch-tunnel cylinder volume — within {@link #RADIUS} of
+   * the axis and between {@link #START} and {@link #END}. {@link SpaceMountainTrackRenderer} uses
+   * this to hide the in-tunnel track section so it doesn't show through the tunnel cover. A pure
+   * function of the static geometry, safe to call at class-load time.
+   */
+  public static boolean isInsideCylinder(double wx, double wy, double wz) {
+    double dx = wx - START.x, dy = wy - START.y, dz = wz - START.z;
+    double s = dx * AXIS.x + dy * AXIS.y + dz * AXIS.z;
+    if (s < 0.0 || s > AXIS_LENGTH) return false;
+    double radialSq = dx * dx + dy * dy + dz * dz - s * s;
+    return radialSq <= RADIUS * RADIUS;
+  }
+
+  /**
    * True once the red tunnel effect has begun — the instant purple-to-red cut at {@code
    * TUNNEL_ENTER_SECONDS + PURPLE_DURATION}. {@link SpaceMountainEntryTunnelSeal} latches its
    * entry-mouth seal on this, so the entrance is plugged exactly as the red phase starts.

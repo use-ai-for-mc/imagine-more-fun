@@ -79,6 +79,12 @@ public final class SpaceMountainTrackRenderer {
   private static double[] vertY = new double[0];
   private static double[] vertZ = new double[0];
 
+  // Per-sample flag: true if the sample's centerline is inside the launch-tunnel cylinder volume
+  // (SpaceMountainTunnelRenderer.isInsideCylinder). In-cylinder rail segments and struts are
+  // skipped
+  // so the track doesn't show through the tunnel cover. Precomputed once — the cylinder is static.
+  private static boolean[] insideCyl = new boolean[0];
+
   // Triangular-bracing struts: each strut is a thin tube with 2 cross-section rings (start, end).
   // Two struts per crosstie position (left-rail → spine, right-rail → spine). Layout per strut:
   // 2 rings × N verts. Total verts = strutCount * 2 * N.
@@ -136,6 +142,14 @@ public final class SpaceMountainTrackRenderer {
         pitch[i] = samples.pitch[i];
         roll[i] = samples.roll[i];
       }
+
+      // Mask out the track section inside the launch-tunnel cylinder so it doesn't show through the
+      // tunnel cover. Precomputed against the static cylinder volume.
+      boolean[] inCyl = new boolean[n];
+      for (int i = 0; i < n; i++) {
+        inCyl[i] = SpaceMountainTunnelRenderer.isInsideCylinder(x[i], y[i], z[i]);
+      }
+      insideCyl = inCyl;
 
       // For each sample build an orthonormal basis (forward, right, up) from yaw/pitch, then
       // bank it: rotate (right, up) around forward by the baked roll angle so the rails tilt
@@ -234,7 +248,7 @@ public final class SpaceMountainTrackRenderer {
       double[] strZ = new double[maxStruts * 2 * CROSS_SECTION_VERTS];
       int strutIdx = 0;
       for (int i = 0; i < n; i += CROSSTIE_STRIDE) {
-        if (i < RENDER_START_SAMPLE) continue; // skip launch-tunnel section
+        if (i < RENDER_START_SAMPLE || inCyl[i]) continue; // skip launch-tunnel + in-cylinder
         double leftX = x[i] - RAIL_HALF_SEPARATION * rx[i];
         double leftY = y[i] - RAIL_HALF_SEPARATION * ry[i];
         double leftZ = z[i] - RAIL_HALF_SEPARATION * rz[i];
@@ -332,6 +346,8 @@ public final class SpaceMountainTrackRenderer {
     // the open dome track from ~40 s onward.
     int firstSample = Math.min(RENDER_START_SAMPLE, sampleCount - 1);
     for (int i = firstSample; i < sampleCount - 1; i++) {
+      // Hide the track section inside the launch-tunnel cylinder (see insideCyl).
+      if (insideCyl.length == sampleCount && (insideCyl[i] || insideCyl[i + 1])) continue;
       int baseA = i * vertsPerSample;
       int baseB = (i + 1) * vertsPerSample;
       for (int rail = 0; rail < RAIL_COUNT; rail++) {
