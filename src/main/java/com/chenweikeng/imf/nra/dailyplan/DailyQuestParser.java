@@ -228,26 +228,47 @@ public final class DailyQuestParser {
   }
 
   /**
-   * Pulls the NPC name out of a "Help &lt;NPC&gt; &lt;verb&gt; ..." string by taking the leading
-   * run of capitalised words ("Boba Fett track down a fugitive" → "Boba Fett"). Falls back to the
-   * full string when nothing is capitalised so we never end up with an empty label.
+   * Pulls a short HUD label out of a "Help &lt;X&gt;" goal. Prefers the leading run of capitalised
+   * words — the NPC name in "Help Boba Fett track down a fugitive" → "Boba Fett". When the help
+   * target opens with a verb instead of a name ("Help restock and clean up First Order Cargo",
+   * which names a place rather than a person), falls back to the trailing run of capitalised words
+   * ("First Order Cargo"), then to the generic task-label heuristic. The old "return the whole
+   * string" fallback produced absurd 38-character labels that blew out the ride-plan HUD.
    */
   private static String extractNpcName(String helpTarget) {
-    String[] words = helpTarget.split("\\s+");
-    StringBuilder name = new StringBuilder();
-    for (String w : words) {
+    String leading = capitalizedRun(helpTarget, true);
+    if (!leading.isEmpty()) {
+      return leading;
+    }
+    String trailing = capitalizedRun(helpTarget, false);
+    if (!trailing.isEmpty()) {
+      return trailing;
+    }
+    return extractTaskLabel(helpTarget);
+  }
+
+  /**
+   * Returns the run of consecutive capitalised words anchored at the start ({@code fromStart}) or
+   * end of the text, joined with single spaces. Empty when the anchor word isn't capitalised.
+   */
+  private static String capitalizedRun(String text, boolean fromStart) {
+    String[] words = text.split("\\s+");
+    java.util.Deque<String> run = new java.util.ArrayDeque<>();
+    for (int i = 0; i < words.length; i++) {
+      int idx = fromStart ? i : words.length - 1 - i;
+      String w = words[idx];
       if (w.isEmpty()) {
         continue;
       }
-      char c = w.charAt(0);
-      if (!Character.isUpperCase(c)) {
+      if (!Character.isUpperCase(w.charAt(0))) {
         break;
       }
-      if (name.length() > 0) {
-        name.append(' ');
+      if (fromStart) {
+        run.addLast(w);
+      } else {
+        run.addFirst(w);
       }
-      name.append(w);
     }
-    return name.length() > 0 ? name.toString() : helpTarget;
+    return String.join(" ", run);
   }
 }

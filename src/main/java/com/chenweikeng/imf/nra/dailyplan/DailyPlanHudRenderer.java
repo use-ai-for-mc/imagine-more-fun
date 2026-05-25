@@ -50,6 +50,10 @@ public final class DailyPlanHudRenderer {
   private static final String GLYPH_IDLE = "\u25CB";
   private static final String ELLIPSIS = "\u2026";
 
+  // Backstop: the longest legit special label is "FIRST ORDER CARGO" (17 chars), so cap any
+  // malformed label here -- a novel goal shape can never blow out the centered panel width.
+  private static final int MAX_SPECIAL_LABEL_CHARS = 20;
+
   private static final int FONT_HEIGHT = 9;
   private static final int BADGE_HEIGHT = 10;
   private static final int NODE_H_PAD = 4;
@@ -341,7 +345,7 @@ public final class DailyPlanHudRenderer {
     }
 
     if (isSpecialQuest) {
-      layout.name = node.displayLabel.toUpperCase(Locale.ENGLISH);
+      layout.name = truncateLabel(node.displayLabel.toUpperCase(Locale.ENGLISH));
       layout.prog = layout.isDone ? "DONE" : ("?/" + node.k);
     } else {
       layout.name = ride.getShortName().toUpperCase(Locale.ENGLISH);
@@ -354,6 +358,14 @@ public final class DailyPlanHudRenderer {
     layout.glyphWidth = font.width(layout.glyph + " ");
     layout.width = Math.max(layout.topRowWidth, layout.botRowWidth) + NODE_H_PAD * 2;
     return layout;
+  }
+
+  /** Clamps an over-long special-quest label to {@link #MAX_SPECIAL_LABEL_CHARS}, ellipsised. */
+  private static String truncateLabel(String label) {
+    if (label.length() <= MAX_SPECIAL_LABEL_CHARS) {
+      return label;
+    }
+    return label.substring(0, MAX_SPECIAL_LABEL_CHARS - 1).trim() + ELLIPSIS;
   }
 
   private static void drawLayerColumn(
