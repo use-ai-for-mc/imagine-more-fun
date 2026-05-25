@@ -30,6 +30,7 @@
 		"NraMinecraftMixin",
 		"NraMinecraftScreenMixin",
 		"NraParticleEngineMixin",
+		"NraPlayerTabOverlayAccessor",
 		"NraSoundOptionsScreenMixin",
 		"NraToastManagerMixin",
 		"PimAbstractContainerScreenMixin",
