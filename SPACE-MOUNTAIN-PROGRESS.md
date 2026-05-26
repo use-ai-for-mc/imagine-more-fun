@@ -34,13 +34,13 @@ While the gate is active the fullbright override is also suppressed — the dome
 | `SpaceMountainEntryTunnelSeal.java` | Plugs the launch-tunnel entry mouth with black concrete once the red tunnel effect starts; restores on ride-end. |
 | `SpaceMountainRideAudio.java` | Wind + rail-friction audio loops. |
 | `SpaceMountainStarRenderer.java` | Static baked dome-wall starfield (~1000 stars) — a secondary layer rendered alongside the disco ball. |
-| `SpaceMountainTrackData.java` | Shared parsed coaster path — loads `dome_track.bin` (x/y/z/yaw/pitch + per-sample bank `roll`) once for the track renderer and camera-bank; offers `nearestSample`. |
+| `CoasterTrackData.java` | *(in `nra/coaster/`)* Shared parsed coaster path — loads `dome_track.bin` (x/y/z/yaw/pitch + per-sample bank `roll`) once for the track renderer and camera-bank; offers `nearestSample`. |
 | `SpaceMountainTrackRenderer.java` | Baked coaster-tube geometry (rails + spine + V-struts), banked into turns by the per-sample roll, drawn as near-invisible dark metal. |
-| `SpaceMountainCameraBank.java` | Rolls the rider's camera through banked turns — per-tick nearest-sample lookup → roll × strength, EMA-smoothed; applied by `NraCameraRollMixin`. |
+| `CoasterCameraBank.java` | *(in `nra/coaster/`)* Rolls the rider's camera through banked turns — per-tick nearest-sample lookup → roll × strength, EMA-smoothed; applied by `NraCameraRollMixin`. Only SM/HSM remain registered after the 2026-05-21 coaster-banking generalization was abandoned (see `COASTER-BANKING-PROGRESS.md`). |
 | `SpaceMountainEntityHider.java` | Whitelist of show-prop armor stands to hide; queried by `NraEntityRendererHideMixin`. |
 | `ImfRenderPipelines.java` | Custom render pipelines (`OPAQUE_SCREEN`, `ENTITY_THROUGH_WALLS`). |
 
-Registered in `ImfClient.onInitializeClient()` in this order: `SpaceMountainStarRenderer`, `SpaceMountainTrackRenderer`, `SpaceMountainBlockOverride.init()`, `SpaceMountainTunnelRenderer`, `SpaceMountainEntryTunnelSeal`, `SpaceMountainDiscoBall`, `SpaceMountainRideAudio`, `SpaceMountainCameraBank`.
+Registered in `ImfClient.onInitializeClient()` in this order: `SpaceMountainStarRenderer`, `SpaceMountainTrackRenderer`, `SpaceMountainBlockOverride.init()`, `SpaceMountainTunnelRenderer`, `SpaceMountainEntryTunnelSeal`, `SpaceMountainDiscoBall`, `SpaceMountainRideAudio`, `CoasterCameraBank` *(in `nra/coaster/`, registered as `CoasterCameraBank.register()`)*.
 
 ---
 
@@ -90,13 +90,13 @@ Renders a cylindrical "launch-tunnel cover" around the rider during the tunnel w
 
 Two persistent looping sounds — wind and rail-friction — whose volume/pitch track the vehicle's per-tick speed and yaw rate. Started/stopped on the `SpaceMountainOverride.isActive()` transition. Coupled to the OpenAudioMc volume slider.
 
-## Track + camera banking — `SpaceMountainCameraBank`
+## Track + camera banking — `CoasterCameraBank` (in `nra/coaster/`)
 
 The vehicle recorder only ever captured yaw/pitch, so the baked track was cross-sectionally flat — no banking through turns. `dome_track.bin` is now **IFTC v2**: every sample carries a signed `roll` (bank) angle, computed offline from the path curvature by `~/imf-debug-dumps-archive/bake-roll.py` — `roll = clamp(BANK_SCALE · atan(v·ω/g), ±BANK_CAP)`, a fraction of the physically-balanced bank, tuned (`BANK_SCALE=0.55`, `BANK_CAP=38°`) to the ~30-40° a real coaster banks. `bake-roll.py` reads the existing bin and only *adds* the roll column, so the recorded geometry never moves.
 
-- `SpaceMountainTrackData` parses `dome_track.bin` (v1 *or* v2 — v1 → roll all zeros) once into shared arrays; `nearestSample(x,y,z)` is a full 3D scan.
+- `CoasterTrackData` parses `dome_track.bin` (v1 *or* v2 — v1 → roll all zeros) once into shared arrays; `nearestSample(x,y,z)` is a full 3D scan.
 - `SpaceMountainTrackRenderer` banks the rail/spine/strut geometry by rotating each sample's (right, up) basis around forward by `roll` — the rails visibly tilt into turns. Unconditional: the rails always show their bank.
-- `SpaceMountainCameraBank` runs every client tick — matches the rider's vehicle position to the nearest baked sample, targets `roll × strength`, EMA-smooths it (`SMOOTH_ALPHA=0.2`), eases back to 0 when the ride gate flips off.
+- `CoasterCameraBank` runs every client tick — matches the rider's vehicle position to the nearest baked sample, targets `roll × strength`, EMA-smooths it (`SMOOTH_ALPHA=0.2`), eases back to 0 when the ride gate flips off.
 - `NraCameraRollMixin` injects at `GameRenderer.renderLevel` HEAD and post-multiplies that roll into `camera.rotation()`, from which `renderLevel` builds the world modelview and frustum — so the whole view banks while the 2D HUD pass stays level. HEAD of `renderLevel` is reached *after* SmoothCoasters rewrites the camera at `updateCamera` RETURN (`camera.rotation().set(...)`), so our bank lands on top instead of being overwritten.
 
 **Config** (Modifications → Space Mountain): **Camera Banking** toggle (`spaceMountainBanking`, default on) and **Camera Bank Strength** 0-100% slider (`spaceMountainBankStrength`, default 60). Both gate/scale only the *camera* roll — the rails bank regardless. Read live each tick, so the in-game slider is the tuning knob.
@@ -115,7 +115,7 @@ A static whitelist of `(itemId, damage)` helmet signatures (e.g. the TIE Fighter
 |---|---|---|
 | `dome_overlay.bin` | `SpaceMountainBlockOverride` | IFOV v1 — the dome block diff. |
 | `dome_borders.bin` | `SpaceMountainStarRenderer`, `SpaceMountainDiscoBall` | IFDB v1 baked dome-wall faces. The star renderer places its static stars on them; the disco ball uses them as the `watertightWallCells` projection mask. Pre-baked offline — the bake tool was removed (see "Removed"). |
-| `dome_track.bin` | `SpaceMountainTrackData` | Recorded vehicle path. IFTC **v2**: x/y/z/yaw/pitch + a signed per-sample bank `roll`. Track geometry and camera banking both read it. Roll added offline by `~/imf-debug-dumps-archive/bake-roll.py` (v1→v2). |
+| `dome_track.bin` | `CoasterTrackData` | Recorded vehicle path. IFTC **v2**: x/y/z/yaw/pitch + a signed per-sample bank `roll`. Track geometry and camera banking both read it. Roll added offline by `~/imf-debug-dumps-archive/bake-roll.py` (v1→v2). |
 | `dome_track_stars.bin` | `SpaceMountainStarRenderer` | Track-surface stars — `INCLUDE_TRACK_STARS=false`. |
 | `disco_balls.json` | `SpaceMountainDiscoBall` | Bundled default projectors — `load()` fallback when no config-dir file. |
 | `disco_exclusion.json` | `SpaceMountainDiscoBall` | Bundled default prismarine-cover cells — `loadExclusion()` fallback. |

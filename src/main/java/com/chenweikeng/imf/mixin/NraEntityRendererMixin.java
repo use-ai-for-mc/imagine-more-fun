@@ -15,7 +15,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(EntityRenderer.class)
 public class NraEntityRendererMixin {
   @Inject(at = @At("HEAD"), method = "submitNameTag", cancellable = true)
-  private void onSubmitNameTag(
+  private void imf$onSubmitNameTag(
       EntityRenderState entityRenderState,
       PoseStack poseStack,
       SubmitNodeCollector submitNodeCollector,

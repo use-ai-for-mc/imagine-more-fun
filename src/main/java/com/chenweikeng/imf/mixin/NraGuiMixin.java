@@ -42,7 +42,7 @@ public abstract class NraGuiMixin {
       method =
           "displayScoreboardSidebar(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/world/scores/Objective;)V",
       cancellable = true)
-  private void onRenderScoreboardSidebar(
+  private void imf$onRenderScoreboardSidebar(
       GuiGraphics context, Objective objective, CallbackInfo ci) {
     if (!NotRidingAlertClient.isImagineFunServer()) {
       return;
@@ -57,7 +57,7 @@ public abstract class NraGuiMixin {
       method =
           "renderChat(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/client/DeltaTracker;)V",
       cancellable = true)
-  private void onRenderChat(GuiGraphics context, DeltaTracker tickCounter, CallbackInfo ci) {
+  private void imf$onRenderChat(GuiGraphics context, DeltaTracker tickCounter, CallbackInfo ci) {
     if (!NotRidingAlertClient.isImagineFunServer()) {
       return;
     }
@@ -67,7 +67,7 @@ public abstract class NraGuiMixin {
   }
 
   @Inject(at = @At("HEAD"), method = "renderPlayerHealth", cancellable = true)
-  private void onRenderPlayerHealth(GuiGraphics guiGraphics, CallbackInfo ci) {
+  private void imf$onRenderPlayerHealth(GuiGraphics guiGraphics, CallbackInfo ci) {
     if (!NotRidingAlertClient.isImagineFunServer()) {
       return;
     }
@@ -77,7 +77,7 @@ public abstract class NraGuiMixin {
   }
 
   @Inject(at = @At("HEAD"), method = "renderVehicleHealth", cancellable = true)
-  private void onRenderVehicleHealth(GuiGraphics guiGraphics, CallbackInfo ci) {
+  private void imf$onRenderVehicleHealth(GuiGraphics guiGraphics, CallbackInfo ci) {
     if (!NotRidingAlertClient.isImagineFunServer()) {
       return;
     }
@@ -87,7 +87,7 @@ public abstract class NraGuiMixin {
   }
 
   @Inject(at = @At("HEAD"), method = "renderItemHotbar", cancellable = true)
-  private void onRenderItemHotbar(
+  private void imf$onRenderItemHotbar(
       GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
     if (!NotRidingAlertClient.isImagineFunServer()) {
       return;
@@ -104,7 +104,7 @@ public abstract class NraGuiMixin {
               target =
                   "Lnet/minecraft/client/gui/contextualbar/ContextualBarRenderer;renderExperienceLevel(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/client/gui/Font;I)V"),
       method = "renderHotbarAndDecorations")
-  private void redirectRenderExperienceLevel(
+  private void imf$redirectRenderExperienceLevel(
       GuiGraphics guiGraphics, net.minecraft.client.gui.Font font, int level) {
     if (!NotRidingAlertClient.isImagineFunServer()
         || !ModConfig.currentSetting.hideExperienceLevel) {
@@ -114,7 +114,7 @@ public abstract class NraGuiMixin {
   }
 
   @Inject(at = @At("HEAD"), method = "renderCrosshair", cancellable = true)
-  private void onRenderCrosshair(
+  private void imf$onRenderCrosshair(
       GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
     if (!NotRidingAlertClient.isImagineFunServer()) {
       return;
@@ -145,7 +145,8 @@ public abstract class NraGuiMixin {
   }
 
   @Inject(at = @At("HEAD"), method = "renderTitle", cancellable = true)
-  private void onRenderTitle(GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
+  private void imf$onRenderTitle(
+      GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
     if (!NotRidingAlertClient.isImagineFunServer()) {
       return;
     }
@@ -173,8 +174,8 @@ public abstract class NraGuiMixin {
     int maxWidth = (int) (guiWidth * 0.8f / scale);
     int textColor = ARGB.color(255, 255, 255, 255);
     int shadowColor = ARGB.color(128, 255, 255, 255);
-    Component fontedCaption = applyNunitoToWhitelist(caption);
-    Component shadowCaption = applyNunitoToWhitelist(scaleCaptionColors(caption));
+    Component fontedCaption = imf$applyNunitoToWhitelist(caption);
+    Component shadowCaption = imf$applyNunitoToWhitelist(imf$scaleCaptionColors(caption));
     List<net.minecraft.util.FormattedCharSequence> linesShadow =
         font.split(shadowCaption, maxWidth);
     List<net.minecraft.util.FormattedCharSequence> lines = font.split(fontedCaption, maxWidth);
@@ -236,7 +237,7 @@ public abstract class NraGuiMixin {
   // inherited default font. Server resource-pack symbols (e.g. note icons) live in Private-Use-Area
   // codepoints that Nunito has no glyph for, so forcing our font on them would show missing-glyph
   // boxes — keeping the default font lets the server pack draw them.
-  private static Component applyNunitoToWhitelist(Component component) {
+  private static Component imf$applyNunitoToWhitelist(Component component) {
     MutableComponent result = Component.empty();
     for (Component part : component.toFlatList(Style.EMPTY)) {
       Style style = part.getStyle();
@@ -245,12 +246,12 @@ public abstract class NraGuiMixin {
       int n = text.length();
       while (i < n) {
         int cp = text.codePointAt(i);
-        boolean nunito = isNunitoGlyph(cp);
+        boolean nunito = imf$isNunitoGlyph(cp);
         int start = i;
         i += Character.charCount(cp);
         while (i < n) {
           int next = text.codePointAt(i);
-          if (isNunitoGlyph(next) != nunito) {
+          if (imf$isNunitoGlyph(next) != nunito) {
             break;
           }
           i += Character.charCount(next);
@@ -266,11 +267,11 @@ public abstract class NraGuiMixin {
   // covers. Everything else (e.g. server resource-pack symbols in Private-Use-Area codepoints)
   // falls
   // back to the default font.
-  private static boolean isNunitoGlyph(int codePoint) {
+  private static boolean imf$isNunitoGlyph(int codePoint) {
     return (codePoint >= 0x20 && codePoint <= 0x7E) || (codePoint >= 0xA0 && codePoint <= 0xFF);
   }
 
-  private static Component scaleCaptionColors(Component component) {
+  private static Component imf$scaleCaptionColors(Component component) {
     List<Component> flatList = component.toFlatList(Style.EMPTY);
     MutableComponent result = Component.empty();
     for (Component part : flatList) {

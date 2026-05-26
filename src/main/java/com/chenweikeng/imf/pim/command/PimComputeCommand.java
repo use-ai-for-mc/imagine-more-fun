@@ -3,12 +3,11 @@ package com.chenweikeng.imf.pim.command;
 import com.chenweikeng.imf.pim.PimClient;
 import com.chenweikeng.imf.pim.pin.Algorithm;
 import com.chenweikeng.imf.pim.pin.Algorithm.DPResult;
-import com.chenweikeng.imf.pim.pin.Algorithm.PinSeriesCounts;
+import com.chenweikeng.imf.pim.pin.PinCalculationUtils;
 import com.chenweikeng.imf.pim.screen.PinBookHandler;
 import com.chenweikeng.imf.pim.screen.PinDetailHandler;
 import com.chenweikeng.imf.pim.screen.PinRarityHandler;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -36,12 +35,6 @@ public class PimComputeCommand {
               return thread;
             }
           });
-
-  private static final ConcurrentHashMap<String, Algorithm.DPStartPoint> cachedStartPoints =
-      new ConcurrentHashMap<>();
-
-  private static final ConcurrentHashMap<String, DPResult> cachedResults =
-      new ConcurrentHashMap<>();
 
   public static void register(
       com.mojang.brigadier.CommandDispatcher<FabricClientCommandSource> dispatcher) {
@@ -101,22 +94,13 @@ public class PimComputeCommand {
 
       try {
         // Get pin counts for this series
-        PinSeriesCounts counts = getPinSeriesCounts(seriesName);
+        Algorithm.PinSeriesCounts counts = PinCalculationUtils.getPinSeriesCounts(seriesName);
         if (counts == null) {
           continue;
         }
 
-        // Check cache for start point
-        Algorithm.DPStartPoint cachedStartPoint = cachedStartPoints.get(seriesName);
-
-        DPResult result;
-        if (cachedStartPoint != null && cachedStartPoint.equals(counts.startPoint)) {
-          result = cachedResults.get(seriesName);
-        } else {
-          result = Algorithm.runDynamicProgramming(seriesName, counts);
-          cachedStartPoints.put(seriesName, counts.startPoint);
-          cachedResults.put(seriesName, result);
-        }
+        DPResult result =
+            PinCalculationUtils.getCachedOrCalculatePlayerSpecificResult(seriesName, counts);
 
         if (result == null || result.isError()) {
           Minecraft.getInstance()
@@ -263,86 +247,6 @@ public class PimComputeCommand {
     }
 
     return true;
-  }
-
-  private static PinSeriesCounts getPinSeriesCounts(String seriesName) {
-    try {
-      // Get series details
-      Map<String, PinDetailHandler.PinDetailEntry> detailMap =
-          PinDetailHandler.getInstance().getSeriesDetails(seriesName);
-      if (detailMap == null || detailMap.isEmpty()) {
-        return null;
-      }
-
-      // Get book entry for total counts
-      PinBookHandler.PinBookEntry bookEntry = PinBookHandler.getInstance().getBookEntry(seriesName);
-      if (bookEntry == null) {
-        return null;
-      }
-
-      // Count pins by rarity
-      int signature = 0;
-      int deluxe = 0;
-      int rare = 0;
-      int uncommon = 0;
-      int common = 0;
-
-      int mintSignature = 0;
-      int mintDeluxe = 0;
-      int mintRare = 0;
-      int mintUncommon = 0;
-      int mintCommon = 0;
-
-      for (Map.Entry<String, PinDetailHandler.PinDetailEntry> entry : detailMap.entrySet()) {
-        PinDetailHandler.PinDetailEntry detailEntry = entry.getValue();
-        if (detailEntry.rarity == null) {
-          continue; // Skip entries without rarity
-        }
-
-        switch (detailEntry.rarity) {
-          case SIGNATURE:
-            signature++;
-            if (detailEntry.condition == PinDetailHandler.PinCondition.MINT) {
-              mintSignature++;
-            }
-            break;
-          case DELUXE:
-            deluxe++;
-            if (detailEntry.condition == PinDetailHandler.PinCondition.MINT) {
-              mintDeluxe++;
-            }
-            break;
-          case RARE:
-            rare++;
-            if (detailEntry.condition == PinDetailHandler.PinCondition.MINT) {
-              mintRare++;
-            }
-            break;
-          case UNCOMMON:
-            uncommon++;
-            if (detailEntry.condition == PinDetailHandler.PinCondition.MINT) {
-              mintUncommon++;
-            }
-            break;
-          case COMMON:
-            common++;
-            if (detailEntry.condition == PinDetailHandler.PinCondition.MINT) {
-              mintCommon++;
-            }
-            break;
-        }
-      }
-
-      // Create goal and start point
-      Algorithm.DPGoal goal = new Algorithm.DPGoal(signature, deluxe, rare, uncommon, common);
-      Algorithm.DPStartPoint startPoint =
-          new Algorithm.DPStartPoint(mintSignature, mintDeluxe, mintRare, mintUncommon, mintCommon);
-
-      return new PinSeriesCounts(goal, startPoint);
-
-    } catch (Exception e) {
-      return null;
-    }
   }
 
   private static String formatPrice(double value) {

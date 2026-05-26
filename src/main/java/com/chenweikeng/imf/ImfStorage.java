@@ -27,7 +27,7 @@ public final class ImfStorage {
     try {
       Files.createDirectories(p);
     } catch (IOException e) {
-      // Swallow — caller will see the error when it tries to write.
+      ImfClient.LOGGER.warn("Could not create config directory {}", p, e);
     }
     return p;
   }
@@ -83,7 +83,7 @@ public final class ImfStorage {
     try {
       Files.createDirectories(p);
     } catch (IOException e) {
-      // Swallow — the recorder surfaces the error when it tries to open a file.
+      ImfClient.LOGGER.warn("Could not create RCT capture directory {}", p, e);
     }
     return p;
   }

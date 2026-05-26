@@ -25,7 +25,7 @@ public class PimItemUseMixin {
   private static long pimDisabledTime = 0;
 
   @Inject(at = @At("HEAD"), method = "startUseItem", cancellable = true)
-  public void onStartUseItem(CallbackInfo ci) {
+  public void imf$onStartUseItem(CallbackInfo ci) {
     PimClient.LOGGER.debug("[PimItemUseMixin] startUseItem called");
 
     if (!PimClient.isImagineFunServer()) {
@@ -47,7 +47,7 @@ public class PimItemUseMixin {
         mainHandItem.getHoverName().getString(),
         FoodConsumptionTracker.isTrackableFood(mainHandItem));
 
-    if (checkIFoneAndHandle(mainHandItem) || checkIFoneAndHandle(offHandItem)) {
+    if (imf$checkIFoneAndHandle(mainHandItem) || imf$checkIFoneAndHandle(offHandItem)) {
       ci.cancel();
       return;
     }
@@ -67,7 +67,7 @@ public class PimItemUseMixin {
   }
 
   @Inject(at = @At("HEAD"), method = "startAttack", cancellable = true)
-  public void onStartAttack(CallbackInfoReturnable<Boolean> ci) {
+  public void imf$onStartAttack(CallbackInfoReturnable<Boolean> ci) {
     if (!PimClient.isImagineFunServer()) {
       return;
     }
@@ -81,12 +81,12 @@ public class PimItemUseMixin {
     ItemStack mainHandItem = player.getMainHandItem();
     ItemStack offHandItem = player.getOffhandItem();
 
-    if (checkIFoneAndHandle(mainHandItem) || checkIFoneAndHandle(offHandItem)) {
+    if (imf$checkIFoneAndHandle(mainHandItem) || imf$checkIFoneAndHandle(offHandItem)) {
       ci.setReturnValue(false);
     }
   }
 
-  private boolean checkIFoneAndHandle(ItemStack itemStack) {
+  private boolean imf$checkIFoneAndHandle(ItemStack itemStack) {
     String displayName = itemStack.getDisplayName().getString();
     String registryName = BuiltInRegistries.ITEM.getKey(itemStack.getItem()).toString();
 
@@ -102,7 +102,7 @@ public class PimItemUseMixin {
 
       if (timeSinceLastTrigger >= COOLDOWN_MS) {
         lastTriggerTime = currentTime;
-        handlePimWarp();
+        imf$handlePimWarp();
       }
       return true;
     }
@@ -115,7 +115,7 @@ public class PimItemUseMixin {
     return false;
   }
 
-  private void handlePimWarp() {
+  private void imf$handlePimWarp() {
     if (!PimState.hasNextWarpPoint()) {
       LocalPlayer player = Minecraft.getInstance().player;
 

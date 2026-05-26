@@ -16,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(GameRenderer.class)
 public class NraGameRendererMixin {
   @Inject(method = "render", at = @At("TAIL"))
-  private void onPostRender(DeltaTracker deltaTracker, boolean renderLevel, CallbackInfo ci) {
+  private void imf$onPostRender(DeltaTracker deltaTracker, boolean renderLevel, CallbackInfo ci) {
     RideReportScreen.executePendingCapture();
   }
 }

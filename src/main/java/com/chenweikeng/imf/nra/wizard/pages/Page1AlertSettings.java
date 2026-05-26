@@ -67,7 +67,7 @@ public class Page1AlertSettings extends WizardPage {
             column(leftColumn.toArray(new RenderBlock[0])),
             column(rightColumn.toArray(new RenderBlock[0]))));
 
-    if (ScoreboardHandler.scoreboardEmpty) {
+    if (ScoreboardHandler.getInstance().isScoreboardEmpty()) {
       blocks.add(spacer(30));
 
       Component text =
@@ -94,7 +94,7 @@ public class Page1AlertSettings extends WizardPage {
 
   @Override
   protected boolean readyToGoNext() {
-    return !ScoreboardHandler.scoreboardEmpty;
+    return !ScoreboardHandler.getInstance().isScoreboardEmpty();
   }
 
   private Component intro() {

@@ -31,10 +31,33 @@ public class CursorManager {
   private long lastDynamicFpsMessageTick = -Timing.DYNAMIC_FPS_MESSAGE_COOLDOWN_TICKS;
   private final WindowMinimizeHandler windowMinimizeHandler = WindowMinimizeHandler.getInstance();
 
+  /**
+   * Main per-tick entry point. Delegates to {@link #tickCursorRelease} and {@link
+   * #tickWindowMinimize}, then snapshots state for the next tick.
+   */
   public void tick(Minecraft client, boolean isPassenger, boolean isRiding, RideName autograbRide) {
+    windowMinimizeHandler.tickMonitor();
+
+    tickCursorRelease(client, isPassenger, isRiding, autograbRide);
+
+    boolean isOnVehicle = isPassenger || CurrentRideHolder.getCurrentRide() != null;
+    tickWindowMinimize(client, isPassenger, isRiding, isOnVehicle, autograbRide);
+
+    // Snapshot state for next tick's edge detection.
+    wasRiding = isRiding;
+    wasOnVehicle = isOnVehicle;
+    wasPassenger = isPassenger;
+    wasReadyToMinimize = isOnVehicle && isReadyToMinimizeForCurrentRide();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Cursor release / grab
+  // ---------------------------------------------------------------------------
+
+  private void tickCursorRelease(
+      Minecraft client, boolean isPassenger, boolean isRiding, RideName autograbRide) {
     GameState state = GameState.getInstance();
     CursorReleaseTiming timing = ModConfig.currentSetting.cursorReleaseTiming;
-    windowMinimizeHandler.tickMonitor();
 
     if (timing == CursorReleaseTiming.ON_ZONE_ENTRY && autograbRide != null && !isPassenger) {
       if (autograbRide != previousAutograbRide) {
@@ -50,178 +73,181 @@ public class CursorManager {
       previousAutograbRide = null;
     }
 
+    if (timing == CursorReleaseTiming.NONE) {
+      return;
+    }
+
     boolean isOnVehicle = isPassenger || CurrentRideHolder.getCurrentRide() != null;
-    if (timing != CursorReleaseTiming.NONE) {
-      boolean shouldReleaseOnThisTick =
-          switch (timing) {
-            case NONE -> false;
-            case ON_ZONE_ENTRY -> !wasRiding && isRiding;
-            case ON_VEHICLE_MOUNT -> !wasOnVehicle && isOnVehicle;
-          };
 
-      if (shouldReleaseOnThisTick) {
-        client.mouseHandler.releaseMouse();
-        state.setAutomaticallyReleasedCursor(true);
-        RideName currentRide = CurrentRideHolder.getCurrentRide();
-        if (currentRide == null) {
-          currentRide = AutograbHolder.getRideAtLocation(client);
-        }
-        sendCanoeMessageIfNeeded(client, currentRide);
+    boolean shouldReleaseOnThisTick =
+        switch (timing) {
+          case NONE -> false;
+          case ON_ZONE_ENTRY -> !wasRiding && isRiding;
+          case ON_VEHICLE_MOUNT -> !wasOnVehicle && isOnVehicle;
+        };
+
+    if (shouldReleaseOnThisTick) {
+      client.mouseHandler.releaseMouse();
+      state.setAutomaticallyReleasedCursor(true);
+      RideName currentRide = CurrentRideHolder.getCurrentRide();
+      if (currentRide == null) {
+        currentRide = AutograbHolder.getRideAtLocation(client);
       }
+      sendCanoeMessageIfNeeded(client, currentRide);
+    }
 
-      boolean shouldGrabOnThisTick =
-          switch (timing) {
-            case NONE -> false;
-            case ON_ZONE_ENTRY -> wasRiding && !isRiding;
-            case ON_VEHICLE_MOUNT -> wasOnVehicle && !isOnVehicle;
-          };
+    boolean shouldGrabOnThisTick =
+        switch (timing) {
+          case NONE -> false;
+          case ON_ZONE_ENTRY -> wasRiding && !isRiding;
+          case ON_VEHICLE_MOUNT -> wasOnVehicle && !isOnVehicle;
+        };
 
-      if (shouldGrabOnThisTick) {
-        state.setAutomaticallyReleasedCursor(false);
-        if (client.screen == null) {
-          client.mouseHandler.grabMouse();
-        }
-      }
-
-      boolean isCurrentlyRiding =
-          switch (timing) {
-            case NONE -> false;
-            case ON_ZONE_ENTRY -> isRiding;
-            case ON_VEHICLE_MOUNT -> isOnVehicle;
-          };
-
-      if ((isCurrentlyRiding || client.player.isPassenger())
-          && client.mouseHandler.isRightPressed()
-          && client.screen == null) {
-        client.mouseHandler.releaseMouse();
+    if (shouldGrabOnThisTick) {
+      state.setAutomaticallyReleasedCursor(false);
+      if (client.screen == null) {
+        client.mouseHandler.grabMouse();
       }
     }
 
-    if (ModConfig.currentSetting.minimizeWindow != WindowMinimizeTiming.NONE) {
-      WindowMinimizeTiming minimizeTiming = ModConfig.currentSetting.minimizeWindow;
-      long currentTick = state.getAbsoluteTickCounter();
+    boolean isCurrentlyRiding =
+        switch (timing) {
+          case NONE -> false;
+          case ON_ZONE_ENTRY -> isRiding;
+          case ON_VEHICLE_MOUNT -> isOnVehicle;
+        };
 
-      // Arm the zone-entry minimize timer the tick the player first enters an
-      // autograb zone. The actual minimize is deferred by
-      // ZONE_ENTRY_MINIMIZE_DELAY_TICKS so the player has a moment to walk past
-      // the risky border of the zone before the window drops.
-      if (!wasRiding && isRiding && minimizeTiming == WindowMinimizeTiming.ON_ZONE_ENTRY) {
-        pendingZoneMinimizeTick = currentTick;
-      }
-      // Cancel the pending minimize if the player leaves the zone before the
-      // delay elapses.
-      if (!isRiding) {
-        pendingZoneMinimizeTick = -1;
-      }
-
-      boolean shouldMinimizeOnZoneEntry =
-          pendingZoneMinimizeTick != -1
-              && (currentTick - pendingZoneMinimizeTick) >= Timing.ZONE_ENTRY_MINIMIZE_DELAY_TICKS;
-      // Defer canoe-mount minimisation until the player has actually started the canoe (first
-      // speed-bar update). Otherwise the window minimises before the player can right-click the
-      // paddle to begin the ride. For non-canoe rides the gate is always open, preserving the
-      // original on-mount behaviour. We track readiness as an edge with `wasReadyToMinimize` so
-      // the minimize fires the tick the canoe starts, not just on the mount tick itself.
-      boolean readyToMinimize = isOnVehicle && isReadyToMinimizeForCurrentRide();
-      boolean shouldMinimizeOnVehicleMount =
-          !wasReadyToMinimize && readyToMinimize && !minimizedDuringAutograb;
-
-      boolean shouldMinimizeOnThisTick =
-          switch (minimizeTiming) {
-            case NONE -> false;
-            case ON_ZONE_ENTRY -> shouldMinimizeOnZoneEntry || shouldMinimizeOnVehicleMount;
-            case ON_VEHICLE_MOUNT -> shouldMinimizeOnVehicleMount;
-          };
-
-      if (shouldMinimizeOnThisTick) {
-        if (MonkeycraftCompat.isClientConnected()
-            && FabricLoader.getInstance().isModLoaded("dynamic_fps")) {
-          sendDynamicFpsMessageIfNeeded(client);
-        } else {
-          if (shouldMinimizeOnZoneEntry && minimizeTiming == WindowMinimizeTiming.ON_ZONE_ENTRY) {
-            minimizedDuringAutograb = true;
-            // Engage the rubber band so the player can't wander out of the
-            // autograb zone while the window is minimized. Only active if the
-            // user has the autograb region display enabled. Releases after 1s
-            // from initial zone entry, or when the player mounts / autograb
-            // fails.
-            if (ModConfig.currentSetting.showAutograbRegions
-                && pendingZoneMinimizeTick != -1
-                && client.player != null) {
-              state.armRubberBand(
-                  client.player.getX(),
-                  client.player.getY(),
-                  client.player.getZ(),
-                  pendingZoneMinimizeTick + 20);
-            }
-          }
-          windowMinimizeHandler.minimizeWindow();
-        }
-        // Any minimize path that fires satisfies the pending zone minimize, so
-        // clear it to avoid re-triggering after the delay elapses.
-        pendingZoneMinimizeTick = -1;
-      }
-
-      // Rubber band bookkeeping: clear on expiry / mount / missing player.
-      // While the band is active and the player is still inside the zone,
-      // update the anchor so the next border crossing snaps back to the
-      // player's latest in-zone position. The actual snap is performed by
-      // LocalPlayerMixin at HEAD of sendPosition() earlier in the same tick.
-      if (state.isRubberBandActive()) {
-        if (isPassenger || currentTick > state.getRubberBandUntilTick() || client.player == null) {
-          state.clearRubberBand();
-        } else if (autograbRide != null) {
-          state.updateRubberBandAnchor(
-              client.player.getX(), client.player.getY(), client.player.getZ());
-        }
-      }
-
-      if (!isRiding) {
-        minimizedDuringAutograb = false;
-      }
-
-      boolean shouldRestoreOnThisTick =
-          switch (minimizeTiming) {
-            case NONE -> false;
-            case ON_ZONE_ENTRY -> wasRiding && !isRiding;
-            case ON_VEHICLE_MOUNT -> wasOnVehicle && !isOnVehicle;
-          };
-
-      if (shouldRestoreOnThisTick) {
-        // Suppress pause-on-focus-loss for 10 ticks (500ms) to give GLFW time to
-        // process the restore/focus chain before setWindowActive() kicks in.
-        state.setWindowRestoreGrace(10);
-        windowMinimizeHandler.restoreWindow();
-      }
-      if (wasRiding && !isRiding) {
-        windowMinimizeHandler.requestAttention();
-      }
-
-      if (MonkeycraftCompat.isClientConnected()
-          && FabricLoader.getInstance().isModLoaded("dynamic_fps")) {
-        if (client.getWindow() != null) {
-          long handle = client.getWindow().handle();
-          boolean isMinimized =
-              GLFW.glfwGetWindowAttrib(handle, GLFW.GLFW_ICONIFIED) == GLFW.GLFW_TRUE;
-          if (isMinimized) {
-            windowMinimizeHandler.restoreWindow();
-            sendDynamicFpsMessageIfNeeded(client);
-          }
-        }
-      }
+    if ((isCurrentlyRiding || client.player.isPassenger())
+        && client.mouseHandler.isRightPressed()
+        && client.screen == null) {
+      client.mouseHandler.releaseMouse();
     }
-
-    wasRiding = isRiding;
-    wasOnVehicle = isOnVehicle;
-    wasPassenger = isPassenger;
-    wasReadyToMinimize = isOnVehicle && isReadyToMinimizeForCurrentRide();
   }
 
-  /**
-   * Returns true if the current ride is ready to be minimized over. For canoes, this is gated on
-   * the canoe actually starting (first speed-bar update). For all other rides, it's always true —
-   * caller must still confirm the player is on a vehicle.
-   */
+  // ---------------------------------------------------------------------------
+  // Window minimize
+  // ---------------------------------------------------------------------------
+
+  private void tickWindowMinimize(
+      Minecraft client,
+      boolean isPassenger,
+      boolean isRiding,
+      boolean isOnVehicle,
+      RideName autograbRide) {
+    WindowMinimizeTiming minimizeTiming = ModConfig.currentSetting.minimizeWindow;
+    if (minimizeTiming == WindowMinimizeTiming.NONE) {
+      return;
+    }
+
+    GameState state = GameState.getInstance();
+    long currentTick = state.getAbsoluteTickCounter();
+
+    // Zone-entry minimize: arm a deferred timer on zone entry.
+    if (!wasRiding && isRiding && minimizeTiming == WindowMinimizeTiming.ON_ZONE_ENTRY) {
+      pendingZoneMinimizeTick = currentTick;
+    }
+    if (!isRiding) {
+      pendingZoneMinimizeTick = -1;
+    }
+
+    boolean shouldMinimizeOnZoneEntry =
+        pendingZoneMinimizeTick != -1
+            && (currentTick - pendingZoneMinimizeTick) >= Timing.ZONE_ENTRY_MINIMIZE_DELAY_TICKS;
+
+    boolean readyToMinimize = isOnVehicle && isReadyToMinimizeForCurrentRide();
+    boolean shouldMinimizeOnVehicleMount =
+        !wasReadyToMinimize && readyToMinimize && !minimizedDuringAutograb;
+
+    boolean shouldMinimizeOnThisTick =
+        switch (minimizeTiming) {
+          case NONE -> false;
+          case ON_ZONE_ENTRY -> shouldMinimizeOnZoneEntry || shouldMinimizeOnVehicleMount;
+          case ON_VEHICLE_MOUNT -> shouldMinimizeOnVehicleMount;
+        };
+
+    if (shouldMinimizeOnThisTick) {
+      if (MonkeycraftCompat.isClientConnected()
+          && FabricLoader.getInstance().isModLoaded("dynamic_fps")) {
+        sendDynamicFpsMessageIfNeeded(client);
+      } else {
+        if (shouldMinimizeOnZoneEntry && minimizeTiming == WindowMinimizeTiming.ON_ZONE_ENTRY) {
+          minimizedDuringAutograb = true;
+          if (ModConfig.currentSetting.showAutograbRegions
+              && pendingZoneMinimizeTick != -1
+              && client.player != null) {
+            state.armRubberBand(
+                client.player.getX(),
+                client.player.getY(),
+                client.player.getZ(),
+                pendingZoneMinimizeTick + 20);
+          }
+        }
+        windowMinimizeHandler.minimizeWindow();
+      }
+      pendingZoneMinimizeTick = -1;
+    }
+
+    tickRubberBand(state, client, isPassenger, autograbRide, currentTick);
+
+    if (!isRiding) {
+      minimizedDuringAutograb = false;
+    }
+
+    boolean shouldRestoreOnThisTick =
+        switch (minimizeTiming) {
+          case NONE -> false;
+          case ON_ZONE_ENTRY -> wasRiding && !isRiding;
+          case ON_VEHICLE_MOUNT -> wasOnVehicle && !isOnVehicle;
+        };
+
+    if (shouldRestoreOnThisTick) {
+      state.setWindowRestoreGrace(10);
+      windowMinimizeHandler.restoreWindow();
+    }
+    if (wasRiding && !isRiding) {
+      windowMinimizeHandler.requestAttention();
+    }
+
+    // DynamicFPS + MonkeyCraft compatibility: keep window visible.
+    if (MonkeycraftCompat.isClientConnected()
+        && FabricLoader.getInstance().isModLoaded("dynamic_fps")) {
+      if (client.getWindow() != null) {
+        long handle = client.getWindow().handle();
+        boolean isMinimized =
+            GLFW.glfwGetWindowAttrib(handle, GLFW.GLFW_ICONIFIED) == GLFW.GLFW_TRUE;
+        if (isMinimized) {
+          windowMinimizeHandler.restoreWindow();
+          sendDynamicFpsMessageIfNeeded(client);
+        }
+      }
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Rubber band
+  // ---------------------------------------------------------------------------
+
+  private void tickRubberBand(
+      GameState state,
+      Minecraft client,
+      boolean isPassenger,
+      RideName autograbRide,
+      long currentTick) {
+    if (!state.isRubberBandActive()) {
+      return;
+    }
+    if (isPassenger || currentTick > state.getRubberBandUntilTick() || client.player == null) {
+      state.clearRubberBand();
+    } else if (autograbRide != null) {
+      state.updateRubberBandAnchor(
+          client.player.getX(), client.player.getY(), client.player.getZ());
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
+
   private boolean isReadyToMinimizeForCurrentRide() {
     RideName currentRide = CurrentRideHolder.getCurrentRide();
     if (currentRide != RideName.DAVY_CROCKETTS_EXPLORER_CANOES) {
@@ -255,18 +281,14 @@ public class CursorManager {
     if (client.player == null || ride != RideName.DAVY_CROCKETTS_EXPLORER_CANOES) {
       return;
     }
-
     GameState state = GameState.getInstance();
     if (state.getAbsoluteTickCounter() - lastCanoeMessageTick
         < Timing.CANOE_MESSAGE_COOLDOWN_TICKS) {
       return;
     }
-
     lastCanoeMessageTick = state.getAbsoluteTickCounter();
-
     Component message =
         Component.literal("§6✨ §e[IMF] §fPlease use §e§lLEFT click§r§f to ride canoes.");
-
     client.player.displayClientMessage(message, false);
   }
 
@@ -274,15 +296,12 @@ public class CursorManager {
     if (client.player == null) {
       return;
     }
-
     GameState state = GameState.getInstance();
     if (state.getAbsoluteTickCounter() - lastDynamicFpsMessageTick
         < Timing.DYNAMIC_FPS_MESSAGE_COOLDOWN_TICKS) {
       return;
     }
-
     lastDynamicFpsMessageTick = state.getAbsoluteTickCounter();
-
     client.player.displayClientMessage(DYNAMIC_FPS_COMPATIBILITY_MESSAGE, false);
   }
 

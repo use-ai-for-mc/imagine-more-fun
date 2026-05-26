@@ -13,7 +13,12 @@ public class ReminderHandler {
   private static ReminderHandler instance;
 
   private boolean audioConnected = false;
-  public long lastAudioReminderTick = -Timing.REMINDER_INTERVAL_TICKS;
+  private long lastAudioReminderTick = -Timing.REMINDER_INTERVAL_TICKS;
+
+  /** Resets the audio reminder cooldown — called when the window is restored. */
+  public void resetAudioReminderTimer() {
+    lastAudioReminderTick = -Timing.REMINDER_INTERVAL_TICKS;
+  }
 
   private ReminderHandler() {}
 

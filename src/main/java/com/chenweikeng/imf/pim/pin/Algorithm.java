@@ -1,6 +1,5 @@
 package com.chenweikeng.imf.pim.pin;
 
-import com.chenweikeng.imf.pim.screen.PinDetailHandler;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -208,74 +207,6 @@ public class Algorithm {
     public int hashCode() {
       return Objects.hash(signature, deluxe, rare, uncommon, common);
     }
-  }
-
-  public static Optional<AlgorithmError> calculateSeriesCounts(
-      String seriesName, PinSeriesCounts counts) {
-    Map<String, PinDetailHandler.PinDetailEntry> seriesDetails =
-        PinDetailHandler.getInstance().getSeriesDetails(seriesName);
-
-    if (seriesDetails == null) {
-      return Optional.of(AlgorithmError.INCOMPLETE_RARITY_INFORMATION);
-    }
-
-    int totalSignature = 0;
-    int totalDeluxe = 0;
-    int totalRare = 0;
-    int totalUncommon = 0;
-    int totalCommon = 0;
-    int mintSignature = 0;
-    int mintDeluxe = 0;
-    int mintRare = 0;
-    int mintUncommon = 0;
-    int mintCommon = 0;
-
-    for (PinDetailHandler.PinDetailEntry entry : seriesDetails.values()) {
-      if (entry.rarity == null) {
-        return Optional.of(AlgorithmError.INCOMPLETE_RARITY_INFORMATION);
-      }
-
-      switch (entry.rarity) {
-        case SIGNATURE:
-          totalSignature++;
-          if (entry.condition == PinDetailHandler.PinCondition.MINT) {
-            mintSignature++;
-          }
-          break;
-        case DELUXE:
-          totalDeluxe++;
-          if (entry.condition == PinDetailHandler.PinCondition.MINT) {
-            mintDeluxe++;
-          }
-          break;
-        case RARE:
-          totalRare++;
-          if (entry.condition == PinDetailHandler.PinCondition.MINT) {
-            mintRare++;
-          }
-          break;
-        case UNCOMMON:
-          totalUncommon++;
-          if (entry.condition == PinDetailHandler.PinCondition.MINT) {
-            mintUncommon++;
-          }
-          break;
-        case COMMON:
-          totalCommon++;
-          if (entry.condition == PinDetailHandler.PinCondition.MINT) {
-            mintCommon++;
-          }
-          break;
-        default:
-          break;
-      }
-    }
-
-    counts.goal = new DPGoal(totalSignature, totalDeluxe, totalRare, totalUncommon, totalCommon);
-    counts.startPoint =
-        new DPStartPoint(mintSignature, mintDeluxe, mintRare, mintUncommon, mintCommon);
-
-    return Optional.empty();
   }
 
   public static DPResult runDynamicProgramming(String seriesName, PinSeriesCounts counts) {
@@ -516,9 +447,5 @@ public class Algorithm {
 
   private static double calculateProbabilityGetCommon(DPGoal goal, int currentCount) {
     return (double) currentCount * 16 / (double) goal.weightedSum;
-  }
-
-  public static PinSeriesCounts initializeSeriesCounts(String seriesName) {
-    return new PinSeriesCounts(new DPGoal(0, 0, 0, 0, 0), new DPStartPoint(0, 0, 0, 0, 0));
   }
 }

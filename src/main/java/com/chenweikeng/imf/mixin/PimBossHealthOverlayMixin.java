@@ -38,7 +38,7 @@ public class PimBossHealthOverlayMixin {
   @Shadow private Map<UUID, LerpingBossEvent> events;
 
   @Inject(method = "<init>", at = @At("RETURN"))
-  private void init(CallbackInfo ci) {
+  private void imf$init(CallbackInfo ci) {
     pimBossEvent =
         new LerpingBossEvent(
             PIN_TRADER_BOSS_ID,
@@ -52,7 +52,7 @@ public class PimBossHealthOverlayMixin {
   }
 
   @Inject(method = "render", at = @At("HEAD"))
-  private void render(GuiGraphics guiGraphics, CallbackInfo ci) {
+  private void imf$render(GuiGraphics guiGraphics, CallbackInfo ci) {
     if (!PimClient.isImagineFunServer()) {
       return;
     }

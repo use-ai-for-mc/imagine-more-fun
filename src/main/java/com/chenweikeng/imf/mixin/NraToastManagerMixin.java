@@ -16,7 +16,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ToastManager.class)
 public class NraToastManagerMixin {
   @Inject(method = "render", at = @At("HEAD"), cancellable = true)
-  private void suppressToastsDuringRideReport(GuiGraphics graphics, CallbackInfo ci) {
+  private void imf$suppressToastsDuringRideReport(GuiGraphics graphics, CallbackInfo ci) {
     if (Minecraft.getInstance().screen instanceof RideReportScreen) {
       ci.cancel();
     }

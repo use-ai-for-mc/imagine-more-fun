@@ -25,7 +25,7 @@ public final class StatusBarController {
     return INSTANCE;
   }
 
-  private StatusBarBridge bridge;
+  private volatile StatusBarBridge bridge;
   private final AtomicBoolean starting = new AtomicBoolean(false);
   private volatile boolean shutdownHookRegistered;
   private volatile boolean disabledForSession;

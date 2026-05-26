@@ -29,7 +29,7 @@ public class PimAbstractContainerScreenMixin {
   @Shadow protected int imageWidth;
 
   @Inject(at = @At("HEAD"), method = "renderSlot", cancellable = true)
-  public void onRenderSlot(GuiGraphics guiGraphics, Slot slot, int i, int j, CallbackInfo ci) {
+  public void imf$onRenderSlot(GuiGraphics guiGraphics, Slot slot, int i, int j, CallbackInfo ci) {
     if (!PimClient.isImagineFunServer()) {
       return;
     }
@@ -61,7 +61,7 @@ public class PimAbstractContainerScreenMixin {
     if (isPlayerInventory || isShulkerBoxContent) {
       Integer packColor = PinPackColorAnalyzer.getPackColor(itemStack);
       if (packColor != null) {
-        renderItemWithFills(guiGraphics, slot, itemStack, font, packColor, null, ci);
+        imf$renderItemWithFills(guiGraphics, slot, itemStack, font, packColor, null, ci);
         return;
       }
     }
@@ -71,7 +71,7 @@ public class PimAbstractContainerScreenMixin {
     if (titleStr.contains("Pin Box Trader") && !isPlayerInventory) {
       Integer shopPackColor = PinPackColorAnalyzer.getShopPackColor(itemStack);
       if (shopPackColor != null) {
-        renderItemWithFills(guiGraphics, slot, itemStack, font, shopPackColor, null, ci);
+        imf$renderItemWithFills(guiGraphics, slot, itemStack, font, shopPackColor, null, ci);
         return;
       }
     }
@@ -92,15 +92,15 @@ public class PimAbstractContainerScreenMixin {
 
         String key = pinSeries + ":" + entry2.pinName;
         if (missingMintPinNames.contains(key)) {
-          renderItemWithFills(guiGraphics, slot, itemStack, font, 0xFF00FF00, null, ci);
+          imf$renderItemWithFills(guiGraphics, slot, itemStack, font, 0xFF00FF00, null, ci);
           return;
         } else {
-          renderItemWithFills(guiGraphics, slot, itemStack, font, 0xFFFFE000, 0x80FFE000, ci);
+          imf$renderItemWithFills(guiGraphics, slot, itemStack, font, 0xFFFFE000, 0x80FFE000, ci);
           return;
         }
       } else {
         // Non-MINT pins get MAGENTA
-        renderItemWithFills(guiGraphics, slot, itemStack, font, null, 0x80FF00FF, ci);
+        imf$renderItemWithFills(guiGraphics, slot, itemStack, font, null, 0x80FF00FF, ci);
         return;
       }
     }
@@ -149,7 +149,7 @@ public class PimAbstractContainerScreenMixin {
           ci.cancel();
         }
       } else {
-        if (PinDetailHandler.currentOpenedPinSeries != null
+        if (PinDetailHandler.getCurrentOpenedPinSeries() != null
             && entry2 != null
             && entry2.condition != PinDetailHandler.PinCondition.MINT
             && !(slot.container instanceof Inventory)) {
@@ -158,9 +158,9 @@ public class PimAbstractContainerScreenMixin {
                   ? InventoryHandler.getInstance().getMissingMintPinNames(screen.getMenu().slots)
                   : Set.of();
 
-          String key = PinDetailHandler.currentOpenedPinSeries + ":" + entry2.pinName;
+          String key = PinDetailHandler.getCurrentOpenedPinSeries() + ":" + entry2.pinName;
           if (missingMintPinNames.contains(key)) {
-            renderItemWithFills(guiGraphics, slot, itemStack, font, 0xFF00FF00, null, ci);
+            imf$renderItemWithFills(guiGraphics, slot, itemStack, font, 0xFF00FF00, null, ci);
           }
         }
       }
@@ -192,19 +192,19 @@ public class PimAbstractContainerScreenMixin {
           && pinDetailEntry != null
           && (pinDetailEntry.condition == PinDetailHandler.PinCondition.LOCKED
               || pinDetailEntry.condition == PinDetailHandler.PinCondition.NOTMINT)) {
-        renderItemWithFills(guiGraphics, slot, itemStack, font, 0xFF00FF00, null, ci);
+        imf$renderItemWithFills(guiGraphics, slot, itemStack, font, 0xFF00FF00, null, ci);
       } else if (onBoardEntry != null
           && onBoardEntry.condition == PinDetailHandler.PinCondition.MINT
           && !isPinBoard) {
-        renderItemWithFills(guiGraphics, slot, itemStack, font, 0xFFFFE000, 0x80FFE000, ci);
+        imf$renderItemWithFills(guiGraphics, slot, itemStack, font, 0xFFFFE000, 0x80FFE000, ci);
       } else {
-        renderItemWithFills(guiGraphics, slot, itemStack, font, null, 0x80FF00FF, ci);
+        imf$renderItemWithFills(guiGraphics, slot, itemStack, font, null, 0x80FF00FF, ci);
       }
     }
   }
 
   @Inject(at = @At("HEAD"), method = "slotClicked")
-  public void onSlotClicked(Slot slot, int i, int j, ClickType clickType, CallbackInfo ci) {
+  public void imf$onSlotClicked(Slot slot, int i, int j, ClickType clickType, CallbackInfo ci) {
     if (!PimClient.isImagineFunServer()) {
       return;
     }
@@ -242,14 +242,14 @@ public class PimAbstractContainerScreenMixin {
           PinRarityHandler.getInstance().getSeriesEntry(seriesName);
       if (seriesEntry != null
           && seriesEntry.availability == PinRarityHandler.Availability.OPTIONAL) {
-        PinDetailHandler.currentOpenedPinSeries = null;
+        PinDetailHandler.setCurrentOpenedPinSeries(null);
       } else {
-        PinDetailHandler.currentOpenedPinSeries = seriesName;
+        PinDetailHandler.setCurrentOpenedPinSeries(seriesName);
       }
     }
   }
 
-  private void renderItemWithFills(
+  private void imf$renderItemWithFills(
       GuiGraphics guiGraphics,
       Slot slot,
       ItemStack itemStack,

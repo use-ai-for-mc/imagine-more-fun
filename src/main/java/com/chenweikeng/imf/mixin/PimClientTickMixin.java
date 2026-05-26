@@ -18,7 +18,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(Minecraft.class)
 public class PimClientTickMixin {
   @Inject(method = "tick", at = @At("RETURN"))
-  private void tick(CallbackInfo ci) {
+  private void imf$tick(CallbackInfo ci) {
     if (!PimClient.isImagineFunServer()) {
       return;
     }

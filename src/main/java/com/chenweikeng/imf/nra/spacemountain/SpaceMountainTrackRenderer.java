@@ -39,7 +39,7 @@ public final class SpaceMountainTrackRenderer {
       Identifier.fromNamespaceAndPath("imaginemorefun", "textures/particle/track.png");
 
   private static final double VEHICLE_Y_OFFSET =
-      0.1; // track sits this far below recorded pos (negative = lower; +0.1 = slightly above)
+      0.1; // +0.1 = track sits slightly above recorded vehicle pos (negative = below)
   private static final double RAIL_HALF_SEPARATION = 0.7; // rails span ±0.7 around centerline
   private static final double SPINE_DROP = 0.6; // center spine sits this far below the rails
   private static final float TUBE_RADIUS = 0.11f;

@@ -30,6 +30,7 @@ public class ModConfig {
         currentSetting = new ConfigSetting();
       }
     } catch (IOException e) {
+      NotRidingAlertClient.LOGGER.warn("Failed to load NRA config, using defaults", e);
       currentSetting = new ConfigSetting();
     }
   }

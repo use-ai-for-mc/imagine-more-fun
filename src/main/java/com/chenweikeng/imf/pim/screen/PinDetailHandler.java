@@ -33,7 +33,15 @@ public class PinDetailHandler {
   private final File dataFile;
   private boolean hasPendingChanges = false;
   private int tickCount = 0;
-  public static String currentOpenedPinSeries;
+  private static String currentOpenedPinSeries;
+
+  public static String getCurrentOpenedPinSeries() {
+    return currentOpenedPinSeries;
+  }
+
+  public static void setCurrentOpenedPinSeries(String series) {
+    currentOpenedPinSeries = series;
+  }
 
   public enum PinCondition {
     LOCKED,

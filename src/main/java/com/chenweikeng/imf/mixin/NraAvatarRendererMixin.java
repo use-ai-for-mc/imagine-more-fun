@@ -20,7 +20,7 @@ public class NraAvatarRendererMixin {
       method =
           "submitNameTag(Lnet/minecraft/client/renderer/entity/state/AvatarRenderState;Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/SubmitNodeCollector;Lnet/minecraft/client/renderer/state/CameraRenderState;)V",
       cancellable = true)
-  private void onSubmitNameTag(
+  private void imf$onSubmitNameTag(
       AvatarRenderState avatarRenderState,
       PoseStack poseStack,
       SubmitNodeCollector submitNodeCollector,

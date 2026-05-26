@@ -18,6 +18,15 @@ import net.minecraft.world.scores.PlayerTeam;
 import net.minecraft.world.scores.Scoreboard;
 
 public class ScoreboardHandler {
+  private static ScoreboardHandler instance;
+
+  public static ScoreboardHandler getInstance() {
+    if (instance == null) {
+      instance = new ScoreboardHandler();
+    }
+    return instance;
+  }
+
   private static final Comparator<PlayerScoreEntry> SCORE_DISPLAY_ORDER =
       Comparator.comparing(PlayerScoreEntry::value)
           .reversed()
@@ -25,7 +34,12 @@ public class ScoreboardHandler {
 
   private int tickCounter = 0;
   private static final int TICK_INTERVAL = 10;
-  public static boolean scoreboardEmpty = false;
+  private boolean scoreboardEmpty = false;
+
+  public boolean isScoreboardEmpty() {
+    return scoreboardEmpty;
+  }
+
   private long ticksUntilNextReminder = 600;
   private static final int SCOREBOARD_REMINDER_INTERVAL = 12000; // 10 minutes
 

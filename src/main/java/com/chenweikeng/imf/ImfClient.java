@@ -35,11 +35,7 @@ public class ImfClient implements ClientModInitializer {
     LOGGER.info("ImagineMoreFun starting (NRA + PIM + SkinCache)");
 
     // Move old on-disk state into config/imaginemorefun/ before any sub-mod reads its files.
-    try {
-      ImfMigration.runOnce();
-    } catch (RuntimeException e) {
-      LOGGER.error("Storage migration failed; continuing anyway", e);
-    }
+    ImfMigration.runOnce();
 
     SpaceMountainStarRenderer.register();
     SpaceMountainTrackRenderer.register();

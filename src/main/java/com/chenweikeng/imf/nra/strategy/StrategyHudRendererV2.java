@@ -4,7 +4,6 @@ import com.chenweikeng.imf.mixin.NraBossHealthOverlayAccessor;
 import com.chenweikeng.imf.nra.GameState;
 import com.chenweikeng.imf.nra.NotRidingAlertClient;
 import com.chenweikeng.imf.nra.Timing;
-import com.chenweikeng.imf.nra.config.ClosestRideMode;
 import com.chenweikeng.imf.nra.config.ModConfig;
 import com.chenweikeng.imf.nra.config.SortingRules;
 import com.chenweikeng.imf.nra.ride.AutograbHolder;
@@ -32,13 +31,6 @@ public class StrategyHudRendererV2 {
   private static final int COLUMN_GAP = 20;
   private static final long ANIMATION_DURATION_MS = 500;
   private static final long WAIT_DURATION_MS = 3000;
-
-  private enum RideStatus {
-    NORMAL,
-    RIDING,
-    AUTOGRABBING,
-    CLOSEST
-  }
 
   private enum HudState {
     FULL,
@@ -128,11 +120,12 @@ public class StrategyHudRendererV2 {
 
     RideName currentRide = CurrentRideHolder.getCurrentRide();
     RideName autograbRide = AutograbHolder.getRideAtLocation(client);
-    RideName closestRide = filterClosestRide(ClosestRideHolder.getClosestRide());
+    RideName closestRide = StrategyHudBase.filterClosestRide(ClosestRideHolder.getClosestRide());
     RideName effectiveRide = currentRide != null ? currentRide : autograbRide;
     boolean isPassenger = GameState.getInstance().isValidPassenger(client.player);
 
-    RideStatus effectiveStatus = getEffectiveStatus(currentRide, autograbRide, isPassenger);
+    StrategyHudBase.RideStatus effectiveStatus =
+        getEffectiveStatus(currentRide, autograbRide, isPassenger);
     updateState(effectiveStatus, effectiveRide);
 
     List<EntryComponents> entries = new ArrayList<>();
@@ -333,12 +326,13 @@ public class StrategyHudRendererV2 {
     }
   }
 
-  private static void updateState(RideStatus status, RideName ride) {
+  private static void updateState(StrategyHudBase.RideStatus status, RideName ride) {
     long currentTime = System.currentTimeMillis();
 
     switch (currentState) {
       case FULL:
-        if (status == RideStatus.RIDING || status == RideStatus.AUTOGRABBING) {
+        if (status == StrategyHudBase.RideStatus.RIDING
+            || status == StrategyHudBase.RideStatus.AUTOGRABBING) {
           currentState = HudState.COLLAPSING;
           stateStartTime = currentTime;
           trackedRide = ride;
@@ -351,7 +345,7 @@ public class StrategyHudRendererV2 {
         }
         break;
       case COLLAPSED:
-        if (status == RideStatus.NORMAL) {
+        if (status == StrategyHudBase.RideStatus.NORMAL) {
           currentState = HudState.EXPANDING;
           stateStartTime = currentTime;
           normalStartTime = 0;
@@ -361,7 +355,8 @@ public class StrategyHudRendererV2 {
         }
         break;
       case EXPANDING:
-        if (status == RideStatus.RIDING || status == RideStatus.AUTOGRABBING) {
+        if (status == StrategyHudBase.RideStatus.RIDING
+            || status == StrategyHudBase.RideStatus.AUTOGRABBING) {
           currentState = HudState.COLLAPSED;
           trackedRide = ride;
           normalStartTime = 0;
@@ -483,32 +478,15 @@ public class StrategyHudRendererV2 {
         best.numColumns(), optimalEntryXPositions, best.columnMaxWidths(), startOffset);
   }
 
-  private static RideName filterClosestRide(RideName ride) {
-    if (ride == null) {
-      return null;
-    }
-    ClosestRideMode mode = ModConfig.currentSetting.closestRideMode;
-    if (mode == ClosestRideMode.NEVER) {
-      return null;
-    }
-    if (mode == ClosestRideMode.ONLY_IN_PROGRESS) {
-      RideGoal goal = StrategyCalculator.getGoalForRide(ride);
-      if (goal == null) {
-        return null;
-      }
-    }
-    return ride;
-  }
-
-  private static RideStatus getEffectiveStatus(
+  private static StrategyHudBase.RideStatus getEffectiveStatus(
       RideName currentRide, RideName autograbRide, boolean isPassenger) {
     if (currentRide != null) {
-      return RideStatus.RIDING;
+      return StrategyHudBase.RideStatus.RIDING;
     }
     if (autograbRide != null && !isPassenger) {
-      return RideStatus.AUTOGRABBING;
+      return StrategyHudBase.RideStatus.AUTOGRABBING;
     }
-    return RideStatus.NORMAL;
+    return StrategyHudBase.RideStatus.NORMAL;
   }
 
   private static void renderFullMode(FullModeRenderContext ctx) {
@@ -570,11 +548,11 @@ public class StrategyHudRendererV2 {
       return;
     }
 
-    RideStatus status = getRideStatus(ride, currentRide, autograbRide, isPassenger);
-    int color = status == RideStatus.AUTOGRABBING ? colorPurple : colorGreen;
+    StrategyHudBase.RideStatus status = getRideStatus(ride, currentRide, autograbRide, isPassenger);
+    int color = status == StrategyHudBase.RideStatus.AUTOGRABBING ? colorPurple : colorGreen;
 
     String text;
-    if (status == RideStatus.AUTOGRABBING) {
+    if (status == StrategyHudBase.RideStatus.AUTOGRABBING) {
       text = "Autograbbing " + ride.getDisplayName() + "...";
     } else {
       RideGoal goal = StrategyCalculator.getGoalForRide(ride);
@@ -649,14 +627,14 @@ public class StrategyHudRendererV2 {
     return new ArrayList<>(topGoals);
   }
 
-  private static RideStatus getRideStatus(
+  private static StrategyHudBase.RideStatus getRideStatus(
       RideName ride, RideName currentRide, RideName autograbRide, boolean isPassenger) {
     if (currentRide != null && ride == currentRide) {
-      return RideStatus.RIDING;
+      return StrategyHudBase.RideStatus.RIDING;
     }
     if (currentRide == null && autograbRide != null && ride == autograbRide && !isPassenger) {
-      return RideStatus.AUTOGRABBING;
+      return StrategyHudBase.RideStatus.AUTOGRABBING;
     }
-    return RideStatus.NORMAL;
+    return StrategyHudBase.RideStatus.NORMAL;
   }
 }

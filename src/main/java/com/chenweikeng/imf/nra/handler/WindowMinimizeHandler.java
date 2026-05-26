@@ -1,6 +1,5 @@
 package com.chenweikeng.imf.nra.handler;
 
-import com.chenweikeng.imf.nra.Timing;
 import net.minecraft.client.Minecraft;
 import org.lwjgl.glfw.GLFW;
 import org.slf4j.Logger;
@@ -144,7 +143,7 @@ public final class WindowMinimizeHandler {
             recoveryAttempted = false;
             monitorTicksLeft = MONITOR_TICKS;
 
-            ReminderHandler.getInstance().lastAudioReminderTick = -Timing.REMINDER_INTERVAL_TICKS;
+            ReminderHandler.getInstance().resetAudioReminderTimer();
           });
     }
   }

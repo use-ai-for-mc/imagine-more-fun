@@ -21,7 +21,7 @@ public class PimGuiMixin {
   @Shadow private Minecraft minecraft;
 
   @Inject(at = @At("HEAD"), method = "renderSlot", cancellable = true)
-  private void onRenderSlot(
+  private void imf$onRenderSlot(
       GuiGraphics guiGraphics,
       int i,
       int j,
@@ -41,7 +41,8 @@ public class PimGuiMixin {
     // Check for pin packs first
     Integer packColor = PinPackColorAnalyzer.getPackColor(itemStack);
     if (packColor != null) {
-      renderSlotWithColor(guiGraphics, i, j, deltaTracker, player, itemStack, k, packColor, null);
+      imf$renderSlotWithColor(
+          guiGraphics, i, j, deltaTracker, player, itemStack, k, packColor, null);
       ci.cancel();
       return;
     }
@@ -72,22 +73,23 @@ public class PimGuiMixin {
           && (pinDetailEntry.condition == PinDetailHandler.PinCondition.LOCKED
               || pinDetailEntry.condition == PinDetailHandler.PinCondition.NOTMINT)) {
         // GREEN: MINT pin needed for collection
-        renderSlotWithColor(
+        imf$renderSlotWithColor(
             guiGraphics, i, j, deltaTracker, player, itemStack, k, 0xFF00FF00, null);
       } else {
         // YELLOW: MINT pin already collected
-        renderSlotWithColor(
+        imf$renderSlotWithColor(
             guiGraphics, i, j, deltaTracker, player, itemStack, k, 0xFFFFE000, 0x80FFE000);
       }
       ci.cancel();
     } else if (onBoardEntry.condition != PinDetailHandler.PinCondition.MINT) {
       // MAGENTA: Non-MINT pin
-      renderSlotWithColor(guiGraphics, i, j, deltaTracker, player, itemStack, k, null, 0x80FF00FF);
+      imf$renderSlotWithColor(
+          guiGraphics, i, j, deltaTracker, player, itemStack, k, null, 0x80FF00FF);
       ci.cancel();
     }
   }
 
-  private void renderSlotWithColor(
+  private void imf$renderSlotWithColor(
       GuiGraphics guiGraphics,
       int i,
       int j,

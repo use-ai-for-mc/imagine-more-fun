@@ -43,7 +43,6 @@
 		"SkinCacheClientChunkCacheMixin",
 		"SkinCacheCustomHeadLayerMixin",
 		"SkinCacheMinecraftMixin",
-		"SkinCachePlayerSkinRenderCacheMixin",
 		"SkinCacheSkinManagerMixin",
 		"SkinCacheSkinTextureDownloaderMixin",
 		"SkinCacheSkullBlockRendererMixin"

@@ -49,10 +49,6 @@ public final class SpaceMountainStarRenderer {
   private static final long SEED = 0xCAFEBABEL;
 
   private static final String BORDERS_RESOURCE = "/imaginemorefun/dome_borders.bin";
-  private static final String TRACK_STARS_RESOURCE = "/imaginemorefun/dome_track_stars.bin";
-
-  // Track-surface stars disabled — the recorded-track files are kept on disk but no longer used.
-  private static final boolean INCLUDE_TRACK_STARS = false;
 
   // Direction.values() ordinal mapping in 1.21: 0=DOWN, 1=UP, 2=NORTH, 3=SOUTH, 4=WEST, 5=EAST.
   private static final Direction[] DIRECTIONS = {
@@ -173,60 +169,11 @@ public final class SpaceMountainStarRenderer {
         float scale = STAR_SIZE_MIN + (STAR_SIZE_MAX - STAR_SIZE_MIN) * rng.nextFloat();
         starHalfSize[i] = scale * 0.5f;
       }
-      // Append track-surface stars (rails / spine / V-struts). Pre-baked positions, no shuffle —
-      // we always include all of them so the look is consistent run-to-run.
-      int trackAdded = INCLUDE_TRACK_STARS ? appendTrackStars(rng) : 0;
       NotRidingAlertClient.LOGGER.info(
-          "[SpaceMountainStarRenderer] loaded {} dome faces ({} dome stars) + {} track stars",
-          faceCount,
-          n,
-          trackAdded);
+          "[SpaceMountainStarRenderer] loaded {} dome faces, picked {} stars", faceCount, n);
     } catch (IOException e) {
       NotRidingAlertClient.LOGGER.error(
           "[SpaceMountainStarRenderer] failed to load borders resource", e);
-    }
-  }
-
-  /**
-   * Read {@link #TRACK_STARS_RESOURCE} (produced by {@code debug-dumps/bake-track-stars.py}) and
-   * append each entry to the star arrays. Returns the number appended (0 if the resource is missing
-   * — track stars are optional).
-   */
-  private static int appendTrackStars(Random rng) {
-    try (InputStream in =
-        SpaceMountainStarRenderer.class.getResourceAsStream(TRACK_STARS_RESOURCE)) {
-      if (in == null) return 0;
-      DataInputStream dis = new DataInputStream(in);
-      byte[] magic = new byte[4];
-      dis.readFully(magic);
-      if (magic[0] != 'I' || magic[1] != 'F' || magic[2] != 'T' || magic[3] != 'S') {
-        throw new IOException("bad track-stars magic: " + new String(magic));
-      }
-      int version = dis.readUnsignedByte();
-      if (version != 1) throw new IOException("unsupported track-stars version: " + version);
-      int count = dis.readInt();
-      if (count <= 0) return 0;
-      int oldLen = starX.length;
-      int newLen = oldLen + count;
-      starX = java.util.Arrays.copyOf(starX, newLen);
-      starY = java.util.Arrays.copyOf(starY, newLen);
-      starZ = java.util.Arrays.copyOf(starZ, newLen);
-      starHalfSize = java.util.Arrays.copyOf(starHalfSize, newLen);
-      for (int i = 0; i < count; i++) {
-        starX[oldLen + i] = dis.readDouble();
-        starY[oldLen + i] = dis.readDouble();
-        starZ[oldLen + i] = dis.readDouble();
-        // Slightly smaller stars on track surfaces — they're closer to the camera most of the
-        // ride, so a smaller billboard reads as a pinpoint of light rather than a glowing disc.
-        float scale =
-            STAR_SIZE_MIN * 0.6f + (STAR_SIZE_MAX * 0.6f - STAR_SIZE_MIN * 0.6f) * rng.nextFloat();
-        starHalfSize[oldLen + i] = scale * 0.5f;
-      }
-      return count;
-    } catch (IOException e) {
-      NotRidingAlertClient.LOGGER.error(
-          "[SpaceMountainStarRenderer] failed to load track-stars resource", e);
-      return 0;
     }
   }
 

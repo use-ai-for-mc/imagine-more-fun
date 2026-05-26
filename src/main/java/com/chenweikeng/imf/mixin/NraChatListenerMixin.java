@@ -34,7 +34,7 @@ public class NraChatListenerMixin {
   private static final String CC_MARKER = "[CC]";
 
   @Inject(at = @At("HEAD"), method = "handleSystemMessage", cancellable = true)
-  private void onGameMessage(Component message, boolean overlay, CallbackInfo ci) {
+  private void imf$onGameMessage(Component message, boolean overlay, CallbackInfo ci) {
     if (!NotRidingAlertClient.isImagineFunServer()) {
       return;
     }
@@ -49,7 +49,7 @@ public class NraChatListenerMixin {
         return;
       }
       if (mode != ClosedCaptionMode.NONE) {
-        handleClosedCaption(message);
+        imf$handleClosedCaption(message);
         ci.cancel();
         return;
       }
@@ -128,7 +128,7 @@ public class NraChatListenerMixin {
     HibernationHandler.getInstance().cancelPendingCancellation();
   }
 
-  private void handleClosedCaption(Component message) {
+  private void imf$handleClosedCaption(Component message) {
     List<Component> parts = message.toFlatList(Style.EMPTY);
 
     int separatorIndex = -1;

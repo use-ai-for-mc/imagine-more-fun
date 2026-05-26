@@ -21,7 +21,7 @@ public class NraClientLevelMixin {
       Identifier.fromNamespaceAndPath("minecraft", "ride.complete");
 
   @Inject(method = "playSound", at = @At("HEAD"), cancellable = true)
-  private void onPlaySound(
+  private void imf$onPlaySound(
       double d,
       double e,
       double f,

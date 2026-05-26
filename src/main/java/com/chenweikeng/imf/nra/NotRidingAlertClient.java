@@ -72,7 +72,7 @@ public class NotRidingAlertClient implements ClientModInitializer {
   private final AutograbFailureHandler autograbFailureHandler = new AutograbFailureHandler();
   private final FireworkViewingHandler fireworkViewingHandler =
       FireworkViewingHandler.getInstance();
-  private final ScoreboardHandler scoreboardHandler = new ScoreboardHandler();
+  private final ScoreboardHandler scoreboardHandler = ScoreboardHandler.getInstance();
   private final ReminderHandler reminderHandler = ReminderHandler.getInstance();
   private final AlertChecker alertChecker = new AlertChecker();
   private final CursorManager cursorManager = new CursorManager();
@@ -187,12 +187,16 @@ public class NotRidingAlertClient implements ClientModInitializer {
     gameState.incrementTickCounter();
 
     long currentTick = gameState.getAbsoluteTickCounter();
+
+    // ---- state trackers ----
     movementTracker.track(client, currentTick);
     rideStateTracker.trackRideCompletion(currentTick);
     rideStateTracker.trackVehicleState(client, currentTick);
     suppressionRegionTracker.trackLincolnRegionEntryExit(client, rideStateTracker);
     fireworkViewingHandler.track(client);
     dayTimeHandler.resetDayTimeIfNeeded(client);
+
+    // ---- autograb failure handling ----
     boolean autograbFailureActive =
         autograbFailureHandler.track(client, currentTick, movementTracker);
     gameState.setAutograbFailureActive(autograbFailureActive);
@@ -201,6 +205,8 @@ public class NotRidingAlertClient implements ClientModInitializer {
     } else {
       cursorManager.clearAutograbFailureRestored();
     }
+
+    // ---- per-tick handlers ----
     HibernationHandler.getInstance().track(client, currentTick);
     configReminderHandler.track(client, currentTick);
     scoreboardHandler.track(client);
@@ -211,6 +217,7 @@ public class NotRidingAlertClient implements ClientModInitializer {
     reminderHandler.track(client, currentTick);
     ClosedCaptionHolder.getInstance().tick();
 
+    // ---- periodic checks ----
     RideCountManager.getInstance().checkAndSaveIfNeeded();
     DailyPlanProgressTracker.getInstance().tick(client);
     SessionTracker.getInstance().checkAndSaveIfNeeded();
@@ -231,21 +238,27 @@ public class NotRidingAlertClient implements ClientModInitializer {
   }
 
   private void resetAllTrackers() {
+    // State trackers
     movementTracker.reset();
     rideStateTracker.reset();
     suppressionRegionTracker.reset();
+    fireworkViewingHandler.reset();
+
+    // Handlers
     autograbFailureHandler.reset();
     configReminderHandler.reset();
-    fireworkViewingHandler.reset();
     HibernationHandler.getInstance().reset();
     scoreboardHandler.reset();
     ClosestRideHolder.reset();
     RctCalibration.getInstance().reset();
     reminderHandler.reset();
-    ClosedCaptionHolder.getInstance().clear();
-    cursorManager.reset();
     advanceNoticeHandler.reset();
     RideReportNotifier.getInstance().reset();
+
+    // UI / cursor
+    ClosedCaptionHolder.getInstance().clear();
+    cursorManager.reset();
+
     gameState.reset();
     tickCounter = 0;
   }

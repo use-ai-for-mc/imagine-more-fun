@@ -21,7 +21,7 @@ Design reference: `/Users/cusgadmin/Downloads/compass_artifact_wf-ccdf816b-1bc7-
 - [x] `DailyPlanGenerator` — 5 singles, k=2, random distinct rides from filtered pool
 - [x] `DailyPlanManager` — get-or-create today's plan, regenerate on date roll
 - [x] `/rideplan` command prints tree in chat
-- [x] `DailyPlanChatRenderer` — colored ASCII list
+- [x] `DailyPlanChatRenderer` — colored ASCII list *(superseded: chat display replaced by HUD in Stages 3+; class deleted)*
 
 **Done when**: `/rideplan` shows 5 random rides with ×2 next to each; returns same plan across relog within the day; new plan next day.
 
@@ -130,13 +130,13 @@ Design reference: `/Users/cusgadmin/Downloads/compass_artifact_wf-ccdf816b-1bc7-
 8. Set `onlyAutograbbing`, delete plan, relog → generator draws from autograb-only pool.
 
 ### Stage 5 — Screen UI ✅ shipped
-- [x] `DailyPlanScreen` — full-window scrollable vertical list of all layers
-- [x] Header with title + date + completed/total layer count + riding countdown (if riding)
-- [x] Each layer row: `Layer N` label, status glyph (✓ / ▶ active / · idle), optional `[OR]/[AND]/[2/3]` badge, horizontal node boxes
-- [x] Active layer row highlighted with a translucent background
-- [x] Mouse wheel scroll + arrow keys / page up/down; scroll hint indicators on header/footer
-- [x] `/rideplan open` subcommand and `J` keybind (Fabric-registered, user-rebindable under the ImagineMoreFun category)
-- [x] ESC / "Close" button returns to parent screen
+- [~] `DailyPlanScreen` — full-window scrollable vertical list of all layers *(superseded: the full-window screen was cut in favor of the HUD-based display; HUD covers all the same information without a separate screen)*
+- [~] Header with title + date + completed/total layer count + riding countdown (if riding) — rendered in HUD
+- [~] Each layer row — rendered as horizontal node chain in HUD (Stage 3.5)
+- [~] Active layer highlight — HUD renders active layer inline in the sliding window
+- [~] Mouse wheel scroll — HUD uses sliding window with `…` indicators instead
+- [~] `/rideplan open` subcommand and `J` keybind — not registered; plan is always visible via HUD toggle
+- [~] ESC / "Close" button — not applicable (no screen)
 - [ ] Deferred: sprite atlas for ride icons — stays text-based for now
 
 **How to test Stage 5**

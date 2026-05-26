@@ -287,7 +287,17 @@ public class WebViewBridge {
       return false;
     }
     try (var entries = Files.list(runtimeDir)) {
-      return entries.anyMatch(p -> p.getFileName().toString().startsWith("8."));
+      return entries.anyMatch(
+          p -> {
+            String name = p.getFileName().toString();
+            // Accept .NET 8.x and any future version (9+, etc.)
+            try {
+              int major = Integer.parseInt(name.substring(0, name.indexOf('.')));
+              return major >= 8;
+            } catch (NumberFormatException e) {
+              return false;
+            }
+          });
     } catch (IOException e) {
       return false;
     }

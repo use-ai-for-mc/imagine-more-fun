@@ -10,7 +10,7 @@ import java.util.Comparator;
 import java.util.List;
 
 public class StrategyCalculator {
-  private static final int[] BASE_GOALS = {1, 10, 100, 500};
+  private static final List<Integer> BASE_GOALS = List.of(1, 10, 100, 500);
 
   /**
    * Calculates the top N easiest goals (goals that take the least time to reach).

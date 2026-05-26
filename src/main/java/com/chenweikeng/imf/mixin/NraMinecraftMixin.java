@@ -12,7 +12,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(Minecraft.class)
 public class NraMinecraftMixin {
   @Inject(method = "setWindowActive", at = @At("HEAD"), cancellable = true)
-  private void onSetWindowActive(boolean bl, CallbackInfo ci) {
+  private void imf$onSetWindowActive(boolean bl, CallbackInfo ci) {
     GameState state = GameState.getInstance();
     if (!bl && (state.isAutomaticallyReleasedCursor() || state.isWithinWindowRestoreGrace())) {
       ci.cancel();
@@ -25,7 +25,7 @@ public class NraMinecraftMixin {
    * processes it.
    */
   @Inject(method = "handleKeybinds", at = @At("HEAD"))
-  private void overrideAdvancementsKey(CallbackInfo ci) {
+  private void imf$overrideAdvancementsKey(CallbackInfo ci) {
     if (!ServerState.isImagineFunServer()) {
       return;
     }

@@ -70,13 +70,7 @@ public final class SpaceMountainTunnelRenderer {
   private static final float COLOR_G = 0f;
   private static final float COLOR_B = 0f;
 
-  // Cylinder wall color during the warp — deep blue, matching the real ride's blue-projection
-  // launch tunnel. Reached at enter=1 and held through the hyperspace phase.
-  private static final float HYPERSPACE_COLOR_R = 0.10f;
-  private static final float HYPERSPACE_COLOR_G = 0.25f;
-  private static final float HYPERSPACE_COLOR_B = 0.70f;
-
-  // Per-frame cylinder wall color — lerp(black, HYPERSPACE_COLOR, enter), set in render() and
+  // Per-frame cylinder wall color, set in render() and
   // read by addVertex. Single-threaded (render thread only), so a static scratch field is fine.
   private static float cylinderColorR = 0f;
   private static float cylinderColorG = 0f;
@@ -103,30 +97,6 @@ public final class SpaceMountainTunnelRenderer {
   // from the ride video by the user. Positive = counterclockwise from the rider's forward-looking
   // view; negate to reverse.
   private static final double STAR_ROTATION_DEG_PER_SEC = 60.0;
-
-  // Hyperspace mode: each star stretches into a glowing streak projected on the same point of
-  // the cylinder wall, then fades back. STAR_COUNT positions are reused so the transition reads
-  // as "the stars elongate into streaks." Active during the warp window with a soft fade in/out.
-  private static final Identifier STREAK_TEXTURE =
-      Identifier.fromNamespaceAndPath("imaginemorefun", "textures/particle/hyperspace_streak.png");
-  // Master switch for the whole hyperspace transition (blue cylinder + streaks + exit dissolve).
-  // Disabled while focusing on the Space Mountain purple phase — with this false, enter/exit
-  // strengths stay 0, so the cylinder stays black and the rotating stars + purple rings persist
-  // for the full window. This effect is Hyperspace-Mountain-specific and will likely be removed.
-  private static final boolean HYPERSPACE_EFFECT_ENABLED = false;
-  private static final int HYPERSPACE_START_SECONDS = 44;
-  private static final int HYPERSPACE_END_SECONDS = 53;
-  // Fade-in/out window in seconds — stars dim, streaks grow longer + brighter (and reverse).
-  private static final double TRANSITION_SECONDS = 2.0;
-  // Streak quad dimensions: axial half-length (long direction along cylinder axis) and tangential
-  // half-width (short direction around circumference). The half-length scales with hyperspace
-  // strength so streaks grow from a point into a line during the entry animation.
-  private static final float STREAK_HALF_LENGTH_MAX = 3.0f;
-  private static final float STREAK_HALF_WIDTH = 0.07f;
-  // Streaks scroll along -axis (toward the tunnel entrance, which is also "downward" since the
-  // tunnel climbs) for the warp-flow effect. Streaks fade in/out at the axial endpoints via
-  // fadeAlpha so the position wrap is invisible.
-  private static final double STREAK_SCROLL_BLOCKS_PER_SEC = 14.0;
 
   // Purple "double-circle" rings — the Space Mountain launch-tunnel effect. Each ring-pair is two
   // thin purple bands wrapping the full cylinder circumference; pairs are spaced RING_SPACING
@@ -161,13 +131,6 @@ public final class SpaceMountainTunnelRenderer {
           + RED_DURATION
           + RED_FADE_SECONDS;
 
-  // Red radial streaks (drawRedStreaks) — dormant, not currently drawn.
-  private static final int RED_STREAK_COUNT = 36;
-  private static final double RED_STREAK_INSET = 0.30; // radius offset inward from the wall
-  private static final float RED_STREAK_HALF_WIDTH = 0.11f;
-  private static final float RED_STREAK_R = 1.0f;
-  private static final float RED_STREAK_G = 0.12f;
-  private static final float RED_STREAK_B = 0.12f;
   // Red-phase background — during the red phase the cylinder wall tints from black toward this
   // dark red (by redA), so the bright stripes sit on a dark-red glow rather than pure black.
   private static final float RED_BG_R = 0.22f;
@@ -322,34 +285,6 @@ public final class SpaceMountainTunnelRenderer {
     if (delta < 0.0) delta = 0.0;
     else if (delta > 2.0) delta = 2.0; // clamp if observations stall
     return e + delta;
-  }
-
-  /**
-   * Entry strength: 0 before the entering animation, ramps 0→1 over {@link #TRANSITION_SECONDS}
-   * leading into {@link #HYPERSPACE_START_SECONDS}, then stays 1 for the rest of the ride. Drives
-   * star fade-out + streak fade-in + streak length growth.
-   */
-  private static double enterStrength(double t) {
-    if (!HYPERSPACE_EFFECT_ENABLED) return 0.0;
-    if (t < 0) return 0.0;
-    double startFade = HYPERSPACE_START_SECONDS - TRANSITION_SECONDS;
-    if (t <= startFade) return 0.0;
-    if (t >= HYPERSPACE_START_SECONDS) return 1.0;
-    return (t - startFade) / TRANSITION_SECONDS;
-  }
-
-  /**
-   * Exit strength: 0 during the warp, ramps 0→1 over {@link #TRANSITION_SECONDS} after {@link
-   * #HYPERSPACE_END_SECONDS}, then stays 1. Multiplies into every layer's alpha (cylinder fill,
-   * stars, streaks) so the exit beat dissolves the entire scene rather than restoring stars.
-   */
-  private static double exitStrength(double t) {
-    if (!HYPERSPACE_EFFECT_ENABLED) return 0.0;
-    if (t < 0) return 0.0;
-    double endFade = HYPERSPACE_END_SECONDS + TRANSITION_SECONDS;
-    if (t <= HYPERSPACE_END_SECONDS) return 0.0;
-    if (t >= endFade) return 1.0;
-    return (t - HYPERSPACE_END_SECONDS) / TRANSITION_SECONDS;
   }
 
   /** Purple-phase alpha: 1 during the purple hold, then an instant cut to 0 (no crossfade). */
@@ -571,82 +506,6 @@ public final class SpaceMountainTunnelRenderer {
   }
 
   /**
-   * Long axial streaks projected onto the cylinder wall — the "entering hyperspace" effect. Reuses
-   * each star's (s, theta) position so the transition reads as the stars elongating into streaks.
-   * {@code alpha} controls visibility (fades in on entry, out on exit). {@code lengthFactor} scales
-   * the axial half-length — during the entry animation streaks visibly grow from points to
-   * full-length lines; during the exit beat they keep their full length but dim out instead of
-   * retracting.
-   */
-  private static void drawStreaks(
-      PoseStack.Pose pose,
-      BufferSource bufferSource,
-      float camX,
-      float camY,
-      float camZ,
-      float alpha,
-      float lengthFactor,
-      double seconds) {
-    if (alpha <= 0f || lengthFactor <= 0f) return;
-    double streakRadius = RADIUS - STAR_INSET;
-    RenderType streakType = RenderTypes.eyes(STREAK_TEXTURE);
-    VertexConsumer vc = bufferSource.getBuffer(streakType);
-    int light = LightTexture.FULL_BRIGHT;
-    int overlay = OverlayTexture.NO_OVERLAY;
-    float halfLen = STREAK_HALF_LENGTH_MAX * lengthFactor;
-    float halfWidth = STREAK_HALF_WIDTH;
-    double ax = AXIS.x, ay = AXIS.y, az = AXIS.z;
-    // Axial scroll offset — subtracted from each streak's base position so streaks slide toward
-    // -axis (the tunnel entrance / downward).
-    double scroll = seconds * STREAK_SCROLL_BLOCKS_PER_SEC;
-
-    for (int i = 0; i < STAR_COUNT; i++) {
-      // Wrap the scrolled position into [0, AXIS_LENGTH). fadeAlpha tapers the streak to nothing
-      // near both ends, so the wrap is never visible as a pop.
-      double s = STAR_S[i] - scroll;
-      s = ((s % AXIS_LENGTH) + AXIS_LENGTH) % AXIS_LENGTH;
-      float wrapFade = fadeAlpha(s);
-      if (wrapFade <= 0f) continue;
-      float streakAlpha = alpha * wrapFade;
-      double theta = STAR_THETA[i];
-      double cosTh = Math.cos(theta);
-      double sinTh = Math.sin(theta);
-      double rx = cosTh * U_VEC.x + sinTh * V_VEC.x;
-      double ry = cosTh * U_VEC.y + sinTh * V_VEC.y;
-      double rz = cosTh * U_VEC.z + sinTh * V_VEC.z;
-      double tx = ay * rz - az * ry;
-      double ty = az * rx - ax * rz;
-      double tz = ax * ry - ay * rx;
-
-      Vec3 c = START.add(AXIS.scale(s));
-      double px = c.x + streakRadius * rx - camX;
-      double py = c.y + streakRadius * ry - camY;
-      double pz = c.z + streakRadius * rz - camZ;
-
-      // Rectangle: tangential (±halfWidth) × axial (±halfLen). Same inside-facing winding as
-      // the stars (BL → TL → TR → BR) so back-face culling hides the outside view.
-      float blX = (float) (px + halfWidth * -tx + halfLen * -ax);
-      float blY = (float) (py + halfWidth * -ty + halfLen * -ay);
-      float blZ = (float) (pz + halfWidth * -tz + halfLen * -az);
-      float brX = (float) (px + halfWidth * tx + halfLen * -ax);
-      float brY = (float) (py + halfWidth * ty + halfLen * -ay);
-      float brZ = (float) (pz + halfWidth * tz + halfLen * -az);
-      float trX = (float) (px + halfWidth * tx + halfLen * ax);
-      float trY = (float) (py + halfWidth * ty + halfLen * ay);
-      float trZ = (float) (pz + halfWidth * tz + halfLen * az);
-      float tlX = (float) (px + halfWidth * -tx + halfLen * ax);
-      float tlY = (float) (py + halfWidth * -ty + halfLen * ay);
-      float tlZ = (float) (pz + halfWidth * -tz + halfLen * az);
-
-      addQuadVertex(vc, pose, blX, blY, blZ, 0f, 0f, streakAlpha, light, overlay);
-      addQuadVertex(vc, pose, tlX, tlY, tlZ, 0f, 1f, streakAlpha, light, overlay);
-      addQuadVertex(vc, pose, trX, trY, trZ, 1f, 1f, streakAlpha, light, overlay);
-      addQuadVertex(vc, pose, brX, brY, brZ, 1f, 0f, streakAlpha, light, overlay);
-    }
-    bufferSource.endBatch(streakType);
-  }
-
-  /**
    * Purple "double-circle" rings sliding down the tunnel — the Space Mountain launch-tunnel effect.
    * Each pair is two thin purple bands wrapping the full circumference; pairs are spaced {@link
    * #RING_SPACING} apart and scroll toward the rider (−axis, "downward"). Bands fade at the axial
@@ -783,131 +642,6 @@ public final class SpaceMountainTunnelRenderer {
         .setNormal(pose, 0f, 1f, 0f);
   }
 
-  /**
-   * Red radial streaks — {@link #RED_STREAK_COUNT} streaks evenly spaced around the circumference,
-   * each spanning the full tunnel length. From the rider's forward view they radiate from the
-   * centre vanishing point. They rotate CCW with the star field (no axial scroll); the streak
-   * texture's own end-fade tapers each at the tunnel mouths.
-   */
-  private static void drawRedStreaks(
-      PoseStack.Pose pose,
-      BufferSource bufferSource,
-      float camX,
-      float camY,
-      float camZ,
-      float alpha,
-      double seconds) {
-    if (alpha <= 0f) return;
-    double r = RADIUS - RED_STREAK_INSET;
-    RenderType type = RenderTypes.eyes(STREAK_TEXTURE);
-    VertexConsumer vc = bufferSource.getBuffer(type);
-    int light = LightTexture.FULL_BRIGHT;
-    int overlay = OverlayTexture.NO_OVERLAY;
-    double ax = AXIS.x, ay = AXIS.y, az = AXIS.z;
-    double rotation = Math.toRadians(STAR_ROTATION_DEG_PER_SEC) * seconds;
-    float hw = RED_STREAK_HALF_WIDTH;
-
-    for (int i = 0; i < RED_STREAK_COUNT; i++) {
-      double theta = i / (double) RED_STREAK_COUNT * (Math.PI * 2.0) - rotation;
-      double cosTh = Math.cos(theta);
-      double sinTh = Math.sin(theta);
-      double rx = cosTh * U_VEC.x + sinTh * V_VEC.x;
-      double ry = cosTh * U_VEC.y + sinTh * V_VEC.y;
-      double rz = cosTh * U_VEC.z + sinTh * V_VEC.z;
-      double tx = ay * rz - az * ry;
-      double ty = az * rx - ax * rz;
-      double tz = ax * ry - ay * rx;
-
-      double p0x = START.x + r * rx - camX;
-      double p0y = START.y + r * ry - camY;
-      double p0z = START.z + r * rz - camZ;
-      double p1x = END.x + r * rx - camX;
-      double p1y = END.y + r * ry - camY;
-      double p1z = END.z + r * rz - camZ;
-
-      float blX = (float) (p0x - hw * tx);
-      float blY = (float) (p0y - hw * ty);
-      float blZ = (float) (p0z - hw * tz);
-      float brX = (float) (p0x + hw * tx);
-      float brY = (float) (p0y + hw * ty);
-      float brZ = (float) (p0z + hw * tz);
-      float trX = (float) (p1x + hw * tx);
-      float trY = (float) (p1y + hw * ty);
-      float trZ = (float) (p1z + hw * tz);
-      float tlX = (float) (p1x - hw * tx);
-      float tlY = (float) (p1y - hw * ty);
-      float tlZ = (float) (p1z - hw * tz);
-
-      // Inside-facing winding BL → TL → TR → BR. V runs 0→1 along the axis so the streak
-      // texture's end-fade tapers the streak at both tunnel mouths.
-      addColorVertex(
-          vc,
-          pose,
-          blX,
-          blY,
-          blZ,
-          0f,
-          0f,
-          RED_STREAK_R,
-          RED_STREAK_G,
-          RED_STREAK_B,
-          alpha,
-          light,
-          overlay);
-      addColorVertex(
-          vc,
-          pose,
-          tlX,
-          tlY,
-          tlZ,
-          0f,
-          1f,
-          RED_STREAK_R,
-          RED_STREAK_G,
-          RED_STREAK_B,
-          alpha,
-          light,
-          overlay);
-      addColorVertex(
-          vc,
-          pose,
-          trX,
-          trY,
-          trZ,
-          1f,
-          1f,
-          RED_STREAK_R,
-          RED_STREAK_G,
-          RED_STREAK_B,
-          alpha,
-          light,
-          overlay);
-      addColorVertex(
-          vc,
-          pose,
-          brX,
-          brY,
-          brZ,
-          1f,
-          0f,
-          RED_STREAK_R,
-          RED_STREAK_G,
-          RED_STREAK_B,
-          alpha,
-          light,
-          overlay);
-    }
-    bufferSource.endBatch(type);
-  }
-
-  /**
-   * Radial striped bands — {@link #WEDGE_COUNT} solid bright-red bands radiating from the tunnel
-   * centre, each spanning the full tunnel length, evenly spaced around the circumference like a
-   * sunburst. The whole set rotates CCW at {@link #WEDGE_ROTATION_DEG_PER_SEC} — faster than the
-   * star field. Each band is subdivided axially only so the per-vertex {@link #fadeAlpha} tapers it
-   * smoothly at the tunnel mouths — there are no circumferential rungs (those would line up across
-   * bands into a concentric-ring bullseye).
-   */
   private static void drawWedgePanels(
       PoseStack.Pose pose,
       BufferSource bufferSource,

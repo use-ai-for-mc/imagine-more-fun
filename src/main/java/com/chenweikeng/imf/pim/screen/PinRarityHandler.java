@@ -1,7 +1,7 @@
 package com.chenweikeng.imf.pim.screen;
 
 import com.chenweikeng.imf.pim.PimClient;
-import com.chenweikeng.imf.pim.pin.PinPackColor;
+import com.chenweikeng.imf.pim.pin.PinPackTier;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
@@ -240,7 +240,7 @@ public class PinRarityHandler {
           lastComponent.getStyle().getColor() != null
               ? lastComponent.getStyle().getColor().toString()
               : "null";
-      PinPackColor parsedColor = PinPackColor.fromString(colorCode);
+      PinPackTier parsedColor = PinPackTier.fromString(colorCode);
       entry.color = parsedColor;
     }
 
@@ -250,6 +250,6 @@ public class PinRarityHandler {
   public static class PinSeriesEntry {
     public String seriesName;
     public Availability availability;
-    public PinPackColor color;
+    public PinPackTier color;
   }
 }

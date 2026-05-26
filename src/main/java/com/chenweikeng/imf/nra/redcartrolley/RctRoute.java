@@ -18,7 +18,7 @@ import java.nio.charset.StandardCharsets;
  * apart (half a cycle), which is why they meet in the middle.
  */
 public final class RctRoute {
-  private static final String RESOURCE = "/assets/not-riding-alert/rct-route.json";
+  private static final String RESOURCE = "/imaginemorefun/rct-route.json";
   private static final double TERM_EPS = 5.0; // within this of s=0 / s=L counts as at a terminus
   private static RctRoute instance;
 

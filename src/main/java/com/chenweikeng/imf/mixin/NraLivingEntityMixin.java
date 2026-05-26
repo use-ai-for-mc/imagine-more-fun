@@ -21,7 +21,7 @@ public abstract class NraLivingEntityMixin {
       method = "hasEffect(Lnet/minecraft/core/Holder;)Z",
       at = @At("RETURN"),
       cancellable = true)
-  private void injectBlindnessWhenRiding(
+  private void imf$injectBlindnessWhenRiding(
       Holder<MobEffect> effect, CallbackInfoReturnable<Boolean> cir) {
     if (!NotRidingAlertClient.isImagineFunServer()) {
       return;
@@ -38,7 +38,7 @@ public abstract class NraLivingEntityMixin {
       if (ModConfig.currentSetting.blindWhenRiding && effect == MobEffects.BLINDNESS && isRiding) {
         cir.setReturnValue(true);
       } else if (effect == MobEffects.NIGHT_VISION) {
-        if (shouldHaveFullbright(isRiding)) {
+        if (imf$shouldHaveFullbright(isRiding)) {
           cir.setReturnValue(true);
         }
       }
@@ -50,7 +50,7 @@ public abstract class NraLivingEntityMixin {
           "getEffect(Lnet/minecraft/core/Holder;)Lnet/minecraft/world/effect/MobEffectInstance;",
       at = @At("RETURN"),
       cancellable = true)
-  private void injectBlindnessInstanceWhenRiding(
+  private void imf$injectBlindnessInstanceWhenRiding(
       Holder<MobEffect> effect, CallbackInfoReturnable<MobEffectInstance> cir) {
     if (!NotRidingAlertClient.isImagineFunServer()) {
       return;
@@ -69,7 +69,7 @@ public abstract class NraLivingEntityMixin {
           cir.setReturnValue(new MobEffectInstance(MobEffects.BLINDNESS, -1));
         }
       } else if (effect == MobEffects.NIGHT_VISION) {
-        if (shouldHaveFullbright(isRiding) && cir.getReturnValue() == null) {
+        if (imf$shouldHaveFullbright(isRiding) && cir.getReturnValue() == null) {
           cir.setReturnValue(new MobEffectInstance(MobEffects.NIGHT_VISION, -1));
         }
       }
@@ -81,7 +81,7 @@ public abstract class NraLivingEntityMixin {
    * forced off while the Space Mountain dark-ride override is active — the dome must stay dark for
    * the star effect — regardless of the configured fullbright mode.
    */
-  private static boolean shouldHaveFullbright(boolean isRiding) {
+  private static boolean imf$shouldHaveFullbright(boolean isRiding) {
     return ModConfig.currentSetting.fullbrightMode.shouldApply(isRiding)
         && !SpaceMountainOverride.isActive();
   }

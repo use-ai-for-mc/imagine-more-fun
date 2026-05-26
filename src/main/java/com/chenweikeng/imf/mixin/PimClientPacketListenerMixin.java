@@ -20,7 +20,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class PimClientPacketListenerMixin {
 
   @Inject(at = @At("HEAD"), method = "handleContainerContent")
-  public void onInventory(
+  public void imf$onInventory(
       ClientboundContainerSetContentPacket inventoryS2CPacket, CallbackInfo ci) {
     if (!PimClient.isImagineFunServer()) {
       return;
@@ -43,7 +43,8 @@ public class PimClientPacketListenerMixin {
   }
 
   @Inject(at = @At("HEAD"), method = "handleContainerSetSlot")
-  public void onScreenHandlerSlotUpdate(ClientboundContainerSetSlotPacket packet, CallbackInfo ci) {
+  public void imf$onScreenHandlerSlotUpdate(
+      ClientboundContainerSetSlotPacket packet, CallbackInfo ci) {
     if (!PimClient.isImagineFunServer()) {
       return;
     }

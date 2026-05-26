@@ -1,10 +1,10 @@
 package com.chenweikeng.imf.pim.pin;
 
-public class PinPackColor {
+public class PinPackTier {
   public final Color color;
   public final int price;
 
-  private PinPackColor(Color color, int price) {
+  private PinPackTier(Color color, int price) {
     this.color = color;
     this.price = price;
   }
@@ -17,12 +17,12 @@ public class PinPackColor {
     UNKNOWN
   }
 
-  public static PinPackColor BLUE = new PinPackColor(Color.BLUE, 400);
-  public static PinPackColor PINK = new PinPackColor(Color.PINK, 500);
-  public static PinPackColor GREEN = new PinPackColor(Color.GREEN, 100);
-  public static PinPackColor YELLOW = new PinPackColor(Color.YELLOW, 400);
+  public static PinPackTier BLUE = new PinPackTier(Color.BLUE, 400);
+  public static PinPackTier PINK = new PinPackTier(Color.PINK, 500);
+  public static PinPackTier GREEN = new PinPackTier(Color.GREEN, 100);
+  public static PinPackTier YELLOW = new PinPackTier(Color.YELLOW, 400);
 
-  public static PinPackColor fromString(String colorCode) {
+  public static PinPackTier fromString(String colorCode) {
     if (colorCode == null || colorCode.isEmpty()) {
       return null;
     }
