@@ -116,7 +116,6 @@ A static whitelist of `(itemId, damage)` helmet signatures (e.g. the TIE Fighter
 | `dome_overlay.bin` | `SpaceMountainBlockOverride` | IFOV v1 — the dome block diff. |
 | `dome_borders.bin` | `SpaceMountainStarRenderer`, `SpaceMountainDiscoBall` | IFDB v1 baked dome-wall faces. The star renderer places its static stars on them; the disco ball uses them as the `watertightWallCells` projection mask. Pre-baked offline — the bake tool was removed (see "Removed"). |
 | `dome_track.bin` | `CoasterTrackData` | Recorded vehicle path. IFTC **v2**: x/y/z/yaw/pitch + a signed per-sample bank `roll`. Track geometry and camera banking both read it. Roll added offline by `~/imf-debug-dumps-archive/bake-roll.py` (v1→v2). |
-| `dome_track_stars.bin` | `SpaceMountainStarRenderer` | Track-surface stars — `INCLUDE_TRACK_STARS=false`. |
 | `disco_balls.json` | `SpaceMountainDiscoBall` | Bundled default projectors — `load()` fallback when no config-dir file. |
 | `disco_exclusion.json` | `SpaceMountainDiscoBall` | Bundled default prismarine-cover cells — `loadExclusion()` fallback. |
 | `textures/particle/star.png` | `SpaceMountainDiscoBall`, `SpaceMountainStarRenderer` | Star dot texture. |

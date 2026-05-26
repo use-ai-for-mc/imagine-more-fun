@@ -250,8 +250,7 @@ public class StrategyHudRendererV1 {
           colorClosest,
           x,
           y + (i * lineHeight),
-          false,
-          0);
+          false);
     }
   }
 
@@ -287,8 +286,7 @@ public class StrategyHudRendererV1 {
           colorClosest,
           xRight,
           y + (i * lineHeight),
-          true,
-          0);
+          true);
     }
   }
 
@@ -340,8 +338,7 @@ public class StrategyHudRendererV1 {
       int colorClosest,
       int x,
       int y,
-      boolean alignRight,
-      int unused) {
+      boolean alignRight) {
     StrategyHudBase.FormattedRide fr =
         StrategyHudBase.formatRideName(
             goal.getRide(), currentRide, autograbRide, closestRide, useShortNames, isPassenger);
