@@ -30,8 +30,6 @@
   "config.not-riding-alert.silent": "Suppress sounds when riding",
   "config.not-riding-alert.silent.tooltip": "Suppress game sounds when riding",
   "config.not-riding-alert.category.rides": "Tracker",
-  "config.not-riding-alert.enableTracker": "Display the tracker",
-  "config.not-riding-alert.enableTracker.tooltip": "Show the ride tracker HUD on screen",
   "config.not-riding-alert.strategyHudRendererVersion": "Strategy HUD renderer version",
   "config.not-riding-alert.strategyHudRendererVersion.tooltip": "Choose between V0, V1 and V2 strategy HUD layouts",
   "config.not-riding-alert.strategyHudRendererVersion.v0": "V0",

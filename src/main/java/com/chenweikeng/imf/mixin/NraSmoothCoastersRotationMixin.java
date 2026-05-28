@@ -22,7 +22,7 @@ import org.spongepowered.asm.mixin.injection.ModifyVariable;
  * <p>{@code @Pseudo} + a string target make this a soft dependency: SmoothCoasters isn't on the
  * compile classpath, and the mixin is silently skipped if the mod is absent at runtime. {@code
  * remap = false} keeps Loom from trying to remap the SmoothCoasters method name. This replaced the
- * baked-track {@code CoasterCameraBank}/{@code NraCameraRollMixin} approach.
+ * baked-track CoasterCameraBank/NraCameraRollMixin approach.
  */
 @Pseudo
 @Mixin(targets = "me.m56738.smoothcoasters.SmoothCoasters", remap = false)

@@ -26,11 +26,11 @@ Design reference: `/Users/cusgadmin/Downloads/compass_artifact_wf-ccdf816b-1bc7-
 **Done when**: `/rideplan` shows 5 random rides with ×2 next to each; returns same plan across relog within the day; new plan next day.
 
 **How to test Stage 1**
-1. Launch ImagineFun via Modrinth launcher; the new JAR is already deployed.
+1. Launch ImagineFun via PrismLauncher; the new JAR is already deployed.
 2. Join any world/server — `/rideplan` is client-only and not gated to ImagineFun.
 3. Run `/rideplan`. Expect: gold divider, "Today's Ride Plan" header with date, 5 numbered rides with `×2` in cyan.
 4. Run `/rideplan` again. Expect: **identical** 5 rides (same file, same plan).
-5. Inspect `~/Library/Application Support/ModrinthApp/profiles/ImagineFun/config/imaginemorefun/nra-daily-plan.json` — should contain today's ISO date, epoch ms, a full `snapshotCounts` map, and 5-node list.
+5. Inspect `~/Library/Application Support/PrismLauncher/instances/ImagineFun/.minecraft/config/imaginemorefun/nra-daily-plan.json` — should contain today's ISO date, epoch ms, a full `snapshotCounts` map, and 5-node list.
 6. Toggle `onlyAutograbbing` on in the mod config, **delete the plan file**, run `/rideplan`. Expect: rides drawn only from the autograbbing set.
 7. Roll the day: either delete the file or advance system clock past midnight, run `/rideplan`. Expect: fresh 5 rides and a new date in the file.
 8. Edge case: set `maxGoal` low, ride everything past it, delete plan. Expect: header says "No eligible rides".
@@ -92,7 +92,7 @@ Design reference: `/Users/cusgadmin/Downloads/compass_artifact_wf-ccdf816b-1bc7-
 
 ### Stage 4.7 — Blink active-ride node ✅ shipped
 - [x] When the player is on (or autograbbing) a ride that matches an uncompleted node in the **active** layer, that node's border pulses blue (1 sec sine, dim → bright cyan)
-- [x] Applies to HUD and full-window Screen
+- [x] Applies to HUD
 - [x] Future-layer nodes never blink (gating still rules)
 
 ### Stage 4.6 — Gated layer progression ✅ shipped
@@ -140,14 +140,8 @@ Design reference: `/Users/cusgadmin/Downloads/compass_artifact_wf-ccdf816b-1bc7-
 - [ ] Deferred: sprite atlas for ride icons — stays text-based for now
 
 **How to test Stage 5**
-1. Launch ImagineFun with the new JAR.
-2. Run `/rideplan open` or press **J** → full-window Daily Ride Plan opens.
-3. Header shows title + date + `n/m layers` + riding info (if riding).
-4. Each layer appears as a row with its number, status glyph, type badge (if branching), and all nodes as side-by-side boxes.
-5. Active layer has a faint white highlight bar.
-6. Mouse-wheel scroll, arrow keys, or Page Up/Down to browse. Scroll hints (▲/▼) appear when there's more content off-screen.
-7. Press ESC or click **Close** → returns to the previous screen.
-8. Open Controls settings → search "Daily Ride Plan" → category "ImagineMoreFun" → rebind J to something else.
+
+Stage 5 was cut — no full-window screen ships, and `/rideplan open` + the J keybind were never registered. The HUD (Stages 3 / 3.5 / 3.6) covers all the same information; use those test steps to verify.
 
 ### Stage 6 — Passport persistence
 - [ ] `passport.json` accumulates per-ride stamp counts + day history

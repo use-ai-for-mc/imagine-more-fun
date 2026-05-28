@@ -20,7 +20,7 @@ While the gate is active the fullbright override is also suppressed — the dome
 
 ## Build / deploy
 
-`./build-and-deploy.sh` from the repo root — builds, then atomically swaps `imaginemorefun-3.0.1.jar` into the PrismLauncher instance:
+`./build-and-deploy.sh` from the repo root — builds, then atomically swaps `imaginemorefun-<version>.jar` (version from `gradle.properties`) into the PrismLauncher instance:
 `~/Library/Application Support/PrismLauncher/instances/ImagineFun/.minecraft/mods/`. The atomic swap keeps a running game's open jar handle valid; never plain-`cp` the jar in.
 
 ## File layout — `src/main/java/com/chenweikeng/imf/nra/spacemountain/`
@@ -121,7 +121,7 @@ A static whitelist of `(itemId, damage)` helmet signatures (e.g. the TIE Fighter
 | `disco_balls.json` | `SpaceMountainDiscoBall` | Bundled default projectors — `load()` fallback when no config-dir file. |
 | `disco_exclusion.json` | `SpaceMountainDiscoBall` | Bundled default prismarine-cover cells — `loadExclusion()` fallback. |
 | `textures/particle/star.png` | `SpaceMountainDiscoBall`, `SpaceMountainStarRenderer` | Star dot texture. |
-| `textures/particle/track.png`, `hyperspace_streak.png` | track / tunnel renderers | — |
+| `textures/particle/track.png` | track / tunnel renderers | — |
 
 ## Removed
 

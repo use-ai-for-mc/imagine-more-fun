@@ -48,10 +48,9 @@ Registered in single `imf.mixins.json`.
 
 ### Server Detection
 
-Features only activate when connected to ImagineFun:
-- `ServerState.isImagineFunServer()` — NRA's centralized check
-- `PimClient.isImagineFunServer()` — PIM's check
-- Both verify `serverIp.endsWith(".imaginefun.net")`
+Features only activate when connected to ImagineFun. Both checks verify `serverIp.endsWith(".imaginefun.net")`:
+- `ServerState.isImagineFunServer()` — NRA's centralized check; additionally gated by `ModConfig.currentSetting.globalEnable`
+- `PimClient.isImagineFunServer()` — PIM's check; pure IP suffix only
 
 ### Storage
 
