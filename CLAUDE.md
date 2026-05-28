@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build Commands
 
 ```bash
-./gradlew build                    # Build mod → build/libs/imaginemorefun-3.1.1.jar
+./gradlew build                    # Build mod → build/libs/imaginemorefun-3.1.5.jar
 ./gradlew spotlessApply            # Format code (Google Java Format)
 ./gradlew spotlessCheck            # Check formatting without fixing
 ```
