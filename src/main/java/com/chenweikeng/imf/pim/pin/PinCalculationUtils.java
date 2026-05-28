@@ -24,8 +24,8 @@ public class PinCalculationUtils {
       new ConcurrentHashMap<>();
 
   /**
-   * Gets pin series counts for a given series, reusing the logic from PimComputeCommand. Returns
-   * null if series data is incomplete or unavailable.
+   * Gets pin series counts for a given series. Returns null if series data is incomplete or
+   * unavailable.
    */
   public static Algorithm.PinSeriesCounts getPinSeriesCounts(String seriesName) {
     try {

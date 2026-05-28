@@ -57,8 +57,7 @@ Every feature only activates while you are connected to an `*.imaginefun.net` se
 - `/imf profile <name>` — switch to a saved settings profile
 - `/ridereport [date]` — open the daily ride report
 - `/oa connect | disconnect | reconnect | volume` — OpenAudioMC controls
-- `/pim` — open the pin UI
-- `/pim:compute`, `/pim:trade`, `/pim:reset`, `/pim:export`, `/pim:value`, `/pim:fmv` — pin tooling
+- `/pim` — open the pin UI (collection tracking, valuation, trading, and clipboard export)
 
 ## Building from source
 
