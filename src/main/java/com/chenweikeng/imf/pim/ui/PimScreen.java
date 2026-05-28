@@ -1,9 +1,9 @@
 package com.chenweikeng.imf.pim.ui;
 
 import com.chenweikeng.imf.pim.PimState;
-import com.chenweikeng.imf.pim.command.PimFmvCommand;
 import com.chenweikeng.imf.pim.pin.Algorithm;
 import com.chenweikeng.imf.pim.pin.PinCalculationUtils;
+import com.chenweikeng.imf.pim.pin.PinFmvCache;
 import com.chenweikeng.imf.pim.pin.PinShortNameGenerator;
 import com.chenweikeng.imf.pim.pin.Rarity;
 import com.chenweikeng.imf.pim.screen.PinBookHandler;
@@ -708,7 +708,7 @@ public class PimScreen extends Screen {
     PinRarityHandler.getInstance().reset();
     PinBookHandler.getInstance().reset();
     PinDetailHandler.getInstance().reset();
-    PimFmvCommand.resetCache();
+    PinFmvCache.resetCache();
 
     contentLines.clear();
     contentLines.add(new ContentLine("Reset Complete", 0xFFD700));
