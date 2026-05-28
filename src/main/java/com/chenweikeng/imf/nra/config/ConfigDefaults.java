@@ -47,6 +47,5 @@ public final class ConfigDefaults {
   public static final boolean RANDOM_RIDE_OVERRIDE = true;
   public static final RideHubMode RIDE_HUB_MODE = RideHubMode.RIDE_PLAN;
   public static final boolean SPACE_MOUNTAIN_ENHANCEMENTS = true;
-  public static final boolean SPACE_MOUNTAIN_BANKING = true;
-  public static final int SPACE_MOUNTAIN_BANK_STRENGTH = 60;
+  public static final double COASTER_TILT_MULTIPLIER = 1.0;
 }

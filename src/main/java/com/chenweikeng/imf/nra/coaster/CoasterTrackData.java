@@ -21,9 +21,11 @@ import java.util.Map;
  * <p>Both {@code SPACE_MOUNTAIN} and {@code HYPERSPACE_MOUNTAIN} share {@code dome_track.bin} —
  * they're the same physical coaster on the ImagineFun server.
  *
- * <p>Add a new coaster: drop {@code track_<short>.bin} into {@code
- * src/main/resources/imaginemorefun/}, add a {@code RESOURCES} entry here, then register the
- * per-ride config + bank entry in {@link CoasterCameraBank}.
+ * <p>The only consumer is {@code SpaceMountainTrackRenderer}, which banks the baked coaster-tube
+ * geometry by the per-sample roll. Camera-lean banking no longer reads this — it amplifies
+ * SmoothCoasters' live tilt instead (see {@code CoasterTiltAmplifier}). Add a new coaster: drop
+ * {@code track_<short>.bin} into {@code src/main/resources/imaginemorefun/} and add a {@code
+ * RESOURCES} entry here.
  */
 public final class CoasterTrackData {
 

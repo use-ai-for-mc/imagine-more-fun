@@ -6,7 +6,7 @@ Active 2026-05-20 – 2026-05-21. Tried to generalize the Space Mountain camera-
 
 | Coaster | Status |
 |---|---|
-| Space Mountain / Hyperspace Mountain | banking shipped, kept (existing `dome_track.bin`). SC also tilts SM, so the IMF banking is rebranded "Additional Tilt" in the config UI — it stacks on top of SC's tilt for an amplified lean. |
+| Space Mountain / Hyperspace Mountain | camera bank **reimplemented 2026-05-26** to scale SmoothCoasters' own tilt (intercept `SmoothCoasters.setRotation`, scale the pose's roll) instead of the baked-track bank, then **generalized** into a global "Coaster Tilt" multiplier that applies to *all* SC-tilted coasters — see `SPACE-MOUNTAIN-PROGRESS.md`. The baked `dome_track.bin` now feeds only the SM/HSM rail geometry. |
 | Big Thunder Mountain | dropped — SC tilts it already |
 | Radiator Springs Racers | dropped — SC tilts it (we initially shipped a bake here and it appeared to work; user later confirmed SC also handles RSR and removed our duplicate) |
 | Chip 'n' Dale's Gadget Coaster | dropped — SC tilts it already |
@@ -16,11 +16,9 @@ Active 2026-05-20 – 2026-05-21. Tried to generalize the Space Mountain camera-
 ## What survived
 
 Code:
-- `CoasterCameraBank` — per-tick camera roll lookup; ENTRIES map currently contains only SM/HSM.
-- `CoasterTrackData` — per-ride IFTC v1/v2 binary loader; RESOURCES map currently has only `dome_track.bin` (SM/HSM share it).
-- `NraCameraRollMixin` — applies `CoasterCameraBank.getCurrentRoll()` at `GameRenderer.renderLevel` HEAD. Unchanged.
+- `CoasterTrackData` — per-ride IFTC v1/v2 binary loader; RESOURCES map currently has only `dome_track.bin` (SM/HSM share it). Still used by the track renderer for rail-geometry banking.
 
-These classes were originally `SpaceMountainCameraBank` + `SpaceMountainTrackData` before the generalization. The generic-ness is now decorative since only SM remains; if SM banking is also confirmed redundant against SC, the whole module deletes cleanly.
+> **Camera bank superseded 2026-05-26.** `CoasterCameraBank` (per-tick baked-track roll lookup, EMA-smoothed) and `NraCameraRollMixin` (roll applied at `GameRenderer.renderLevel` HEAD) were **removed** and replaced by `CoasterTiltAmplifier` + `NraSmoothCoastersRotationMixin`, which scale SmoothCoasters' own camera pose instead of computing a roll from the baked track. It was then **generalized the same day** from the SM/HSM-only "Additional Tilt" toggle into a global "Coaster Tilt" multiplier (`coasterTiltMultiplier`, double 0.0–2.0, default 1.0) that applies to every SC-tilted coaster, ImagineFun-gated. The baked `roll` column now feeds only the rail geometry (`SpaceMountainTrackRenderer`). See `SPACE-MOUNTAIN-PROGRESS.md`. This is the inverse of the project's original worry — rather than deleting SM banking as redundant with SC, it now *rides on* SC.
 
 Resources (`src/main/resources/imaginemorefun/`):
 - `dome_track.bin` — SM/HSM track (IFTC v2). Pre-existed the project.

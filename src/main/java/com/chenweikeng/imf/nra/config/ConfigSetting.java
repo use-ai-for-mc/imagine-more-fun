@@ -59,8 +59,7 @@ public class ConfigSetting {
   public boolean randomRideOverride = ConfigDefaults.RANDOM_RIDE_OVERRIDE;
   public RideHubMode rideHubMode = ConfigDefaults.RIDE_HUB_MODE;
   public boolean spaceMountainEnhancements = ConfigDefaults.SPACE_MOUNTAIN_ENHANCEMENTS;
-  public boolean spaceMountainBanking = ConfigDefaults.SPACE_MOUNTAIN_BANKING;
-  public int spaceMountainBankStrength = ConfigDefaults.SPACE_MOUNTAIN_BANK_STRENGTH;
+  public double coasterTiltMultiplier = ConfigDefaults.COASTER_TILT_MULTIPLIER;
 
   public int getAdvanceNoticeSeconds(RideName ride) {
     return advanceNoticeSeconds.getOrDefault(ride.toMatchString(), 0);
@@ -128,8 +127,7 @@ public class ConfigSetting {
     randomRideOverride = ConfigDefaults.RANDOM_RIDE_OVERRIDE;
     rideHubMode = ConfigDefaults.RIDE_HUB_MODE;
     spaceMountainEnhancements = ConfigDefaults.SPACE_MOUNTAIN_ENHANCEMENTS;
-    spaceMountainBanking = ConfigDefaults.SPACE_MOUNTAIN_BANKING;
-    spaceMountainBankStrength = ConfigDefaults.SPACE_MOUNTAIN_BANK_STRENGTH;
+    coasterTiltMultiplier = ConfigDefaults.COASTER_TILT_MULTIPLIER;
   }
 
   public ConfigSetting copy() {
@@ -182,8 +180,7 @@ public class ConfigSetting {
     copy.randomRideOverride = this.randomRideOverride;
     copy.rideHubMode = this.rideHubMode;
     copy.spaceMountainEnhancements = this.spaceMountainEnhancements;
-    copy.spaceMountainBanking = this.spaceMountainBanking;
-    copy.spaceMountainBankStrength = this.spaceMountainBankStrength;
+    copy.coasterTiltMultiplier = this.coasterTiltMultiplier;
     return copy;
   }
 
@@ -231,8 +228,7 @@ public class ConfigSetting {
         && randomRideOverride == that.randomRideOverride
         && rideHubMode == that.rideHubMode
         && spaceMountainEnhancements == that.spaceMountainEnhancements
-        && spaceMountainBanking == that.spaceMountainBanking
-        && spaceMountainBankStrength == that.spaceMountainBankStrength
+        && Double.compare(coasterTiltMultiplier, that.coasterTiltMultiplier) == 0
         && Objects.equals(soundId, that.soundId)
         && Objects.equals(minRideTimeMinutes, that.minRideTimeMinutes)
         && Objects.equals(hiddenRides, that.hiddenRides)
@@ -287,7 +283,6 @@ public class ConfigSetting {
         randomRideOverride,
         rideHubMode,
         spaceMountainEnhancements,
-        spaceMountainBanking,
-        spaceMountainBankStrength);
+        coasterTiltMultiplier);
   }
 }

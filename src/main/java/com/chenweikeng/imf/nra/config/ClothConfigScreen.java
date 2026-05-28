@@ -337,34 +337,23 @@ public class ClothConfigScreen {
             .setSaveConsumer(newValue -> profile.spaceMountainEnhancements = newValue)
             .build();
     spaceMountainGroup.add(spaceMountainEnabledEntry);
-    var spaceMountainBankingEntry =
-        entryBuilder
-            .startBooleanToggle(
-                Component.translatable("config.not-riding-alert.spaceMountainBanking"),
-                profile.spaceMountainBanking)
-            .setDefaultValue(ConfigDefaults.SPACE_MOUNTAIN_BANKING)
-            .setTooltip(
-                Component.translatable("config.not-riding-alert.spaceMountainBanking.tooltip"))
-            .setSaveConsumer(newValue -> profile.spaceMountainBanking = newValue)
-            .setDisplayRequirement(Requirement.isValue(spaceMountainEnabledEntry, true))
-            .build();
-    spaceMountainGroup.add(spaceMountainBankingEntry);
-    spaceMountainGroup.add(
+    // Coaster Tilt — a global multiplier on SmoothCoasters' camera lean (applies to every coaster
+    // SC tilts, not just Space Mountain). Stored as a 0.0–2.0 double; the slider is an int 0–200
+    // (×100) so it steps in 0.01s. 1.00× = stock tilt, 2.00× = double, 0.00× = level.
+    modifications.addEntry(
         entryBuilder
             .startIntSlider(
-                Component.translatable("config.not-riding-alert.spaceMountainBankStrength"),
-                profile.spaceMountainBankStrength,
+                Component.translatable("config.not-riding-alert.coasterTiltMultiplier"),
+                (int) Math.round(profile.coasterTiltMultiplier * 100),
                 0,
-                100)
-            .setDefaultValue(ConfigDefaults.SPACE_MOUNTAIN_BANK_STRENGTH)
+                200)
+            .setDefaultValue((int) Math.round(ConfigDefaults.COASTER_TILT_MULTIPLIER * 100))
             .setTooltip(
-                Component.translatable("config.not-riding-alert.spaceMountainBankStrength.tooltip"))
-            .setTextGetter(value -> Component.literal(value + "%"))
-            .setSaveConsumer(newValue -> profile.spaceMountainBankStrength = newValue)
-            .setDisplayRequirement(
-                Requirement.all(
-                    Requirement.isValue(spaceMountainEnabledEntry, true),
-                    Requirement.isValue(spaceMountainBankingEntry, true)))
+                Component.translatable("config.not-riding-alert.coasterTiltMultiplier.tooltip"))
+            .setTextGetter(
+                value ->
+                    Component.literal(String.format(java.util.Locale.ROOT, "%.2f×", value / 100.0)))
+            .setSaveConsumer(newValue -> profile.coasterTiltMultiplier = newValue / 100.0)
             .build());
     modifications.addEntry(
         entryBuilder
