@@ -1,6 +1,7 @@
 package com.chenweikeng.imf.nra.audio;
 
 import com.chenweikeng.imf.nra.handler.ReminderHandler;
+import java.net.URI;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -8,6 +9,7 @@ import java.util.concurrent.TimeUnit;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.network.chat.Style;
 import org.json.JSONObject;
 import org.slf4j.Logger;
@@ -130,6 +132,12 @@ public class OpenAudioMcService {
   private static final int ALREADY_CONNECTED_RETRY_DELAY_MS = 5000;
   private int alreadyConnectedRetries = 0;
 
+  // Engine-start failures repeat on every server audio prompt / rejoin while a runtime is
+  // missing; report each distinct reason once per cooldown instead of spamming chat and the log.
+  private static final long ENGINE_FAILURE_RENOTIFY_MS = 60_000;
+  private WebViewBridge.StartFailure lastEngineFailure;
+  private long lastEngineFailureNotifyMs;
+
   private WebViewBridge bridge;
   private String savedSessionUrl;
   private boolean isConnected;
@@ -218,14 +226,34 @@ public class OpenAudioMcService {
 
     LOGGER.info("Connecting to OpenAudioMC: {}", sessionUrl);
 
+    // A helper that crashed mid-session leaves a bridge object whose process is dead; loading
+    // URLs into it silently does nothing. Discard it so we attempt a fresh start.
+    if (bridge != null && !bridge.isRunning()) {
+      LOGGER.warn("Audio engine helper process is no longer running, discarding old bridge");
+      bridge.stop();
+      bridge = null;
+    }
+
     if (bridge == null) {
-      notifyUser("Starting audio engine...");
-      bridge = new WebViewBridge();
-      if (!bridge.start()) {
-        LOGGER.error("Failed to start WebView bridge — OpenAudioMC audio will not work");
-        notifyUser("Failed to start audio engine.");
+      // Spawn-free runtime check first: when a runtime is missing this fails instantly and
+      // quietly (throttled report) instead of spawning a doomed helper and waiting out its
+      // 15-second ready timeout on every server audio prompt.
+      WebViewBridge.StartFailure preflight = WebViewBridge.preflightCheck();
+      if (preflight != null) {
+        reportEngineFailure(preflight);
         return;
       }
+      notifyUser("Starting audio engine...");
+      WebViewBridge newBridge = new WebViewBridge();
+      if (!newBridge.start()) {
+        LOGGER.error("Failed to start WebView bridge — OpenAudioMC audio will not work");
+        WebViewBridge.StartFailure failure = newBridge.getStartFailure();
+        newBridge.stop();
+        reportEngineFailure(failure);
+        return;
+      }
+      bridge = newBridge;
+      lastEngineFailure = null;
     }
 
     savedSessionUrl = sessionUrl;
@@ -608,7 +636,9 @@ public class OpenAudioMcService {
         .thenAccept(this::handleMonitorResult)
         .exceptionally(
             ex -> {
-              LOGGER.error("Monitor eval failed", ex);
+              // Runs every 3s; a one-line warn is enough — a full stack trace per poll floods
+              // the log when the helper is wedged.
+              LOGGER.warn("Monitor eval failed: {}", ex.toString());
               return null;
             });
   }
@@ -760,15 +790,43 @@ public class OpenAudioMcService {
     savedSessionUrl = null;
   }
 
-  private void notifyUser(String message) {
-    Minecraft client = Minecraft.getInstance();
-    if (client != null) {
-      client.execute(
-          () ->
-              client
-                  .gui
-                  .getChat()
-                  .addMessage(Component.literal("\u00A76\u2728 \u00A7e[IMF] \u00A7f" + message)));
+  /**
+   * Reports an audio-engine startup failure with actionable guidance (which runtime to install,
+   * with a clickable link). The same reason is re-reported at most once per {@link
+   * #ENGINE_FAILURE_RENOTIFY_MS}; suppressed repeats only log at debug so a missing runtime doesn't
+   * flood chat and the log on every server audio prompt.
+   */
+  private void reportEngineFailure(WebViewBridge.StartFailure failure) {
+    if (failure == null) {
+      failure = WebViewBridge.StartFailure.HELPER_LAUNCH_FAILED;
     }
+    long now = System.currentTimeMillis();
+    if (failure == lastEngineFailure
+        && now - lastEngineFailureNotifyMs < ENGINE_FAILURE_RENOTIFY_MS) {
+      LOGGER.debug("Audio engine still unavailable ({}), suppressing repeat notification", failure);
+      return;
+    }
+    lastEngineFailure = failure;
+    lastEngineFailureNotifyMs = now;
+    LOGGER.error("Audio engine unavailable: {} \u2014 {}", failure, failure.userMessage());
+    notifyUser(failure.userMessage(), failure.helpUrl());
+  }
+
+  private void notifyUser(String message) {
+    notifyUser(message, null);
+  }
+
+  private void notifyUser(String message, String url) {
+    Minecraft client = Minecraft.getInstance();
+    if (client == null) {
+      return;
+    }
+    MutableComponent text = Component.literal("\u00A76\u2728 \u00A7e[IMF] \u00A7f" + message);
+    if (url != null) {
+      text.append(
+          Component.literal("\u00A7b\u00A7n" + url)
+              .withStyle(style -> style.withClickEvent(new ClickEvent.OpenUrl(URI.create(url)))));
+    }
+    client.execute(() -> client.gui.getChat().addMessage(text));
   }
 }
