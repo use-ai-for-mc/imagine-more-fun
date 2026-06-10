@@ -18,7 +18,6 @@ using System.Drawing.Drawing2D;
 using System.Drawing.Text;
 using System.Runtime.InteropServices;
 using System.Text.Json;
-using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -28,12 +27,21 @@ class StatusHelper : ApplicationContext
     private static extern bool DestroyIcon(IntPtr handle);
 
     private readonly NotifyIcon notifyIcon;
-    private readonly SynchronizationContext uiContext;
+    private readonly Control marshaller;
     private IntPtr currentIconHandle = IntPtr.Zero;
 
     public StatusHelper()
     {
-        uiContext = SynchronizationContext.Current!;
+        // UI-thread marshaller. We CANNOT capture SynchronizationContext.Current here: this
+        // constructor runs as the argument to Application.Run(new StatusHelper()), which installs
+        // the WindowsFormsSynchronizationContext only AFTER constructing us — so Current is null
+        // at this point and every SetText post would throw NullReferenceException, leaving the
+        // tray icon frozen on its initial "—:—". Instead we create a hidden control and force its
+        // HWND on this (UI) thread now; BeginInvoke then posts work to that handle's message
+        // queue, which Application.Run pumps. This is independent of sync-context install timing.
+        marshaller = new Control();
+        _ = marshaller.Handle; // force handle creation on the UI thread
+
         notifyIcon = new NotifyIcon
         {
             Icon = RenderIcon("—:—"),
@@ -43,6 +51,15 @@ class StatusHelper : ApplicationContext
 
         Task.Run(ReadLoop);
         WriteLine("{\"type\":\"ready\"}");
+    }
+
+    /** Runs an action on the UI thread via the marshalling control's message queue. */
+    private void RunOnUi(Action action)
+    {
+        if (marshaller.IsHandleCreated)
+        {
+            marshaller.BeginInvoke(action);
+        }
     }
 
     private Icon RenderIcon(string text)
@@ -79,24 +96,25 @@ class StatusHelper : ApplicationContext
 
     private void SetText(string text)
     {
-        uiContext.Post(_ =>
+        RunOnUi(() =>
         {
             var old = notifyIcon.Icon;
             notifyIcon.Icon = RenderIcon(text);
             old?.Dispose();
             notifyIcon.Text = string.IsNullOrEmpty(text) ? "ImagineMoreFun" : $"Ride: {text}";
-        }, null);
+        });
     }
 
     private void Quit()
     {
-        uiContext.Post(_ =>
+        RunOnUi(() =>
         {
             notifyIcon.Visible = false;
             notifyIcon.Dispose();
+            marshaller.Dispose();
             if (currentIconHandle != IntPtr.Zero) DestroyIcon(currentIconHandle);
             Application.Exit();
-        }, null);
+        });
     }
 
     private void ReadLoop()

@@ -49,8 +49,11 @@ public final class StatusBarController {
     ensureStarted();
 
     String text = computeText(currentRide);
-    if (!text.equals(lastTextSent)) {
-      sendIfRunning(text);
+    // Only record what we actually transmitted: the bridge starts asynchronously, so early ride
+    // ticks fire before it is running. Updating lastTextSent on a no-op send would mark the value
+    // as delivered and suppress the resend once the helper is ready, leaving the tray frozen on
+    // its initial placeholder.
+    if (!text.equals(lastTextSent) && sendIfRunning(text)) {
       lastTextSent = text;
     }
   }
@@ -90,11 +93,13 @@ public final class StatusBarController {
     return TimeFormatUtil.formatDuration(remaining);
   }
 
-  private void sendIfRunning(String text) {
+  private boolean sendIfRunning(String text) {
     StatusBarBridge b = bridge;
     if (b != null && b.isRunning()) {
       b.setText(text);
+      return true;
     }
+    return false;
   }
 
   private void ensureStarted() {
