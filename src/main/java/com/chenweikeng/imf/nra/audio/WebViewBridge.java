@@ -49,14 +49,17 @@ public class WebViewBridge {
    * via {@link #preflightCheck()}.
    */
   public enum StartFailure {
+    // Both URLs are Microsoft-maintained permalinks that serve the installer directly (no
+    // version-picker page): aka.ms tracks the latest 8.0.x Desktop Runtime x64 exe, fwlink
+    // serves the WebView2 Evergreen bootstrapper which auto-detects the architecture.
     DOTNET_RUNTIME_MISSING(
-        "Audio engine needs the .NET 8 Desktop Runtime (x64). Install it, then restart"
-            + " Minecraft: ",
-        "https://dotnet.microsoft.com/download/dotnet/8.0"),
+        "Audio engine needs the .NET 8 Desktop Runtime. Click to download the installer, run"
+            + " it, then restart Minecraft: ",
+        "https://aka.ms/dotnet/8.0/windowsdesktop-runtime-win-x64.exe"),
     WEBVIEW2_RUNTIME_MISSING(
-        "Audio engine needs the Microsoft Edge WebView2 Runtime. Install the Evergreen x64"
-            + " installer, then restart Minecraft: ",
-        "https://developer.microsoft.com/microsoft-edge/webview2/"),
+        "Audio engine needs the Microsoft Edge WebView2 Runtime. Click to download the"
+            + " installer, run it, then restart Minecraft: ",
+        "https://go.microsoft.com/fwlink/p/?LinkId=2124703"),
     HELPER_BINARY_MISSING(
         "Audio engine helper is missing from this build of the mod. Re-download the official"
             + " release JAR.",
