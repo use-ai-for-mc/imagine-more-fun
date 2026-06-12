@@ -91,32 +91,42 @@ class StatusHelper : ApplicationContext
             g.TextRenderingHint = TextRenderingHint.AntiAlias;
             g.Clear(Color.Transparent);
 
-            using var fg = new SolidBrush(Color.White);
-            using var shadow = new SolidBrush(Color.FromArgb(180, 0, 0, 0));
-            // GenericTypographic drops GDI+'s built-in side bearings so the glyphs can
-            // actually reach the canvas edges.
-            StringFormat fmt = StringFormat.GenericTypographic;
-
-            // Largest font that fits: measure once at a reference size, scale proportionally.
-            // A fixed small size wastes most of the canvas, and the canvas itself is shown at
-            // 16x16 — every wasted pixel halves again on screen.
-            const float referenceSize = 20f;
-            float fontSize;
-            using (var trial = new Font("Segoe UI", referenceSize, FontStyle.Bold, GraphicsUnit.Pixel))
+            // Empty text (idle: ride ended / disconnected) renders a blank icon. It must skip
+            // the sizing math below: an empty string measures 0 wide and the fit scale becomes
+            // float infinity (float division never throws), which the Font constructor rejects.
+            if (iconText.Length > 0)
             {
-                SizeF m = g.MeasureString(iconText, trial, int.MaxValue, fmt);
-                float scale = Math.Min((size - 1) / m.Width, size / m.Height);
-                fontSize = Math.Max(8f, referenceSize * scale);
+                using var fg = new SolidBrush(Color.White);
+                using var shadow = new SolidBrush(Color.FromArgb(180, 0, 0, 0));
+                // GenericTypographic drops GDI+'s built-in side bearings so the glyphs can
+                // actually reach the canvas edges.
+                StringFormat fmt = StringFormat.GenericTypographic;
+
+                // Largest font that fits: measure once at a reference size, scale
+                // proportionally. A fixed small size wastes most of the canvas, and the canvas
+                // itself is shown at 16x16 — every wasted pixel halves again on screen.
+                const float referenceSize = 20f;
+                float fontSize = 11f;
+                using (var trial =
+                    new Font("Segoe UI", referenceSize, FontStyle.Bold, GraphicsUnit.Pixel))
+                {
+                    SizeF m = g.MeasureString(iconText, trial, int.MaxValue, fmt);
+                    if (m.Width > 0f && m.Height > 0f)
+                    {
+                        float scale = Math.Min((size - 1) / m.Width, size / m.Height);
+                        fontSize = Math.Clamp(referenceSize * scale, 8f, 28f);
+                    }
+                }
+
+                using var font = new Font("Segoe UI", fontSize, FontStyle.Bold, GraphicsUnit.Pixel);
+                SizeF measured = g.MeasureString(iconText, font, int.MaxValue, fmt);
+                float x = (size - measured.Width) / 2f;
+                float y = (size - measured.Height) / 2f;
+
+                // Shadow + foreground for readability on any taskbar color.
+                g.DrawString(iconText, font, shadow, x + 1, y + 1, fmt);
+                g.DrawString(iconText, font, fg, x, y, fmt);
             }
-
-            using var font = new Font("Segoe UI", fontSize, FontStyle.Bold, GraphicsUnit.Pixel);
-            SizeF measured = g.MeasureString(iconText, font, int.MaxValue, fmt);
-            float x = (size - measured.Width) / 2f;
-            float y = (size - measured.Height) / 2f;
-
-            // Shadow + foreground for readability on any taskbar color.
-            g.DrawString(iconText, font, shadow, x + 1, y + 1, fmt);
-            g.DrawString(iconText, font, fg, x, y, fmt);
         }
 
         IntPtr hIcon = bmp.GetHicon();
@@ -132,11 +142,11 @@ class StatusHelper : ApplicationContext
     {
         RunOnUi(() =>
         {
+            overlay.SetCountdown(text);
             var old = notifyIcon.Icon;
             notifyIcon.Icon = RenderIcon(text);
             old?.Dispose();
             notifyIcon.Text = string.IsNullOrEmpty(text) ? "ImagineMoreFun" : $"Ride: {text}";
-            overlay.SetCountdown(text);
         });
     }
 
@@ -196,6 +206,12 @@ class StatusHelper : ApplicationContext
         Application.SetHighDpiMode(HighDpiMode.PerMonitorV2);
         Application.EnableVisualStyles();
         Application.SetCompatibleTextRenderingDefault(false);
+        // A faceless background helper must never show the WinForms crash dialog over the
+        // game; route UI-thread exceptions to the parent's log via the stdout protocol.
+        Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
+        Application.ThreadException += (s, e) =>
+            WriteLine(
+                $"{{\"type\":\"error\",\"message\":{JsonSerializer.Serialize(e.Exception.ToString())}}}");
         Application.Run(new StatusHelper());
     }
 }
