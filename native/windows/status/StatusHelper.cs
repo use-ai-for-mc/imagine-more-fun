@@ -243,7 +243,7 @@ class TaskbarOverlay : Form
     /// </summary>
     private void Reposition()
     {
-        int boxH = 38, boxW;
+        int boxH = 26, boxW;
         int x, y;
         IntPtr taskbar = FindWindow("Shell_TrayWnd", null);
         RECT tb;
@@ -251,7 +251,9 @@ class TaskbarOverlay : Form
             && tb.Right - tb.Left > tb.Bottom - tb.Top)
         {
             int tbHeight = tb.Bottom - tb.Top;
-            boxH = Math.Clamp(tbHeight - 10, 22, 40);
+            // Scale with the taskbar (and therefore DPI), but stay clock-sized: near-full-height
+            // digits looked oversized next to the system tray text in on-VM testing.
+            boxH = Math.Clamp((int)(tbHeight * 0.58f), 20, 60);
             boxW = MeasureWidth(boxH);
             // Sit just left of the tray icons, like TrafficMonitor's taskbar mode.
             int rightEdge = tb.Right - 8;
@@ -284,7 +286,7 @@ class TaskbarOverlay : Form
     private static Font OverlayFont(int boxH)
     {
         return new Font(
-            "Segoe UI", Math.Max(12f, boxH * 0.55f), FontStyle.Bold, GraphicsUnit.Pixel);
+            "Segoe UI", Math.Max(11f, boxH * 0.5f), FontStyle.Bold, GraphicsUnit.Pixel);
     }
 
     private void ReadTheme()
