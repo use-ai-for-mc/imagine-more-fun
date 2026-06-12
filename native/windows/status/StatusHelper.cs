@@ -286,7 +286,7 @@ class TaskbarOverlay : Form
     private static Font OverlayFont(int boxH)
     {
         return new Font(
-            "Segoe UI", Math.Max(11f, boxH * 0.5f), FontStyle.Bold, GraphicsUnit.Pixel);
+            "Segoe UI", Math.Max(11f, boxH * 0.44f), FontStyle.Regular, GraphicsUnit.Pixel);
     }
 
     private void ReadTheme()
