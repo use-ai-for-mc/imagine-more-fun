@@ -18,17 +18,18 @@ Every feature only activates while you are connected to an `*.imaginefun.net` se
 ### Ride tracking & planning
 
 - **Not-riding alert** — an optional sound when you are not on a ride, with a minimum-ride-time filter.
-- **Ride tracker** — an on-screen list of rides and your progress toward a goal (1K / 5K / 10K), with multiple layouts, sort rules, closest-ride highlighting, and customizable colors. Show it always, only while riding, only while not riding, or never.
+- **Ride tracker** — an on-screen list of rides and your progress toward a goal (1K / 5K / 10K), with multiple layouts, sort rules, closest-ride highlighting, per-ride max-goal overrides, and customizable colors. Show it always, only while riding, only while not riding, or never.
 - **Ride plan** — a chained "do this, then that" daily plan across the top of the screen, with live progress and automatic extension as you finish steps. The server's Daily Objectives are folded in automatically.
 - **Daily ride report** — a per-day summary screen, with popup or chat reminders.
 - **Session stats** — today's ride count, ride time, rides-per-hour, and streak.
-- **Advance-notice chime** — a sound a few seconds before a ride ends.
+- **Advance-notice chime** — a sound a few seconds before selected rides end, configured through an exceptions-only ride editor.
 
 ### Convenience
 
-- **Autograbbing aids** — outlines for autograb regions, automatic cursor release, optional window-minimize, and PC hibernation while riding.
+- **Autograbbing aids** — outlines for autograb regions, automatic cursor release, optional window-minimize, PC hibernation while riding, and a MonkeyCraft-visible waiting overlay.
 - **Setup wizard** — a guided first-run walkthrough.
 - **Config profiles** — named saved settings you can switch between instantly.
+- **Chat input helper** — on macOS and Windows, optionally switches the OS input method to English while the chat screen is open, then restores your previous input method when chat closes.
 
 ### Visuals
 
@@ -46,8 +47,8 @@ Every feature only activates while you are connected to an `*.imaginefun.net` se
 
 ### Audio & extras
 
-- **OpenAudioMC integration** — connect and disconnect the server's web-audio sessions in-game, with optional auto-connect and an audio-boost reminder.
-- **Status-bar indicator** — a ride countdown in the macOS menu bar or Windows system tray.
+- **OpenAudioMC integration** — connect and disconnect the server's web-audio sessions in-game, with optional auto-connect, an audio-boost reminder, and clearer runtime-install guidance when the audio helper cannot start.
+- **Status-bar indicator** — a ride countdown in the macOS menu bar or a Windows taskbar-adjacent overlay.
 - **Skin caching** — caches player skins locally to cut down on repeated downloads.
 
 ## Commands
@@ -66,6 +67,8 @@ Every feature only activates while you are connected to an `*.imaginefun.net` se
 ```
 
 The built mod jar lands in `build/libs/`.
+
+Native helper binaries are generated during the release workflow. GitHub Actions builds the macOS Swift helpers and Windows .NET helpers, assembles them into `src/main/resources/native/`, verifies the final jar contains them, and publishes tagged releases. Local `./gradlew build` is fine for Java-side development, but a release jar must come from the tagged GitHub Actions build or from `./build-and-deploy.sh`, which rebuilds native helpers before packaging.
 
 ## License
 

@@ -5,7 +5,7 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 ## Build Commands
 
 ```bash
-./gradlew build                    # Build mod → build/libs/imaginemorefun-3.1.5.jar
+./gradlew build                    # Build mod → build/libs/imaginemorefun-3.2.0.jar
 ./gradlew spotlessApply            # Format code (Google Java Format)
 ./gradlew spotlessCheck            # Check formatting without fixing
 ```
