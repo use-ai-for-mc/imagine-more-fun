@@ -1,6 +1,7 @@
 package com.chenweikeng.imf.nra.config;
 
 import com.chenweikeng.imf.nra.ride.RideName;
+import com.google.gson.annotations.JsonAdapter;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -50,9 +51,15 @@ public class ConfigSetting {
   public HideCrosshairMode hideCrosshairMode = ConfigDefaults.HIDE_CROSSHAIR_MODE;
   public TrackerDisplayMode trackerDisplayMode = ConfigDefaults.TRACKER_DISPLAY_MODE;
   public MaxGoal maxGoal = ConfigDefaults.MAX_GOAL;
-  public Map<String, RideMaxGoalOverride> rideGoalOverrides = new HashMap<>();
+
+  @JsonAdapter(RideIntMapAdapter.class)
+  public Map<String, Integer> rideGoalOverrides = new HashMap<>();
+
   public SortingRules sortingRules = ConfigDefaults.SORTING_RULES;
+
+  @JsonAdapter(RideIntMapAdapter.class)
   public Map<String, Integer> advanceNoticeSeconds = new HashMap<>();
+
   public boolean showSessionStats = ConfigDefaults.SHOW_SESSION_STATS;
   public boolean enableOpenAudioMc = ConfigDefaults.ENABLE_OPEN_AUDIO_MC;
   public RideReportNotifyMode rideReportNotifyMode = ConfigDefaults.RIDE_REPORT_NOTIFY_MODE;
@@ -67,13 +74,13 @@ public class ConfigSetting {
   }
 
   /**
-   * Returns the effective maximum ride goal for the given ride: the per-ride override if one is set
-   * and isn't {@link RideMaxGoalOverride#USE_SYSTEM}, otherwise the global {@link #maxGoal}.
+   * Returns the effective maximum ride goal for the given ride: the per-ride override if one is
+   * set, otherwise the global {@link #maxGoal}.
    */
   public int getMaxGoalForRide(RideName ride) {
-    RideMaxGoalOverride override = rideGoalOverrides.get(ride.toMatchString());
-    if (override != null && override != RideMaxGoalOverride.USE_SYSTEM) {
-      return override.getValue();
+    Integer override = rideGoalOverrides.get(ride.toMatchString());
+    if (override != null && override > 0) {
+      return override;
     }
     return maxGoal.getValue();
   }

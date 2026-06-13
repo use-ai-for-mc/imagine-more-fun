@@ -2,10 +2,13 @@ package com.chenweikeng.imf.nra.config;
 
 import com.chenweikeng.imf.nra.ServerState;
 import com.chenweikeng.imf.nra.compat.MonkeycraftCompat;
+import com.chenweikeng.imf.nra.config.ui.RideValueOverridesScreen;
+import com.chenweikeng.imf.nra.config.ui.ScreenOpenButtonEntry;
 import com.chenweikeng.imf.nra.ride.RideName;
 import com.chenweikeng.imf.nra.util.TimeFormatUtil;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import me.shedaniel.clothconfig2.api.AbstractConfigListEntry;
 import me.shedaniel.clothconfig2.api.ConfigBuilder;
@@ -35,6 +38,23 @@ public class ClothConfigScreen {
 
     Minecraft client = Minecraft.getInstance();
 
+    addGeneralCategory(builder, entryBuilder, profile, client, onSave);
+    addInterfaceCategory(builder, entryBuilder, profile);
+    addModificationsCategory(builder, entryBuilder, profile);
+    addTrackerCategory(builder, entryBuilder, profile, client, onSave);
+    addRideVisibilityCategory(builder, entryBuilder, profile);
+    addMonkeyCraftCategory(builder, entryBuilder, profile);
+
+    return builder.build();
+  }
+
+  /** Master switch, then Alert / Automation / Audio groups, then notifications. */
+  private static void addGeneralCategory(
+      ConfigBuilder builder,
+      ConfigEntryBuilder entryBuilder,
+      ConfigSetting profile,
+      Minecraft client,
+      Runnable onSave) {
     ConfigCategory general =
         builder.getOrCreateCategory(
             Component.translatable("config.not-riding-alert.category.general"));
@@ -49,7 +69,8 @@ public class ClothConfigScreen {
             .setSaveConsumer(newValue -> profile.globalEnable = newValue)
             .build());
 
-    general.addEntry(
+    List<AbstractConfigListEntry> alertGroup = new ArrayList<>();
+    alertGroup.add(
         entryBuilder
             .startBooleanToggle(
                 Component.translatable("config.not-riding-alert.enabled"), profile.enabled)
@@ -57,8 +78,7 @@ public class ClothConfigScreen {
             .setTooltip(Component.translatable("config.not-riding-alert.enabled.tooltip"))
             .setSaveConsumer(newValue -> profile.enabled = newValue)
             .build());
-
-    general.addEntry(
+    alertGroup.add(
         entryBuilder
             .startDropdownMenu(
                 Component.translatable("config.not-riding-alert.soundId"),
@@ -74,8 +94,25 @@ public class ClothConfigScreen {
             .setSuggestionMode(true)
             .setSaveConsumer(soundId -> profile.soundId = soundId)
             .build());
+    alertGroup.add(
+        new ScreenOpenButtonEntry(
+            Component.literal("Advance notice"),
+            () -> {
+              int count = profile.advanceNoticeSeconds.size();
+              return Component.literal(count == 0 ? "Manage..." : "Manage... (" + count + " set)");
+            },
+            () ->
+                client.setScreen(
+                    RideValueOverridesScreen.advanceNotice(client.screen, profile, onSave)),
+            () ->
+                Optional.of(
+                    new Component[] {
+                      Component.translatable("config.not-riding-alert.advanceNotice.tooltip")
+                    })));
+    general.addEntry(group(entryBuilder, "config.not-riding-alert.group.alert", alertGroup));
 
-    general.addEntry(
+    List<AbstractConfigListEntry> automationGroup = new ArrayList<>();
+    automationGroup.add(
         entryBuilder
             .startEnumSelector(
                 Component.translatable("config.not-riding-alert.cursorReleaseTiming"),
@@ -91,17 +128,7 @@ public class ClothConfigScreen {
                         "config.not-riding-alert.cursorReleaseTiming."
                             + timing.name().toLowerCase()))
             .build());
-
-    general.addEntry(
-        entryBuilder
-            .startBooleanToggle(
-                Component.translatable("config.not-riding-alert.silent"), profile.silent)
-            .setDefaultValue(ConfigDefaults.SILENT)
-            .setTooltip(Component.translatable("config.not-riding-alert.silent.tooltip"))
-            .setSaveConsumer(newValue -> profile.silent = newValue)
-            .build());
-
-    general.addEntry(
+    automationGroup.add(
         entryBuilder
             .startEnumSelector(
                 Component.translatable("config.not-riding-alert.minimizeWindow"),
@@ -115,8 +142,43 @@ public class ClothConfigScreen {
                     Component.translatable(
                         "config.not-riding-alert.minimizeWindow." + timing.name().toLowerCase()))
             .build());
-
+    automationGroup.add(
+        entryBuilder
+            .startBooleanToggle(
+                Component.translatable("config.not-riding-alert.randomRideOverride"),
+                profile.randomRideOverride)
+            .setDefaultValue(ConfigDefaults.RANDOM_RIDE_OVERRIDE)
+            .setTooltip(
+                Component.translatable("config.not-riding-alert.randomRideOverride.tooltip"))
+            .setSaveConsumer(newValue -> profile.randomRideOverride = newValue)
+            .build());
+    automationGroup.add(
+        entryBuilder
+            .startEnumSelector(
+                Component.translatable("config.not-riding-alert.chatImeMode"),
+                ChatImeMode.class,
+                profile.chatImeMode)
+            .setDefaultValue(ConfigDefaults.CHAT_IME_MODE)
+            .setTooltip(Component.translatable("config.not-riding-alert.chatImeMode.tooltip"))
+            .setSaveConsumer(newValue -> profile.chatImeMode = newValue)
+            .setEnumNameProvider(
+                mode ->
+                    Component.translatable(
+                        "config.not-riding-alert.chatImeMode." + mode.name().toLowerCase()))
+            .build());
     general.addEntry(
+        group(entryBuilder, "config.not-riding-alert.group.automation", automationGroup));
+
+    List<AbstractConfigListEntry> audioGroup = new ArrayList<>();
+    audioGroup.add(
+        entryBuilder
+            .startBooleanToggle(
+                Component.translatable("config.not-riding-alert.silent"), profile.silent)
+            .setDefaultValue(ConfigDefaults.SILENT)
+            .setTooltip(Component.translatable("config.not-riding-alert.silent.tooltip"))
+            .setSaveConsumer(newValue -> profile.silent = newValue)
+            .build());
+    audioGroup.add(
         entryBuilder
             .startBooleanToggle(
                 Component.translatable("config.not-riding-alert.enableOpenAudioMc"),
@@ -125,6 +187,23 @@ public class ClothConfigScreen {
             .setTooltip(Component.translatable("config.not-riding-alert.enableOpenAudioMc.tooltip"))
             .setSaveConsumer(newValue -> profile.enableOpenAudioMc = newValue)
             .build());
+    audioGroup.add(
+        entryBuilder
+            .startEnumSelector(
+                Component.translatable("config.not-riding-alert.audioBoostReminderMode"),
+                AudioBoostReminderMode.class,
+                profile.audioBoostReminderMode)
+            .setDefaultValue(ConfigDefaults.AUDIO_BOOST_REMINDER_MODE)
+            .setTooltip(
+                Component.translatable("config.not-riding-alert.audioBoostReminderMode.tooltip"))
+            .setSaveConsumer(newValue -> profile.audioBoostReminderMode = newValue)
+            .setEnumNameProvider(
+                mode ->
+                    Component.translatable(
+                        "config.not-riding-alert.audioBoostReminderMode."
+                            + mode.name().toLowerCase()))
+            .build());
+    general.addEntry(group(entryBuilder, "config.not-riding-alert.group.audio", audioGroup));
 
     general.addEntry(
         entryBuilder
@@ -142,38 +221,16 @@ public class ClothConfigScreen {
                         "config.not-riding-alert.rideReportNotifyMode."
                             + mode.name().toLowerCase()))
             .build());
+  }
 
-    general.addEntry(
-        entryBuilder
-            .startBooleanToggle(
-                Component.translatable("config.not-riding-alert.randomRideOverride"),
-                profile.randomRideOverride)
-            .setDefaultValue(ConfigDefaults.RANDOM_RIDE_OVERRIDE)
-            .setTooltip(
-                Component.translatable("config.not-riding-alert.randomRideOverride.tooltip"))
-            .setSaveConsumer(newValue -> profile.randomRideOverride = newValue)
-            .build());
-
-    general.addEntry(
-        entryBuilder
-            .startEnumSelector(
-                Component.translatable("config.not-riding-alert.chatImeMode"),
-                ChatImeMode.class,
-                profile.chatImeMode)
-            .setDefaultValue(ConfigDefaults.CHAT_IME_MODE)
-            .setTooltip(Component.translatable("config.not-riding-alert.chatImeMode.tooltip"))
-            .setSaveConsumer(newValue -> profile.chatImeMode = newValue)
-            .setEnumNameProvider(
-                mode ->
-                    Component.translatable(
-                        "config.not-riding-alert.chatImeMode." + mode.name().toLowerCase()))
-            .build());
-
-    ConfigCategory visual =
+  /** Screen cleanliness: dimming, brightness, captions, and the Hide HUD Elements group. */
+  private static void addInterfaceCategory(
+      ConfigBuilder builder, ConfigEntryBuilder entryBuilder, ConfigSetting profile) {
+    ConfigCategory iface =
         builder.getOrCreateCategory(
-            Component.translatable("config.not-riding-alert.category.visual"));
+            Component.translatable("config.not-riding-alert.category.interface"));
 
-    visual.addEntry(
+    iface.addEntry(
         entryBuilder
             .startBooleanToggle(
                 Component.translatable("config.not-riding-alert.blindWhenRiding"),
@@ -183,7 +240,7 @@ public class ClothConfigScreen {
             .setSaveConsumer(newValue -> profile.blindWhenRiding = newValue)
             .build());
 
-    visual.addEntry(
+    iface.addEntry(
         entryBuilder
             .startEnumSelector(
                 Component.translatable("config.not-riding-alert.fullbright"),
@@ -198,86 +255,7 @@ public class ClothConfigScreen {
                         "config.not-riding-alert.fullbright." + mode.name().toLowerCase()))
             .build());
 
-    visual.addEntry(
-        entryBuilder
-            .startBooleanToggle(
-                Component.translatable("config.not-riding-alert.hideScoreboard"),
-                profile.hideScoreboard)
-            .setDefaultValue(ConfigDefaults.HIDE_SCOREBOARD)
-            .setTooltip(Component.translatable("config.not-riding-alert.hideScoreboard.tooltip"))
-            .setSaveConsumer(newValue -> profile.hideScoreboard = newValue)
-            .build());
-
-    visual.addEntry(
-        entryBuilder
-            .startBooleanToggle(
-                Component.translatable("config.not-riding-alert.hideChat"), profile.hideChat)
-            .setDefaultValue(ConfigDefaults.HIDE_CHAT)
-            .setTooltip(Component.translatable("config.not-riding-alert.hideChat.tooltip"))
-            .setSaveConsumer(newValue -> profile.hideChat = newValue)
-            .build());
-
-    visual.addEntry(
-        entryBuilder
-            .startBooleanToggle(
-                Component.translatable("config.not-riding-alert.hideHealth"), profile.hideHealth)
-            .setDefaultValue(ConfigDefaults.HIDE_HEALTH)
-            .setTooltip(Component.translatable("config.not-riding-alert.hideHealth.tooltip"))
-            .setSaveConsumer(newValue -> profile.hideHealth = newValue)
-            .build());
-
-    visual.addEntry(
-        entryBuilder
-            .startBooleanToggle(
-                Component.translatable("config.not-riding-alert.hideNameTag"), profile.hideNameTag)
-            .setDefaultValue(ConfigDefaults.HIDE_NAME_TAG)
-            .setTooltip(Component.translatable("config.not-riding-alert.hideNameTag.tooltip"))
-            .setSaveConsumer(newValue -> profile.hideNameTag = newValue)
-            .build());
-
-    visual.addEntry(
-        entryBuilder
-            .startBooleanToggle(
-                Component.translatable("config.not-riding-alert.hideHotbar"), profile.hideHotbar)
-            .setDefaultValue(ConfigDefaults.HIDE_HOTBAR)
-            .setTooltip(Component.translatable("config.not-riding-alert.hideHotbar.tooltip"))
-            .setSaveConsumer(newValue -> profile.hideHotbar = newValue)
-            .build());
-
-    visual.addEntry(
-        entryBuilder
-            .startBooleanToggle(
-                Component.translatable("config.not-riding-alert.hideExperienceLevel"),
-                profile.hideExperienceLevel)
-            .setDefaultValue(ConfigDefaults.HIDE_EXPERIENCE_LEVEL)
-            .setTooltip(
-                Component.translatable("config.not-riding-alert.hideExperienceLevel.tooltip"))
-            .setSaveConsumer(newValue -> profile.hideExperienceLevel = newValue)
-            .build());
-
-    visual.addEntry(
-        entryBuilder
-            .startBooleanToggle(
-                Component.translatable("config.not-riding-alert.hideLovePotionMessages"),
-                profile.hideLovePotionMessages)
-            .setDefaultValue(ConfigDefaults.HIDE_LOVE_POTION_MESSAGES)
-            .setTooltip(
-                Component.translatable("config.not-riding-alert.hideLovePotionMessages.tooltip"))
-            .setSaveConsumer(newValue -> profile.hideLovePotionMessages = newValue)
-            .build());
-
-    visual.addEntry(
-        entryBuilder
-            .startBooleanToggle(
-                Component.translatable("config.not-riding-alert.showAutograbRegions"),
-                profile.showAutograbRegions)
-            .setDefaultValue(ConfigDefaults.SHOW_AUTOGRAB_REGIONS)
-            .setTooltip(
-                Component.translatable("config.not-riding-alert.showAutograbRegions.tooltip"))
-            .setSaveConsumer(newValue -> profile.showAutograbRegions = newValue)
-            .build());
-
-    visual.addEntry(
+    iface.addEntry(
         entryBuilder
             .startEnumSelector(
                 Component.translatable("config.not-riding-alert.closedCaptionMode"),
@@ -292,7 +270,59 @@ public class ClothConfigScreen {
                         "config.not-riding-alert.closedCaptionMode." + mode.name().toLowerCase()))
             .build());
 
-    visual.addEntry(
+    List<AbstractConfigListEntry> hideHudGroup = new ArrayList<>();
+    hideHudGroup.add(
+        entryBuilder
+            .startBooleanToggle(
+                Component.translatable("config.not-riding-alert.hideScoreboard"),
+                profile.hideScoreboard)
+            .setDefaultValue(ConfigDefaults.HIDE_SCOREBOARD)
+            .setTooltip(Component.translatable("config.not-riding-alert.hideScoreboard.tooltip"))
+            .setSaveConsumer(newValue -> profile.hideScoreboard = newValue)
+            .build());
+    hideHudGroup.add(
+        entryBuilder
+            .startBooleanToggle(
+                Component.translatable("config.not-riding-alert.hideChat"), profile.hideChat)
+            .setDefaultValue(ConfigDefaults.HIDE_CHAT)
+            .setTooltip(Component.translatable("config.not-riding-alert.hideChat.tooltip"))
+            .setSaveConsumer(newValue -> profile.hideChat = newValue)
+            .build());
+    hideHudGroup.add(
+        entryBuilder
+            .startBooleanToggle(
+                Component.translatable("config.not-riding-alert.hideHealth"), profile.hideHealth)
+            .setDefaultValue(ConfigDefaults.HIDE_HEALTH)
+            .setTooltip(Component.translatable("config.not-riding-alert.hideHealth.tooltip"))
+            .setSaveConsumer(newValue -> profile.hideHealth = newValue)
+            .build());
+    hideHudGroup.add(
+        entryBuilder
+            .startBooleanToggle(
+                Component.translatable("config.not-riding-alert.hideNameTag"), profile.hideNameTag)
+            .setDefaultValue(ConfigDefaults.HIDE_NAME_TAG)
+            .setTooltip(Component.translatable("config.not-riding-alert.hideNameTag.tooltip"))
+            .setSaveConsumer(newValue -> profile.hideNameTag = newValue)
+            .build());
+    hideHudGroup.add(
+        entryBuilder
+            .startBooleanToggle(
+                Component.translatable("config.not-riding-alert.hideHotbar"), profile.hideHotbar)
+            .setDefaultValue(ConfigDefaults.HIDE_HOTBAR)
+            .setTooltip(Component.translatable("config.not-riding-alert.hideHotbar.tooltip"))
+            .setSaveConsumer(newValue -> profile.hideHotbar = newValue)
+            .build());
+    hideHudGroup.add(
+        entryBuilder
+            .startBooleanToggle(
+                Component.translatable("config.not-riding-alert.hideExperienceLevel"),
+                profile.hideExperienceLevel)
+            .setDefaultValue(ConfigDefaults.HIDE_EXPERIENCE_LEVEL)
+            .setTooltip(
+                Component.translatable("config.not-riding-alert.hideExperienceLevel.tooltip"))
+            .setSaveConsumer(newValue -> profile.hideExperienceLevel = newValue)
+            .build());
+    hideHudGroup.add(
         entryBuilder
             .startEnumSelector(
                 Component.translatable("config.not-riding-alert.hideCrosshairMode"),
@@ -306,52 +336,43 @@ public class ClothConfigScreen {
                     Component.translatable(
                         "config.not-riding-alert.hideCrosshairMode." + mode.name().toLowerCase()))
             .build());
-
-    visual.addEntry(
+    iface.addEntry(
         entryBuilder
-            .startEnumSelector(
-                Component.translatable("config.not-riding-alert.audioBoostReminderMode"),
-                AudioBoostReminderMode.class,
-                profile.audioBoostReminderMode)
-            .setDefaultValue(ConfigDefaults.AUDIO_BOOST_REMINDER_MODE)
-            .setTooltip(
-                Component.translatable("config.not-riding-alert.audioBoostReminderMode.tooltip"))
-            .setSaveConsumer(newValue -> profile.audioBoostReminderMode = newValue)
-            .setEnumNameProvider(
-                mode ->
-                    Component.translatable(
-                        "config.not-riding-alert.audioBoostReminderMode."
-                            + mode.name().toLowerCase()))
+            .startSubCategory(
+                Component.translatable("config.not-riding-alert.group.hideHud"), hideHudGroup)
+            .setExpanded(false)
             .build());
 
-    visual.addEntry(
+    iface.addEntry(
         entryBuilder
             .startBooleanToggle(
-                Component.translatable("config.not-riding-alert.showSessionStats"),
-                profile.showSessionStats)
-            .setDefaultValue(ConfigDefaults.SHOW_SESSION_STATS)
-            .setTooltip(Component.translatable("config.not-riding-alert.showSessionStats.tooltip"))
-            .setSaveConsumer(newValue -> profile.showSessionStats = newValue)
+                Component.translatable("config.not-riding-alert.hideLovePotionMessages"),
+                profile.hideLovePotionMessages)
+            .setDefaultValue(ConfigDefaults.HIDE_LOVE_POTION_MESSAGES)
+            .setTooltip(
+                Component.translatable("config.not-riding-alert.hideLovePotionMessages.tooltip"))
+            .setSaveConsumer(newValue -> profile.hideLovePotionMessages = newValue)
             .build());
 
+    iface.addEntry(
+        entryBuilder
+            .startBooleanToggle(
+                Component.translatable("config.not-riding-alert.showAutograbRegions"),
+                profile.showAutograbRegions)
+            .setDefaultValue(ConfigDefaults.SHOW_AUTOGRAB_REGIONS)
+            .setTooltip(
+                Component.translatable("config.not-riding-alert.showAutograbRegions.tooltip"))
+            .setSaveConsumer(newValue -> profile.showAutograbRegions = newValue)
+            .build());
+  }
+
+  /** Per-ride client modifications: Coaster Tilt and the Space Mountain group. */
+  private static void addModificationsCategory(
+      ConfigBuilder builder, ConfigEntryBuilder entryBuilder, ConfigSetting profile) {
     ConfigCategory modifications =
         builder.getOrCreateCategory(
             Component.translatable("config.not-riding-alert.category.modifications"));
 
-    // "Space Mountain" group — a collapsible sub-category. Each ride's modification toggles get
-    // their own group in this tab; add more groups the same way as they're built.
-    List<AbstractConfigListEntry> spaceMountainGroup = new ArrayList<>();
-    var spaceMountainEnabledEntry =
-        entryBuilder
-            .startBooleanToggle(
-                Component.translatable("config.not-riding-alert.spaceMountainEnhancements"),
-                profile.spaceMountainEnhancements)
-            .setDefaultValue(ConfigDefaults.SPACE_MOUNTAIN_ENHANCEMENTS)
-            .setTooltip(
-                Component.translatable("config.not-riding-alert.spaceMountainEnhancements.tooltip"))
-            .setSaveConsumer(newValue -> profile.spaceMountainEnhancements = newValue)
-            .build();
-    spaceMountainGroup.add(spaceMountainEnabledEntry);
     // Coaster Tilt — a global multiplier on SmoothCoasters' camera lean (applies to every coaster
     // SC tilts, not just Space Mountain). Stored as a 0.0–2.0 double; the slider is an int 0–200
     // (×100) so it steps in 0.01s. 1.00× = stock tilt, 2.00× = double, 0.00× = level.
@@ -370,6 +391,20 @@ public class ClothConfigScreen {
                     Component.literal(String.format(java.util.Locale.ROOT, "%.2f×", value / 100.0)))
             .setSaveConsumer(newValue -> profile.coasterTiltMultiplier = newValue / 100.0)
             .build());
+
+    // "Space Mountain" group — a collapsible sub-category. Each ride's modification toggles get
+    // their own group in this tab; add more groups the same way as they're built.
+    List<AbstractConfigListEntry> spaceMountainGroup = new ArrayList<>();
+    spaceMountainGroup.add(
+        entryBuilder
+            .startBooleanToggle(
+                Component.translatable("config.not-riding-alert.spaceMountainEnhancements"),
+                profile.spaceMountainEnhancements)
+            .setDefaultValue(ConfigDefaults.SPACE_MOUNTAIN_ENHANCEMENTS)
+            .setTooltip(
+                Component.translatable("config.not-riding-alert.spaceMountainEnhancements.tooltip"))
+            .setSaveConsumer(newValue -> profile.spaceMountainEnhancements = newValue)
+            .build());
     modifications.addEntry(
         entryBuilder
             .startSubCategory(
@@ -377,10 +412,18 @@ public class ClothConfigScreen {
                 spaceMountainGroup)
             .setExpanded(true)
             .build());
+  }
 
+  /** The ride HUD: mode switch, common settings, then Goals / Filters / Colors / Strategy Hub. */
+  private static void addTrackerCategory(
+      ConfigBuilder builder,
+      ConfigEntryBuilder entryBuilder,
+      ConfigSetting profile,
+      Minecraft client,
+      Runnable onSave) {
     ConfigCategory tracker =
         builder.getOrCreateCategory(
-            Component.translatable("config.not-riding-alert.category.rides"));
+            Component.translatable("config.not-riding-alert.category.tracker"));
 
     var rideHubEntry =
         entryBuilder
@@ -416,55 +459,63 @@ public class ClothConfigScreen {
                         "config.not-riding-alert.trackerDisplayMode." + mode.name().toLowerCase()))
             .build());
 
-    tracker.addEntry(
-        entryBuilder
-            .startEnumSelector(
-                Component.translatable("config.not-riding-alert.strategyHudRendererVersion"),
-                StrategyHudRendererVersion.class,
-                profile.strategyHudRendererVersion)
-            .setDefaultValue(ConfigDefaults.STRATEGY_HUD_RENDERER_VERSION)
-            .setTooltip(
-                Component.translatable(
-                    "config.not-riding-alert.strategyHudRendererVersion.tooltip"))
-            .setSaveConsumer(newValue -> profile.strategyHudRendererVersion = newValue)
-            .setEnumNameProvider(
-                version ->
-                    Component.translatable(
-                        "config.not-riding-alert.strategyHudRendererVersion."
-                            + version.name().toLowerCase()))
-            .setDisplayRequirement(strategyHubOnly)
-            .build());
-
+    // Shared by the strategy HUD and the session stats panel, so not gated on the hub mode.
     tracker.addEntry(
         entryBuilder
             .startIntSlider(
-                Component.translatable("config.not-riding-alert.rideDisplayCount"),
-                profile.rideDisplayCount,
+                Component.translatable("config.not-riding-alert.hudBackgroundOpacity"),
+                profile.hudBackgroundOpacity,
                 0,
-                60)
-            .setDefaultValue(ConfigDefaults.RIDE_DISPLAY_COUNT)
-            .setTooltip(Component.translatable("config.not-riding-alert.rideDisplayCount.tooltip"))
-            .setSaveConsumer(newValue -> profile.rideDisplayCount = newValue)
-            .setDisplayRequirement(strategyHubOnly)
+                100)
+            .setDefaultValue(ConfigDefaults.HUD_BACKGROUND_OPACITY)
+            .setTooltip(
+                Component.translatable("config.not-riding-alert.hudBackgroundOpacity.tooltip"))
+            .setSaveConsumer(newValue -> profile.hudBackgroundOpacity = newValue)
             .build());
 
     tracker.addEntry(
         entryBuilder
-            .startEnumSelector(
-                Component.translatable("config.not-riding-alert.sortingRules"),
-                SortingRules.class,
-                profile.sortingRules)
-            .setDefaultValue(ConfigDefaults.SORTING_RULES)
-            .setTooltip(Component.translatable("config.not-riding-alert.sortingRules.tooltip"))
-            .setSaveConsumer(newValue -> profile.sortingRules = newValue)
-            .setEnumNameProvider(
-                rule ->
-                    Component.translatable(
-                        "config.not-riding-alert.sortingRules." + rule.name().toLowerCase()))
-            .setDisplayRequirement(strategyHubOnly)
+            .startBooleanToggle(
+                Component.translatable("config.not-riding-alert.showSessionStats"),
+                profile.showSessionStats)
+            .setDefaultValue(ConfigDefaults.SHOW_SESSION_STATS)
+            .setTooltip(Component.translatable("config.not-riding-alert.showSessionStats.tooltip"))
+            .setSaveConsumer(newValue -> profile.showSessionStats = newValue)
             .build());
 
-    tracker.addEntry(
+    List<AbstractConfigListEntry> goalsGroup = new ArrayList<>();
+    goalsGroup.add(
+        entryBuilder
+            .startEnumSelector(
+                Component.translatable("config.not-riding-alert.maxGoal"),
+                MaxGoal.class,
+                profile.maxGoal)
+            .setDefaultValue(ConfigDefaults.MAX_GOAL)
+            .setTooltip(Component.translatable("config.not-riding-alert.maxGoal.tooltip"))
+            .setSaveConsumer(newValue -> profile.maxGoal = newValue)
+            .setEnumNameProvider(
+                goal ->
+                    Component.translatable(
+                        "config.not-riding-alert.maxGoal." + goal.name().toLowerCase()))
+            .build());
+    goalsGroup.add(
+        new ScreenOpenButtonEntry(
+            Component.literal("Max goal overrides"),
+            () -> {
+              int count = profile.rideGoalOverrides.size();
+              return Component.literal(count == 0 ? "Manage..." : "Manage... (" + count + " set)");
+            },
+            () ->
+                client.setScreen(RideValueOverridesScreen.maxGoals(client.screen, profile, onSave)),
+            () ->
+                Optional.of(
+                    new Component[] {
+                      Component.translatable("config.not-riding-alert.rideGoalOverride.tooltip")
+                    })));
+    tracker.addEntry(group(entryBuilder, "config.not-riding-alert.group.goals", goalsGroup));
+
+    List<AbstractConfigListEntry> filtersGroup = new ArrayList<>();
+    filtersGroup.add(
         entryBuilder
             .startIntSlider(
                 Component.translatable("config.not-riding-alert.minRideTimeMinutes"),
@@ -484,36 +535,7 @@ public class ClothConfigScreen {
                 })
             .setDisplayRequirement(strategyHubOnly)
             .build());
-
-    tracker.addEntry(
-        entryBuilder
-            .startEnumSelector(
-                Component.translatable("config.not-riding-alert.maxGoal"),
-                MaxGoal.class,
-                profile.maxGoal)
-            .setDefaultValue(ConfigDefaults.MAX_GOAL)
-            .setTooltip(Component.translatable("config.not-riding-alert.maxGoal.tooltip"))
-            .setSaveConsumer(newValue -> profile.maxGoal = newValue)
-            .setEnumNameProvider(
-                goal ->
-                    Component.translatable(
-                        "config.not-riding-alert.maxGoal." + goal.name().toLowerCase()))
-            .build());
-
-    tracker.addEntry(
-        entryBuilder
-            .startIntSlider(
-                Component.translatable("config.not-riding-alert.hudBackgroundOpacity"),
-                profile.hudBackgroundOpacity,
-                0,
-                100)
-            .setDefaultValue(ConfigDefaults.HUD_BACKGROUND_OPACITY)
-            .setTooltip(
-                Component.translatable("config.not-riding-alert.hudBackgroundOpacity.tooltip"))
-            .setSaveConsumer(newValue -> profile.hudBackgroundOpacity = newValue)
-            .build());
-
-    tracker.addEntry(
+    filtersGroup.add(
         entryBuilder
             .startBooleanToggle(
                 Component.translatable("config.not-riding-alert.onlyAutograbbing"),
@@ -522,20 +544,11 @@ public class ClothConfigScreen {
             .setTooltip(Component.translatable("config.not-riding-alert.onlyAutograbbing.tooltip"))
             .setSaveConsumer(newValue -> profile.onlyAutograbbing = newValue)
             .build());
+    tracker.addEntry(group(entryBuilder, "config.not-riding-alert.group.filters", filtersGroup));
 
-    tracker.addEntry(
-        entryBuilder
-            .startColorField(
-                Component.translatable("config.not-riding-alert.trackerNormalColor"),
-                TextColor.fromRgb(profile.trackerNormalColor & 0x00FFFFFF))
-            .setDefaultValue(TextColor.fromRgb(ConfigDefaults.TRACKER_NORMAL_COLOR & 0x00FFFFFF))
-            .setTooltip(
-                Component.translatable("config.not-riding-alert.trackerNormalColor.tooltip"))
-            .setSaveConsumer2(color -> profile.trackerNormalColor = color.getColor() | 0xFF000000)
-            .setDisplayRequirement(strategyHubOnly)
-            .build());
-
-    tracker.addEntry(
+    // Colors used by both hub modes; the strategy-only colors live in the Strategy Hub group.
+    List<AbstractConfigListEntry> colorsGroup = new ArrayList<>();
+    colorsGroup.add(
         entryBuilder
             .startColorField(
                 Component.translatable("config.not-riding-alert.trackerAutograbbingColor"),
@@ -547,8 +560,7 @@ public class ClothConfigScreen {
             .setSaveConsumer2(
                 color -> profile.trackerAutograbbingColor = color.getColor() | 0xFF000000)
             .build());
-
-    tracker.addEntry(
+    colorsGroup.add(
         entryBuilder
             .startColorField(
                 Component.translatable("config.not-riding-alert.trackerRidingColor"),
@@ -558,8 +570,64 @@ public class ClothConfigScreen {
                 Component.translatable("config.not-riding-alert.trackerRidingColor.tooltip"))
             .setSaveConsumer2(color -> profile.trackerRidingColor = color.getColor() | 0xFF000000)
             .build());
+    tracker.addEntry(group(entryBuilder, "config.not-riding-alert.group.colors", colorsGroup));
 
-    tracker.addEntry(
+    // Everything below only matters in Strategy Hub mode; the whole group is gated together, so
+    // the individual entries no longer carry their own display requirement.
+    List<AbstractConfigListEntry> strategyHubGroup = new ArrayList<>();
+    strategyHubGroup.add(
+        entryBuilder
+            .startEnumSelector(
+                Component.translatable("config.not-riding-alert.strategyHudRendererVersion"),
+                StrategyHudRendererVersion.class,
+                profile.strategyHudRendererVersion)
+            .setDefaultValue(ConfigDefaults.STRATEGY_HUD_RENDERER_VERSION)
+            .setTooltip(
+                Component.translatable(
+                    "config.not-riding-alert.strategyHudRendererVersion.tooltip"))
+            .setSaveConsumer(newValue -> profile.strategyHudRendererVersion = newValue)
+            .setEnumNameProvider(
+                version ->
+                    Component.translatable(
+                        "config.not-riding-alert.strategyHudRendererVersion."
+                            + version.name().toLowerCase()))
+            .build());
+    strategyHubGroup.add(
+        entryBuilder
+            .startIntSlider(
+                Component.translatable("config.not-riding-alert.rideDisplayCount"),
+                profile.rideDisplayCount,
+                0,
+                60)
+            .setDefaultValue(ConfigDefaults.RIDE_DISPLAY_COUNT)
+            .setTooltip(Component.translatable("config.not-riding-alert.rideDisplayCount.tooltip"))
+            .setSaveConsumer(newValue -> profile.rideDisplayCount = newValue)
+            .build());
+    strategyHubGroup.add(
+        entryBuilder
+            .startEnumSelector(
+                Component.translatable("config.not-riding-alert.sortingRules"),
+                SortingRules.class,
+                profile.sortingRules)
+            .setDefaultValue(ConfigDefaults.SORTING_RULES)
+            .setTooltip(Component.translatable("config.not-riding-alert.sortingRules.tooltip"))
+            .setSaveConsumer(newValue -> profile.sortingRules = newValue)
+            .setEnumNameProvider(
+                rule ->
+                    Component.translatable(
+                        "config.not-riding-alert.sortingRules." + rule.name().toLowerCase()))
+            .build());
+    strategyHubGroup.add(
+        entryBuilder
+            .startColorField(
+                Component.translatable("config.not-riding-alert.trackerNormalColor"),
+                TextColor.fromRgb(profile.trackerNormalColor & 0x00FFFFFF))
+            .setDefaultValue(TextColor.fromRgb(ConfigDefaults.TRACKER_NORMAL_COLOR & 0x00FFFFFF))
+            .setTooltip(
+                Component.translatable("config.not-riding-alert.trackerNormalColor.tooltip"))
+            .setSaveConsumer2(color -> profile.trackerNormalColor = color.getColor() | 0xFF000000)
+            .build());
+    strategyHubGroup.add(
         entryBuilder
             .startColorField(
                 Component.translatable("config.not-riding-alert.trackerErrorColor"),
@@ -567,10 +635,8 @@ public class ClothConfigScreen {
             .setDefaultValue(TextColor.fromRgb(ConfigDefaults.TRACKER_ERROR_COLOR & 0x00FFFFFF))
             .setTooltip(Component.translatable("config.not-riding-alert.trackerErrorColor.tooltip"))
             .setSaveConsumer(color -> profile.trackerErrorColor = color | 0xFF000000)
-            .setDisplayRequirement(strategyHubOnly)
             .build());
-
-    tracker.addEntry(
+    strategyHubGroup.add(
         entryBuilder
             .startEnumSelector(
                 Component.translatable("config.not-riding-alert.closestRideMode"),
@@ -583,10 +649,8 @@ public class ClothConfigScreen {
                 mode ->
                     Component.translatable(
                         "config.not-riding-alert.closestRideMode." + mode.name().toLowerCase()))
-            .setDisplayRequirement(strategyHubOnly)
             .build());
-
-    tracker.addEntry(
+    strategyHubGroup.add(
         entryBuilder
             .startColorField(
                 Component.translatable("config.not-riding-alert.trackerClosestRideColor"),
@@ -597,38 +661,27 @@ public class ClothConfigScreen {
                 Component.translatable("config.not-riding-alert.trackerClosestRideColor.tooltip"))
             .setSaveConsumer2(
                 color -> profile.trackerClosestRideColor = color.getColor() | 0xFF000000)
+            .build());
+    tracker.addEntry(
+        entryBuilder
+            .startSubCategory(
+                Component.translatable("config.not-riding-alert.group.strategyHub"),
+                strategyHubGroup)
+            .setExpanded(true)
             .setDisplayRequirement(strategyHubOnly)
             .build());
+  }
 
-    ConfigCategory advanceNotice =
+  /** One visibility toggle per ride. */
+  private static void addRideVisibilityCategory(
+      ConfigBuilder builder, ConfigEntryBuilder entryBuilder, ConfigSetting profile) {
+    ConfigCategory rideVisibility =
         builder.getOrCreateCategory(
-            Component.translatable("config.not-riding-alert.category.advanceNotice"));
-
-    for (RideName ride : RideName.sortedByDisplayName()) {
-      int currentValue = profile.advanceNoticeSeconds.getOrDefault(ride.toMatchString(), 0);
-      advanceNotice.addEntry(
-          entryBuilder
-              .startIntSlider(formatRideLabel(ride), currentValue, 0, 30)
-              .setDefaultValue(0)
-              .setTooltip(Component.translatable("config.not-riding-alert.advanceNotice.tooltip"))
-              .setSaveConsumer(
-                  newValue -> {
-                    if (newValue > 0) {
-                      profile.advanceNoticeSeconds.put(ride.toMatchString(), newValue);
-                    } else {
-                      profile.advanceNoticeSeconds.remove(ride.toMatchString());
-                    }
-                  })
-              .build());
-    }
-
-    ConfigCategory rides =
-        builder.getOrCreateCategory(
-            Component.translatable("config.not-riding-alert.category.rideDisplay"));
+            Component.translatable("config.not-riding-alert.category.rideVisibility"));
 
     for (RideName ride : RideName.sortedByDisplayName()) {
       boolean currentValue = !profile.hiddenRides.contains(ride.toMatchString());
-      var visibilityEntry =
+      rideVisibility.addEntry(
           entryBuilder
               .startBooleanToggle(formatRideLabel(ride), currentValue)
               .setDefaultValue(!ride.isSeasonal())
@@ -641,49 +694,36 @@ public class ClothConfigScreen {
                       profile.hiddenRides.remove(ride.toMatchString());
                     }
                   })
-              .build();
-      rides.addEntry(visibilityEntry);
-
-      RideMaxGoalOverride currentGoalOverride =
-          profile.rideGoalOverrides.getOrDefault(
-              ride.toMatchString(), RideMaxGoalOverride.USE_SYSTEM);
-      rides.addEntry(
-          entryBuilder
-              .startEnumSelector(
-                  Component.literal("  ↳ Max goal"), RideMaxGoalOverride.class, currentGoalOverride)
-              .setDefaultValue(RideMaxGoalOverride.USE_SYSTEM)
-              .setTooltip(
-                  Component.translatable("config.not-riding-alert.rideGoalOverride.tooltip"))
-              .setEnumNameProvider(
-                  override -> Component.literal(((RideMaxGoalOverride) override).getDisplayName()))
-              .setSaveConsumer(
-                  newValue -> {
-                    if (newValue == null || newValue == RideMaxGoalOverride.USE_SYSTEM) {
-                      profile.rideGoalOverrides.remove(ride.toMatchString());
-                    } else {
-                      profile.rideGoalOverrides.put(ride.toMatchString(), newValue);
-                    }
-                  })
-              .setDisplayRequirement(Requirement.isValue(visibilityEntry, true))
               .build());
     }
+  }
 
-    if (ServerState.isImagineFunServer() && MonkeycraftCompat.isAvailable()) {
-      ConfigCategory monkeyCraft = builder.getOrCreateCategory(Component.literal("MonkeyCraft"));
-
-      monkeyCraft.addEntry(
-          entryBuilder
-              .startBooleanToggle(
-                  Component.literal("Hibernating when riding"), profile.hibernationWhenRiding)
-              .setDefaultValue(ConfigDefaults.HIBERNATION_WHEN_RIDING)
-              .setTooltip(
-                  Component.literal(
-                      "When enabled, the mod will start hibernation when riding. When disabled, new hibernations won't start, but existing ones can still be updated or ended."))
-              .setSaveConsumer(newValue -> profile.hibernationWhenRiding = newValue)
-              .build());
+  private static void addMonkeyCraftCategory(
+      ConfigBuilder builder, ConfigEntryBuilder entryBuilder, ConfigSetting profile) {
+    if (!ServerState.isImagineFunServer() || !MonkeycraftCompat.isAvailable()) {
+      return;
     }
+    ConfigCategory monkeyCraft = builder.getOrCreateCategory(Component.literal("MonkeyCraft"));
 
-    return builder.build();
+    monkeyCraft.addEntry(
+        entryBuilder
+            .startBooleanToggle(
+                Component.literal("Hibernating when riding"), profile.hibernationWhenRiding)
+            .setDefaultValue(ConfigDefaults.HIBERNATION_WHEN_RIDING)
+            .setTooltip(
+                Component.literal(
+                    "When enabled, the mod will start hibernation when riding. When disabled, new hibernations won't start, but existing ones can still be updated or ended."))
+            .setSaveConsumer(newValue -> profile.hibernationWhenRiding = newValue)
+            .build());
+  }
+
+  /** A collapsible, expanded-by-default group of entries with a translatable title. */
+  private static AbstractConfigListEntry group(
+      ConfigEntryBuilder entryBuilder, String titleKey, List<AbstractConfigListEntry> entries) {
+    return entryBuilder
+        .startSubCategory(Component.translatable(titleKey), entries)
+        .setExpanded(true)
+        .build();
   }
 
   private static Component formatRideLabel(RideName ride) {
