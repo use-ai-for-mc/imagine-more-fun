@@ -61,5 +61,8 @@ native/windows/status-helper.exe
 .claude/settings.local.json
 .claude/worktrees/
 
+# Personal Codex MCP server paths — repo-level hooks live under .codex/hooks.
+.codex/config.toml
+
 # /dream code-review skill workspace — review artifacts, not mod source.
 .dream/
