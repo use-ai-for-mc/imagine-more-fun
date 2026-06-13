@@ -1,5 +1,7 @@
 package com.chenweikeng.imf.nra.dailyplan;
 
+import com.chenweikeng.imf.nra.config.ModConfig;
+import com.chenweikeng.imf.nra.config.RideHubMode;
 import com.chenweikeng.imf.nra.dailyplan.DailyPlanLayer.LayerType;
 import com.chenweikeng.imf.nra.ride.RideName;
 import java.util.Random;
@@ -11,7 +13,8 @@ import net.minecraft.sounds.SoundEvents;
 /**
  * Sound + particle flourish for node and layer completions. Chat messages are intentionally not
  * sent — the HUD's colour/state change already signals the completion, so extra chat lines are
- * noise.
+ * noise. Plays only in Ride Plan mode; completions still tracked in Strategy Hub mode arrive
+ * silently.
  */
 public final class DailyPlanCelebration {
   private static final Random RANDOM = new Random();
@@ -24,6 +27,9 @@ public final class DailyPlanCelebration {
     if (client == null || client.player == null || client.level == null) {
       return;
     }
+    if (ModConfig.currentSetting.rideHubMode != RideHubMode.RIDE_PLAN) {
+      return;
+    }
     client
         .getSoundManager()
         .play(SimpleSoundInstance.forUI(SoundEvents.NOTE_BLOCK_BELL.value(), 1.5f, 1.0f));
@@ -32,6 +38,9 @@ public final class DailyPlanCelebration {
 
   public static void layerCompleted(Minecraft client, int layerNumber, LayerType type) {
     if (client == null || client.player == null || client.level == null) {
+      return;
+    }
+    if (ModConfig.currentSetting.rideHubMode != RideHubMode.RIDE_PLAN) {
       return;
     }
     client
