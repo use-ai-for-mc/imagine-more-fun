@@ -19,6 +19,7 @@ import com.chenweikeng.imf.nra.handler.ConfigReminderHandler;
 import com.chenweikeng.imf.nra.handler.DayTimeHandler;
 import com.chenweikeng.imf.nra.handler.FireworkViewingHandler;
 import com.chenweikeng.imf.nra.handler.HibernationHandler;
+import com.chenweikeng.imf.nra.handler.MonkeycraftAutograbOverlayRenderer;
 import com.chenweikeng.imf.nra.handler.ReminderHandler;
 import com.chenweikeng.imf.nra.handler.ScoreboardHandler;
 import com.chenweikeng.imf.nra.redcartrolley.RctCalibration;
@@ -160,6 +161,15 @@ public class NotRidingAlertClient implements ClientModInitializer {
     if (sessionStatsId != null) {
       HudElementRegistry.attachElementBefore(
           VanillaHudElements.CHAT, sessionStatsId, SessionStatsHudRenderer::render);
+    }
+
+    Identifier monkeycraftAutograbOverlayId =
+        Identifier.fromNamespaceAndPath(NotRidingAlertClient.MOD_ID, "monkeycraft_autograb");
+    if (monkeycraftAutograbOverlayId != null) {
+      HudElementRegistry.attachElementBefore(
+          VanillaHudElements.CHAT,
+          monkeycraftAutograbOverlayId,
+          MonkeycraftAutograbOverlayRenderer::render);
     }
   }
 
