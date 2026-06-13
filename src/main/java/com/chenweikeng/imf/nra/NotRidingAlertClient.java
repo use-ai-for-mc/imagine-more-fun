@@ -13,6 +13,7 @@ import com.chenweikeng.imf.nra.dailyplan.DailyPlanProgressTracker;
 import com.chenweikeng.imf.nra.handler.AdvanceNoticeHandler;
 import com.chenweikeng.imf.nra.handler.AutograbFailureHandler;
 import com.chenweikeng.imf.nra.handler.AutograbRegionRenderer;
+import com.chenweikeng.imf.nra.handler.ChatImeSwitcher;
 import com.chenweikeng.imf.nra.handler.ClosedCaptionHolder;
 import com.chenweikeng.imf.nra.handler.ConfigReminderHandler;
 import com.chenweikeng.imf.nra.handler.DayTimeHandler;
@@ -89,6 +90,7 @@ public class NotRidingAlertClient implements ClientModInitializer {
     DailyRideSnapshot.getInstance();
     LOGGER.info("Not Riding Alert client initialized");
     AutograbRegionRenderer.register();
+    ChatImeSwitcher.register();
 
     ClientPlayConnectionEvents.JOIN.register(
         (handler, sender, client) -> {

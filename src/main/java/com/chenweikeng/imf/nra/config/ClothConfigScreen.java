@@ -154,6 +154,21 @@ public class ClothConfigScreen {
             .setSaveConsumer(newValue -> profile.randomRideOverride = newValue)
             .build());
 
+    general.addEntry(
+        entryBuilder
+            .startEnumSelector(
+                Component.translatable("config.not-riding-alert.chatImeMode"),
+                ChatImeMode.class,
+                profile.chatImeMode)
+            .setDefaultValue(ConfigDefaults.CHAT_IME_MODE)
+            .setTooltip(Component.translatable("config.not-riding-alert.chatImeMode.tooltip"))
+            .setSaveConsumer(newValue -> profile.chatImeMode = newValue)
+            .setEnumNameProvider(
+                mode ->
+                    Component.translatable(
+                        "config.not-riding-alert.chatImeMode." + mode.name().toLowerCase()))
+            .build());
+
     ConfigCategory visual =
         builder.getOrCreateCategory(
             Component.translatable("config.not-riding-alert.category.visual"));

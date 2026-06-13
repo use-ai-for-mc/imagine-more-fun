@@ -57,6 +57,7 @@ public class ConfigSetting {
   public boolean enableOpenAudioMc = ConfigDefaults.ENABLE_OPEN_AUDIO_MC;
   public RideReportNotifyMode rideReportNotifyMode = ConfigDefaults.RIDE_REPORT_NOTIFY_MODE;
   public boolean randomRideOverride = ConfigDefaults.RANDOM_RIDE_OVERRIDE;
+  public ChatImeMode chatImeMode = ConfigDefaults.CHAT_IME_MODE;
   public RideHubMode rideHubMode = ConfigDefaults.RIDE_HUB_MODE;
   public boolean spaceMountainEnhancements = ConfigDefaults.SPACE_MOUNTAIN_ENHANCEMENTS;
   public double coasterTiltMultiplier = ConfigDefaults.COASTER_TILT_MULTIPLIER;
@@ -125,6 +126,7 @@ public class ConfigSetting {
     enableOpenAudioMc = ConfigDefaults.ENABLE_OPEN_AUDIO_MC;
     rideReportNotifyMode = ConfigDefaults.RIDE_REPORT_NOTIFY_MODE;
     randomRideOverride = ConfigDefaults.RANDOM_RIDE_OVERRIDE;
+    chatImeMode = ConfigDefaults.CHAT_IME_MODE;
     rideHubMode = ConfigDefaults.RIDE_HUB_MODE;
     spaceMountainEnhancements = ConfigDefaults.SPACE_MOUNTAIN_ENHANCEMENTS;
     coasterTiltMultiplier = ConfigDefaults.COASTER_TILT_MULTIPLIER;
@@ -178,6 +180,7 @@ public class ConfigSetting {
     copy.enableOpenAudioMc = this.enableOpenAudioMc;
     copy.rideReportNotifyMode = this.rideReportNotifyMode;
     copy.randomRideOverride = this.randomRideOverride;
+    copy.chatImeMode = this.chatImeMode;
     copy.rideHubMode = this.rideHubMode;
     copy.spaceMountainEnhancements = this.spaceMountainEnhancements;
     copy.coasterTiltMultiplier = this.coasterTiltMultiplier;
@@ -226,6 +229,7 @@ public class ConfigSetting {
         && enableOpenAudioMc == that.enableOpenAudioMc
         && rideReportNotifyMode == that.rideReportNotifyMode
         && randomRideOverride == that.randomRideOverride
+        && chatImeMode == that.chatImeMode
         && rideHubMode == that.rideHubMode
         && spaceMountainEnhancements == that.spaceMountainEnhancements
         && Double.compare(coasterTiltMultiplier, that.coasterTiltMultiplier) == 0
@@ -281,6 +285,7 @@ public class ConfigSetting {
         enableOpenAudioMc,
         rideReportNotifyMode,
         randomRideOverride,
+        chatImeMode,
         rideHubMode,
         spaceMountainEnhancements,
         coasterTiltMultiplier);
