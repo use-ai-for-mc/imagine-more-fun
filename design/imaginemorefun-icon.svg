@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="64" y1="32" x2="448" y2="480" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#162447"/>
+      <stop offset="1" stop-color="#0b1024"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="16" stdDeviation="14" flood-color="#000" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+  <rect x="40" y="40" width="432" height="432" rx="96" fill="url(#bg)"/>
+  <path d="M116 330 C180 374 310 376 396 314" fill="none" stroke="#f7b731" stroke-width="24" stroke-linecap="round"/>
+  <path d="M396 314 l-32 -4 l20 28 z" fill="#f7b731"/>
+  <text x="256" y="276" text-anchor="middle"
+        font-family="Nunito Sans, Arial Rounded MT Bold, Arial, sans-serif"
+        font-size="158" font-weight="900" letter-spacing="0"
+        fill="#fff8e7" filter="url(#shadow)">IMF</text>
+  <path d="M414 96 l12 28 l30 10 l-30 10 l-12 28 l-12 -28 l-30 -10 l30 -10 z" fill="#ffd166"/>
+</svg>
