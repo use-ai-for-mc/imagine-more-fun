@@ -29,7 +29,6 @@ Every feature only activates while you are connected to an `*.imaginefun.net` se
 - **Autograbbing aids** — outlines for autograb regions, automatic cursor release, optional window-minimize, PC hibernation while riding, and a MonkeyCraft-visible waiting overlay.
 - **Setup wizard** — a guided first-run walkthrough.
 - **Config profiles** — named saved settings you can switch between instantly.
-- **Chat input helper** — on macOS and Windows, optionally switches the OS input method to English while the chat screen is open, then restores your previous input method when chat closes.
 
 ### Visuals
 
