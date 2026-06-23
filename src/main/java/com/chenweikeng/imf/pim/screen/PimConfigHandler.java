@@ -1,12 +1,10 @@
 package com.chenweikeng.imf.pim.screen;
 
+import com.chenweikeng.imf.ImfFileIO;
 import com.chenweikeng.imf.pim.PimClient;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
 
 public class PimConfigHandler {
   private static PimConfigHandler instance;
@@ -37,17 +35,9 @@ public class PimConfigHandler {
   }
 
   private void save() {
-    if (configFile.getParentFile() != null && !configFile.getParentFile().exists()) {
-      configFile.getParentFile().mkdirs();
-    }
-
-    try (FileWriter writer = new FileWriter(configFile)) {
-      ConfigData data = new ConfigData();
-      data.fmvDiscount = fmvDiscount;
-      gson.toJson(data, writer);
-    } catch (IOException e) {
-      PimClient.LOGGER.error("[Pim] Failed to save config", e);
-    }
+    ConfigData data = new ConfigData();
+    data.fmvDiscount = fmvDiscount;
+    ImfFileIO.writeJsonAtomic(configFile.toPath(), gson, data, PimClient.LOGGER, "PIM config");
   }
 
   private void load() {
@@ -56,13 +46,11 @@ public class PimConfigHandler {
       return;
     }
 
-    try (FileReader reader = new FileReader(configFile)) {
-      ConfigData data = gson.fromJson(reader, ConfigData.class);
-      if (data != null && data.fmvDiscount > 0) {
-        fmvDiscount = data.fmvDiscount;
-      }
-    } catch (IOException e) {
-      PimClient.LOGGER.error("[Pim] Failed to load config", e);
+    ConfigData data =
+        ImfFileIO.readJson(
+            configFile.toPath(), gson, ConfigData.class, PimClient.LOGGER, "PIM config");
+    if (data != null && data.fmvDiscount > 0) {
+      fmvDiscount = data.fmvDiscount;
     }
   }
 

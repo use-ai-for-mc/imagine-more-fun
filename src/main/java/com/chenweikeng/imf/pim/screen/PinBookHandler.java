@@ -1,13 +1,11 @@
 package com.chenweikeng.imf.pim.screen;
 
+import com.chenweikeng.imf.ImfFileIO;
 import com.chenweikeng.imf.pim.PimClient;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -127,7 +125,8 @@ public class PinBookHandler {
       if (!pendingMissingSeries.isEmpty()) {
         player.displayClientMessage(
             Component.literal(
-                "§c⚠ §e[IMF] §fSome required pin series information is missing. Please open §e/pinrarity §fto update the pin series information."),
+                "§c⚠ §e[IMF] §fSome required pin series information is missing. Please open"
+                    + " §e/pinrarity §fto update the pin series information."),
             false);
       }
 
@@ -152,15 +151,8 @@ public class PinBookHandler {
   }
 
   private void save() {
-    if (dataFile.getParentFile() != null && !dataFile.getParentFile().exists()) {
-      dataFile.getParentFile().mkdirs();
-    }
-
-    try (FileWriter writer = new FileWriter(dataFile)) {
-      gson.toJson(bookMap, writer);
-    } catch (IOException e) {
-      PimClient.LOGGER.error("[Pim] Failed to save pin book data", e);
-    }
+    ImfFileIO.writeJsonAtomic(
+        dataFile.toPath(), gson, bookMap, PimClient.LOGGER, "PIM pin book data");
   }
 
   private void load() {
@@ -168,14 +160,11 @@ public class PinBookHandler {
       return;
     }
 
-    try (FileReader reader = new FileReader(dataFile)) {
-      Type mapType = new TypeToken<Map<String, PinBookEntry>>() {}.getType();
-      Map<String, PinBookEntry> loadedMap = gson.fromJson(reader, mapType);
-      if (loadedMap != null) {
-        bookMap.putAll(loadedMap);
-      }
-    } catch (IOException e) {
-      PimClient.LOGGER.error("[Pim] Failed to load pin book data", e);
+    Type mapType = new TypeToken<Map<String, PinBookEntry>>() {}.getType();
+    Map<String, PinBookEntry> loadedMap =
+        ImfFileIO.readJson(dataFile.toPath(), gson, mapType, PimClient.LOGGER, "PIM pin book data");
+    if (loadedMap != null) {
+      bookMap.putAll(loadedMap);
     }
   }
 

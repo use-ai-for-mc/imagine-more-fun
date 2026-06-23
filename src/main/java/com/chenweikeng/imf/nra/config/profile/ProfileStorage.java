@@ -1,14 +1,11 @@
 package com.chenweikeng.imf.nra.config.profile;
 
+import com.chenweikeng.imf.ImfFileIO;
 import com.chenweikeng.imf.ImfStorage;
 import com.chenweikeng.imf.nra.NotRidingAlertClient;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -52,24 +49,24 @@ public final class ProfileStorage {
       return ProfileStorageData.withBuiltIns();
     }
 
-    try (FileReader reader = new FileReader(storageFile)) {
-      ProfileStorageData data = GSON.fromJson(reader, ProfileStorageData.class);
-      if (data == null) {
-        NotRidingAlertClient.LOGGER.warn("Profile storage file is empty, creating with built-ins");
-        return ProfileStorageData.withBuiltIns();
-      }
-      if (data.profiles == null) {
-        data.profiles = new ArrayList<>();
-      }
-      List<StoredProfile> validProfiles = validateAndFilterProfiles(data.profiles);
-      data.profiles = validProfiles;
-      ensureBuiltInsExist(data);
-      return data;
-    } catch (Exception e) {
-      NotRidingAlertClient.LOGGER.warn(
-          "Failed to load profile storage, recreating with built-ins: {}", e.getMessage());
+    ProfileStorageData data =
+        ImfFileIO.readJson(
+            STORAGE_PATH,
+            GSON,
+            ProfileStorageData.class,
+            NotRidingAlertClient.LOGGER,
+            "profile storage");
+    if (data == null) {
+      NotRidingAlertClient.LOGGER.warn("Profile storage file is empty, creating with built-ins");
       return ProfileStorageData.withBuiltIns();
     }
+    if (data.profiles == null) {
+      data.profiles = new ArrayList<>();
+    }
+    List<StoredProfile> validProfiles = validateAndFilterProfiles(data.profiles);
+    data.profiles = validProfiles;
+    ensureBuiltInsExist(data);
+    return data;
   }
 
   private static List<StoredProfile> validateAndFilterProfiles(List<StoredProfile> profiles) {
@@ -97,14 +94,8 @@ public final class ProfileStorage {
     if (data == null) {
       return;
     }
-    try {
-      Files.createDirectories(STORAGE_PATH.getParent());
-      try (FileWriter writer = new FileWriter(STORAGE_PATH.toFile())) {
-        GSON.toJson(data, writer);
-      }
-    } catch (IOException e) {
-      NotRidingAlertClient.LOGGER.error("Failed to save profile storage: {}", e.getMessage());
-    }
+    ImfFileIO.writeJsonAtomic(
+        STORAGE_PATH, GSON, data, NotRidingAlertClient.LOGGER, "profile storage");
   }
 
   private static void ensureBuiltInsExist(ProfileStorageData data) {

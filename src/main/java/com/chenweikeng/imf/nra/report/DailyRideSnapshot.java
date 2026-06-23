@@ -1,5 +1,6 @@
 package com.chenweikeng.imf.nra.report;
 
+import com.chenweikeng.imf.ImfFileIO;
 import com.chenweikeng.imf.ImfStorage;
 import com.chenweikeng.imf.nra.NotRidingAlertClient;
 import com.chenweikeng.imf.nra.ride.RideCountManager;
@@ -8,9 +9,6 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.lang.reflect.Type;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -172,24 +170,19 @@ public class DailyRideSnapshot {
 
   private void load() {
     if (DATA_FILE.exists()) {
-      try (FileReader reader = new FileReader(DATA_FILE)) {
-        Type type = new TypeToken<Map<String, SnapshotEntry>>() {}.getType();
-        Map<String, SnapshotEntry> loaded = GSON.fromJson(reader, type);
-        if (loaded != null) {
-          snapshots.putAll(loaded);
-        }
-      } catch (Exception e) {
-        NotRidingAlertClient.LOGGER.error("Failed to load ride snapshots", e);
+      Type type = new TypeToken<Map<String, SnapshotEntry>>() {}.getType();
+      Map<String, SnapshotEntry> loaded =
+          ImfFileIO.readJson(
+              DATA_FILE.toPath(), GSON, type, NotRidingAlertClient.LOGGER, "ride snapshots");
+      if (loaded != null) {
+        snapshots.putAll(loaded);
       }
     }
   }
 
   private void save() {
-    try (FileWriter writer = new FileWriter(DATA_FILE)) {
-      GSON.toJson(snapshots, writer);
-    } catch (IOException e) {
-      NotRidingAlertClient.LOGGER.error("Failed to save ride snapshots", e);
-    }
+    ImfFileIO.writeJsonAtomic(
+        DATA_FILE.toPath(), GSON, snapshots, NotRidingAlertClient.LOGGER, "ride snapshots");
   }
 
   public String getMostRecentDate() {

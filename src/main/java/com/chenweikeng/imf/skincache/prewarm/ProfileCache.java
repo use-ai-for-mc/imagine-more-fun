@@ -1,18 +1,14 @@
 package com.chenweikeng.imf.skincache.prewarm;
 
+import com.chenweikeng.imf.ImfFileIO;
 import com.chenweikeng.imf.skincache.SkinCacheMod;
 import com.google.common.hash.Hashing;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
-import java.io.IOException;
-import java.io.Reader;
-import java.io.Writer;
 import java.lang.reflect.Type;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -224,16 +220,13 @@ public final class ProfileCache {
   private static synchronized void loadIndex() {
     if (cacheFile == null || !Files.exists(cacheFile)) return;
 
-    try (Reader reader = Files.newBufferedReader(cacheFile, StandardCharsets.UTF_8)) {
-      Type type = new TypeToken<ConcurrentHashMap<String, ProfileEntry>>() {}.getType();
-      ConcurrentHashMap<String, ProfileEntry> loaded = GSON.fromJson(reader, type);
-      if (loaded != null) {
-        profiles.putAll(loaded);
-      }
-      SkinCacheMod.LOGGER.debug("[SkinCache] Loaded {} cached profiles", profiles.size());
-    } catch (Exception e) {
-      SkinCacheMod.LOGGER.error("[SkinCache] Failed to load profile cache", e);
+    Type type = new TypeToken<ConcurrentHashMap<String, ProfileEntry>>() {}.getType();
+    ConcurrentHashMap<String, ProfileEntry> loaded =
+        ImfFileIO.readJson(cacheFile, GSON, type, SkinCacheMod.LOGGER, "SkinCache profile cache");
+    if (loaded != null) {
+      profiles.putAll(loaded);
     }
+    SkinCacheMod.LOGGER.debug("[SkinCache] Loaded {} cached profiles", profiles.size());
   }
 
   private static void saveAsync() {
@@ -249,19 +242,8 @@ public final class ProfileCache {
 
   private static synchronized void saveIndex() {
     if (cacheFile == null) return;
-    try {
-      Files.createDirectories(cacheFile.getParent());
-      try (Writer writer =
-          Files.newBufferedWriter(
-              cacheFile,
-              StandardCharsets.UTF_8,
-              StandardOpenOption.CREATE,
-              StandardOpenOption.TRUNCATE_EXISTING)) {
-        GSON.toJson(profiles, writer);
-      }
-    } catch (IOException e) {
-      SkinCacheMod.LOGGER.error("[SkinCache] Failed to save profile cache", e);
-    }
+    ImfFileIO.writeJsonAtomic(
+        cacheFile, GSON, profiles, SkinCacheMod.LOGGER, "SkinCache profile cache");
   }
 
   // ── Entry ────────────────────────────────────────────────────────
