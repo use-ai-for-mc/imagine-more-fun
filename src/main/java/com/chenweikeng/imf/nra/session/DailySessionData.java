@@ -1,5 +1,6 @@
 package com.chenweikeng.imf.nra.session;
 
+import com.chenweikeng.imf.ImfFileIO;
 import com.chenweikeng.imf.ImfStorage;
 import com.chenweikeng.imf.nra.NotRidingAlertClient;
 import com.chenweikeng.imf.nra.report.DailyRideSnapshot;
@@ -7,9 +8,6 @@ import com.chenweikeng.imf.nra.report.RideReportNotifier;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
@@ -198,12 +196,10 @@ public class DailySessionData {
 
   private void save() {
     flushSessionTime();
-    try (FileWriter writer = new FileWriter(DATA_FILE)) {
-      GSON.toJson(this, writer);
+    if (ImfFileIO.writeJsonAtomic(
+        DATA_FILE.toPath(), GSON, this, NotRidingAlertClient.LOGGER, "session data")) {
       dirty = false;
       lastSaveTime = System.currentTimeMillis();
-    } catch (IOException e) {
-      NotRidingAlertClient.LOGGER.error("Failed to save session data", e);
     }
   }
 
@@ -218,13 +214,15 @@ public class DailySessionData {
 
   public static DailySessionData load() {
     if (DATA_FILE.exists()) {
-      try (FileReader reader = new FileReader(DATA_FILE)) {
-        DailySessionData data = GSON.fromJson(reader, DailySessionData.class);
-        if (data != null) {
-          return data;
-        }
-      } catch (Exception e) {
-        NotRidingAlertClient.LOGGER.error("Failed to load session data", e);
+      DailySessionData data =
+          ImfFileIO.readJson(
+              DATA_FILE.toPath(),
+              GSON,
+              DailySessionData.class,
+              NotRidingAlertClient.LOGGER,
+              "session data");
+      if (data != null) {
+        return data;
       }
     }
     return new DailySessionData();

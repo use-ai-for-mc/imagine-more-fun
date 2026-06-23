@@ -1,14 +1,12 @@
 package com.chenweikeng.imf.nra.ride;
 
+import com.chenweikeng.imf.ImfFileIO;
 import com.chenweikeng.imf.ImfStorage;
 import com.chenweikeng.imf.nra.NotRidingAlertClient;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.HashMap;
 import java.util.Map;
@@ -112,37 +110,32 @@ public class RideCountManager {
   /** Loads ride counts from file. */
   private void load() {
     if (DATA_FILE.exists()) {
-      try (FileReader reader = new FileReader(DATA_FILE)) {
-        Type type = new TypeToken<Map<String, Integer>>() {}.getType();
-        Map<String, Integer> stringMap = GSON.fromJson(reader, type);
+      Type type = new TypeToken<Map<String, Integer>>() {}.getType();
+      Map<String, Integer> stringMap =
+          ImfFileIO.readJson(
+              DATA_FILE.toPath(), GSON, type, NotRidingAlertClient.LOGGER, "ride counts");
 
-        if (stringMap != null) {
-          for (Map.Entry<String, Integer> entry : stringMap.entrySet()) {
-            RideName ride = RideName.fromMatchString(entry.getKey());
-            if (ride != RideName.UNKNOWN) {
-              rideCounts.put(ride, entry.getValue());
-              lastSavedCounts.put(ride, entry.getValue());
-            }
+      if (stringMap != null) {
+        for (Map.Entry<String, Integer> entry : stringMap.entrySet()) {
+          RideName ride = RideName.fromMatchString(entry.getKey());
+          if (ride != RideName.UNKNOWN) {
+            rideCounts.put(ride, entry.getValue());
+            lastSavedCounts.put(ride, entry.getValue());
           }
         }
-      } catch (IOException e) {
-        NotRidingAlertClient.LOGGER.error("Failed to load ride counts", e);
       }
     }
   }
 
   /** Saves ride counts to file. */
   private void save() {
-    try (FileWriter writer = new FileWriter(DATA_FILE)) {
-      // Convert enum keys to strings for JSON serialization
-      Map<String, Integer> stringMap = new HashMap<>();
-      for (Map.Entry<RideName, Integer> entry : rideCounts.entrySet()) {
-        stringMap.put(entry.getKey().toMatchString(), entry.getValue());
-      }
-      GSON.toJson(stringMap, writer);
-    } catch (IOException e) {
-      NotRidingAlertClient.LOGGER.error("Failed to save ride counts", e);
+    // Convert enum keys to strings for JSON serialization
+    Map<String, Integer> stringMap = new HashMap<>();
+    for (Map.Entry<RideName, Integer> entry : rideCounts.entrySet()) {
+      stringMap.put(entry.getKey().toMatchString(), entry.getValue());
     }
+    ImfFileIO.writeJsonAtomic(
+        DATA_FILE.toPath(), GSON, stringMap, NotRidingAlertClient.LOGGER, "ride counts");
   }
 
   /** Force save immediately (useful for testing or shutdown). */

@@ -1,5 +1,6 @@
 package com.chenweikeng.imf.nra.spacemountain;
 
+import com.chenweikeng.imf.ImfFileIO;
 import com.chenweikeng.imf.nra.NotRidingAlertClient;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -312,12 +313,8 @@ public final class SpaceMountainDiscoBall {
     root.add("balls", arr);
     root.addProperty("autoSpinEnabled", autoSpinEnabled);
     root.addProperty("autoSpinRate", autoSpinRate);
-    try {
-      Files.createDirectories(PERSIST_PATH.getParent());
-      Files.writeString(PERSIST_PATH, root.toString());
-    } catch (IOException e) {
-      NotRidingAlertClient.LOGGER.error("[SpaceMountainDiscoBall] failed to save balls", e);
-    }
+    ImfFileIO.writeStringAtomic(
+        PERSIST_PATH, root.toString(), NotRidingAlertClient.LOGGER, "Space Mountain disco balls");
   }
 
   /**

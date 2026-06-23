@@ -1,14 +1,11 @@
 package com.chenweikeng.imf.nra.dailyplan;
 
+import com.chenweikeng.imf.ImfFileIO;
 import com.chenweikeng.imf.ImfStorage;
 import com.chenweikeng.imf.nra.NotRidingAlertClient;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -175,11 +172,8 @@ public final class DailyQuestState {
     if (!file.exists()) {
       return null;
     }
-    try (FileReader reader = new FileReader(file)) {
-      return GSON.fromJson(reader, DailyQuestSnapshot.class);
-    } catch (IOException e) {
-      return null;
-    }
+    return ImfFileIO.readJson(
+        path, GSON, DailyQuestSnapshot.class, NotRidingAlertClient.LOGGER, "daily quest state");
   }
 
   private static void saveToDisk(DailyQuestSnapshot snap) {
@@ -187,14 +181,6 @@ public final class DailyQuestState {
       return;
     }
     Path path = ImfStorage.nraDailyQuests();
-    try {
-      Files.createDirectories(path.getParent());
-      try (FileWriter writer = new FileWriter(path.toFile())) {
-        GSON.toJson(snap, writer);
-      }
-    } catch (IOException e) {
-      NotRidingAlertClient.LOGGER.error(
-          "[DailyQuestState] failed to save quest state to {}", path, e);
-    }
+    ImfFileIO.writeJsonAtomic(path, GSON, snap, NotRidingAlertClient.LOGGER, "daily quest state");
   }
 }

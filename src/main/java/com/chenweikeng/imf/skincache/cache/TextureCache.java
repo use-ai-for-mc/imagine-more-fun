@@ -1,15 +1,13 @@
 package com.chenweikeng.imf.skincache.cache;
 
+import com.chenweikeng.imf.ImfFileIO;
 import com.chenweikeng.imf.skincache.SkinCacheMod;
 import com.chenweikeng.imf.skincache.util.TextureValidator;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import java.io.IOException;
-import java.io.Reader;
-import java.io.Writer;
 import java.lang.reflect.Type;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -304,16 +302,13 @@ public final class TextureCache {
   private static synchronized void loadIndex() {
     if (!Files.exists(indexFile)) return;
 
-    try (Reader reader = Files.newBufferedReader(indexFile, StandardCharsets.UTF_8)) {
-      Type type = new TypeToken<ConcurrentHashMap<String, CacheEntry>>() {}.getType();
-      ConcurrentHashMap<String, CacheEntry> loaded = GSON.fromJson(reader, type);
-      if (loaded != null) {
-        index.putAll(loaded);
-      }
-      SkinCacheMod.LOGGER.debug("[SkinCache] Loaded {} cached entries from index", index.size());
-    } catch (Exception e) {
-      SkinCacheMod.LOGGER.error("[SkinCache] Failed to load index, starting fresh", e);
+    Type type = new TypeToken<ConcurrentHashMap<String, CacheEntry>>() {}.getType();
+    ConcurrentHashMap<String, CacheEntry> loaded =
+        ImfFileIO.readJson(indexFile, GSON, type, SkinCacheMod.LOGGER, "SkinCache index");
+    if (loaded != null) {
+      index.putAll(loaded);
     }
+    SkinCacheMod.LOGGER.debug("[SkinCache] Loaded {} cached entries from index", index.size());
   }
 
   private static void saveIndexAsync() {
@@ -331,16 +326,7 @@ public final class TextureCache {
   }
 
   private static synchronized void saveIndex() {
-    try (Writer writer =
-        Files.newBufferedWriter(
-            indexFile,
-            StandardCharsets.UTF_8,
-            StandardOpenOption.CREATE,
-            StandardOpenOption.TRUNCATE_EXISTING)) {
-      GSON.toJson(index, writer);
-    } catch (IOException e) {
-      SkinCacheMod.LOGGER.error("[SkinCache] Failed to save index", e);
-    }
+    ImfFileIO.writeJsonAtomic(indexFile, GSON, index, SkinCacheMod.LOGGER, "SkinCache index");
   }
 
   // ── Utilities ──────────────────────────────────────────────────

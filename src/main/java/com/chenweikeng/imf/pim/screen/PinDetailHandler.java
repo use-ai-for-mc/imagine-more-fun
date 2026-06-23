@@ -1,5 +1,6 @@
 package com.chenweikeng.imf.pim.screen;
 
+import com.chenweikeng.imf.ImfFileIO;
 import com.chenweikeng.imf.nra.session.SessionTracker;
 import com.chenweikeng.imf.pim.PimClient;
 import com.chenweikeng.imf.pim.pin.Rarity;
@@ -7,9 +8,6 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.HashMap;
 import java.util.List;
@@ -193,15 +191,8 @@ public class PinDetailHandler {
   }
 
   private void save() {
-    if (dataFile.getParentFile() != null && !dataFile.getParentFile().exists()) {
-      dataFile.getParentFile().mkdirs();
-    }
-
-    try (FileWriter writer = new FileWriter(dataFile)) {
-      gson.toJson(detailMap, writer);
-    } catch (IOException e) {
-      PimClient.LOGGER.error("[Pim] Failed to save pin detail data", e);
-    }
+    ImfFileIO.writeJsonAtomic(
+        dataFile.toPath(), gson, detailMap, PimClient.LOGGER, "PIM pin detail data");
   }
 
   private void load() {
@@ -209,14 +200,12 @@ public class PinDetailHandler {
       return;
     }
 
-    try (FileReader reader = new FileReader(dataFile)) {
-      Type mapType = new TypeToken<Map<String, Map<String, PinDetailEntry>>>() {}.getType();
-      Map<String, Map<String, PinDetailEntry>> loadedMap = gson.fromJson(reader, mapType);
-      if (loadedMap != null) {
-        detailMap.putAll(loadedMap);
-      }
-    } catch (IOException e) {
-      PimClient.LOGGER.error("[Pim] Failed to load pin detail data", e);
+    Type mapType = new TypeToken<Map<String, Map<String, PinDetailEntry>>>() {}.getType();
+    Map<String, Map<String, PinDetailEntry>> loadedMap =
+        ImfFileIO.readJson(
+            dataFile.toPath(), gson, mapType, PimClient.LOGGER, "PIM pin detail data");
+    if (loadedMap != null) {
+      detailMap.putAll(loadedMap);
     }
   }
 

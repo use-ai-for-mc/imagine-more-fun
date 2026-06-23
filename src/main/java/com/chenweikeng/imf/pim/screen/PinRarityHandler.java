@@ -1,14 +1,12 @@
 package com.chenweikeng.imf.pim.screen;
 
+import com.chenweikeng.imf.ImfFileIO;
 import com.chenweikeng.imf.pim.PimClient;
 import com.chenweikeng.imf.pim.pin.PinPackTier;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.lang.reflect.Type;
 import java.util.HashMap;
 import java.util.List;
@@ -163,15 +161,8 @@ public class PinRarityHandler {
   }
 
   private void save() {
-    if (dataFile.getParentFile() != null && !dataFile.getParentFile().exists()) {
-      dataFile.getParentFile().mkdirs();
-    }
-
-    try (FileWriter writer = new FileWriter(dataFile)) {
-      gson.toJson(seriesMap, writer);
-    } catch (IOException e) {
-      PimClient.LOGGER.error("[Pim] Failed to save pin rarity data", e);
-    }
+    ImfFileIO.writeJsonAtomic(
+        dataFile.toPath(), gson, seriesMap, PimClient.LOGGER, "PIM pin rarity data");
   }
 
   private void load() {
@@ -179,14 +170,12 @@ public class PinRarityHandler {
       return;
     }
 
-    try (FileReader reader = new FileReader(dataFile)) {
-      Type mapType = new TypeToken<Map<String, PinSeriesEntry>>() {}.getType();
-      Map<String, PinSeriesEntry> loadedMap = gson.fromJson(reader, mapType);
-      if (loadedMap != null) {
-        seriesMap.putAll(loadedMap);
-      }
-    } catch (IOException e) {
-      PimClient.LOGGER.error("[Pim] Failed to load pin rarity data", e);
+    Type mapType = new TypeToken<Map<String, PinSeriesEntry>>() {}.getType();
+    Map<String, PinSeriesEntry> loadedMap =
+        ImfFileIO.readJson(
+            dataFile.toPath(), gson, mapType, PimClient.LOGGER, "PIM pin rarity data");
+    if (loadedMap != null) {
+      seriesMap.putAll(loadedMap);
     }
   }
 

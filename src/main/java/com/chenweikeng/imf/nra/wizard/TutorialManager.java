@@ -1,13 +1,11 @@
 package com.chenweikeng.imf.nra.wizard;
 
+import com.chenweikeng.imf.ImfFileIO;
 import com.chenweikeng.imf.ImfStorage;
 import com.chenweikeng.imf.nra.NotRidingAlertClient;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
 import java.nio.file.Path;
 import net.fabricmc.loader.api.FabricLoader;
 
@@ -101,30 +99,24 @@ public class TutorialManager {
       return;
     }
 
-    try (FileReader reader = new FileReader(configFile)) {
-      TutorialData data = GSON.fromJson(reader, TutorialData.class);
-      if (data != null) {
-        this.completed = data.completed;
-        this.completedVersion = data.completedVersion;
-      }
-    } catch (IOException e) {
-      NotRidingAlertClient.LOGGER.warn("Failed to load tutorial state", e);
+    TutorialData data =
+        ImfFileIO.readJson(
+            CONFIG_PATH, GSON, TutorialData.class, NotRidingAlertClient.LOGGER, "tutorial state");
+    if (data != null) {
+      this.completed = data.completed;
+      this.completedVersion = data.completedVersion;
     }
   }
 
   public void save() {
     try {
-      File configFile = CONFIG_PATH.toFile();
-      configFile.getParentFile().mkdirs();
-
       TutorialData data = new TutorialData();
       data.completed = this.completed;
       data.completedVersion = this.completedVersion;
 
-      try (FileWriter writer = new FileWriter(configFile)) {
-        GSON.toJson(data, writer);
-      }
-    } catch (IOException e) {
+      ImfFileIO.writeJsonAtomic(
+          CONFIG_PATH, GSON, data, NotRidingAlertClient.LOGGER, "tutorial state");
+    } catch (RuntimeException e) {
       NotRidingAlertClient.LOGGER.warn("Failed to save tutorial state", e);
     }
   }

@@ -1,14 +1,11 @@
 package com.chenweikeng.imf.nra.config;
 
+import com.chenweikeng.imf.ImfFileIO;
 import com.chenweikeng.imf.ImfStorage;
 import com.chenweikeng.imf.nra.NotRidingAlertClient;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 
 public class ModConfig {
@@ -24,13 +21,10 @@ public class ModConfig {
       return;
     }
 
-    try (FileReader reader = new FileReader(configFile)) {
-      currentSetting = GSON.fromJson(reader, ConfigSetting.class);
-      if (currentSetting == null) {
-        currentSetting = new ConfigSetting();
-      }
-    } catch (IOException e) {
-      NotRidingAlertClient.LOGGER.warn("Failed to load NRA config, using defaults", e);
+    currentSetting =
+        ImfFileIO.readJson(
+            CONFIG_PATH, GSON, ConfigSetting.class, NotRidingAlertClient.LOGGER, "NRA config");
+    if (currentSetting == null) {
       currentSetting = new ConfigSetting();
     }
   }
@@ -39,14 +33,8 @@ public class ModConfig {
     if (currentSetting == null) {
       return;
     }
-    try {
-      Files.createDirectories(CONFIG_PATH.getParent());
-      try (FileWriter writer = new FileWriter(CONFIG_PATH.toFile())) {
-        GSON.toJson(currentSetting, writer);
-      }
-    } catch (IOException e) {
-      NotRidingAlertClient.LOGGER.error("Failed to save NRA config", e);
-    }
+    ImfFileIO.writeJsonAtomic(
+        CONFIG_PATH, GSON, currentSetting, NotRidingAlertClient.LOGGER, "NRA config");
   }
 
   public static void resetToDefaults() {
