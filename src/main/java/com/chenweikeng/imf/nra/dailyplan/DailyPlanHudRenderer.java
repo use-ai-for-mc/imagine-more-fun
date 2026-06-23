@@ -5,12 +5,15 @@ import com.chenweikeng.imf.nra.GameState;
 import com.chenweikeng.imf.nra.ServerState;
 import com.chenweikeng.imf.nra.config.ModConfig;
 import com.chenweikeng.imf.nra.config.RideHubMode;
+import com.chenweikeng.imf.nra.config.SortingRules;
 import com.chenweikeng.imf.nra.config.TrackerDisplayMode;
 import com.chenweikeng.imf.nra.dailyplan.DailyPlanLayer.LayerType;
 import com.chenweikeng.imf.nra.ride.AutograbHolder;
 import com.chenweikeng.imf.nra.ride.CurrentRideHolder;
 import com.chenweikeng.imf.nra.ride.RideCountManager;
 import com.chenweikeng.imf.nra.ride.RideName;
+import com.chenweikeng.imf.nra.strategy.RideGoal;
+import com.chenweikeng.imf.nra.strategy.StrategyCalculator;
 import com.chenweikeng.imf.nra.util.TimeFormatUtil;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -483,6 +486,7 @@ public final class DailyPlanHudRenderer {
         // Canoe: position-based progress, no remaining-time estimate.
         sb.append(" \u00B7 ").append(progress).append("%");
       }
+      appendGoalStatus(sb, currentRide);
       return new RidingStatus(sb.toString(), ModConfig.currentSetting.trackerRidingColor);
     }
 
@@ -492,6 +496,48 @@ public final class DailyPlanHudRenderer {
     }
 
     return null;
+  }
+
+  private static void appendGoalStatus(StringBuilder sb, RideName ride) {
+    RideGoal goal = StrategyCalculator.getGoalForRide(ride);
+    if (goal == null) {
+      return;
+    }
+
+    int ridesNeeded;
+    int targetGoal;
+    if (ModConfig.currentSetting.sortingRules == SortingRules.TOTAL_TIME_ASC
+        || ModConfig.currentSetting.sortingRules == SortingRules.TOTAL_TIME_DESC) {
+      ridesNeeded = goal.getMaxRidesNeeded();
+      targetGoal = goal.getMaxGoal();
+    } else {
+      ridesNeeded = goal.getNextGoalRidesNeeded();
+      targetGoal = goal.getNextGoal();
+    }
+
+    if (ridesNeeded <= 0) {
+      sb.append(" \u00B7 goal reached");
+      return;
+    }
+
+    sb.append(" \u00B7 ")
+        .append(ridesNeeded)
+        .append(ridesNeeded == 1 ? " ride to " : " rides to ")
+        .append(formatGoalNumber(targetGoal));
+  }
+
+  private static String formatGoalNumber(int goal) {
+    if (goal >= 10000) {
+      return (goal / 1000) + "k";
+    } else if (goal >= 1000) {
+      int thousands = goal / 1000;
+      int hundreds = (goal % 1000) / 100;
+      if (hundreds == 0) {
+        return thousands + "k";
+      }
+      return thousands + "." + hundreds + "k";
+    }
+    return String.valueOf(goal);
   }
 
   /**
