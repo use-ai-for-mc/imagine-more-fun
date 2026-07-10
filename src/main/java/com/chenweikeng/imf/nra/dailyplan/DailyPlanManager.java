@@ -42,6 +42,7 @@ public final class DailyPlanManager {
     boolean pruned = false;
     if (cached != null) {
       pruned = pruneHiddenRideLayers(cached);
+      pruned |= pruneReachedGoalNodes(cached);
     }
 
     boolean regenerated = false;
@@ -411,6 +412,66 @@ public final class DailyPlanManager {
       }
     }
 
+    return anyRemoved;
+  }
+
+  /**
+   * Removes unfinished, locally generated ride nodes whose configured maximum goal has already been
+   * reached. Existing plans can outlive the count snapshot they were generated from (most notably
+   * when opening {@code /ridestats} refreshes a stale cache), so generation-time eligibility alone
+   * is not enough to keep the plan current.
+   *
+   * <p>Daily-quest layers are intentionally excluded because their targets come from the server,
+   * independently of the user's grinding-goal configuration. Completed nodes and layers are kept as
+   * history. In a mixed OR/AND layer only the now-ineligible node is removed; the rest of the layer
+   * remains actionable.
+   */
+  private static boolean pruneReachedGoalNodes(DailyPlan plan) {
+    if (plan == null || plan.layers == null || plan.layers.isEmpty()) {
+      return false;
+    }
+
+    RideCountManager counts = RideCountManager.getInstance();
+    boolean anyRemoved = false;
+    for (int layerIdx = plan.layers.size() - 1; layerIdx >= 0; layerIdx--) {
+      DailyPlanLayer layer = plan.layers.get(layerIdx);
+      if (layer == null
+          || layer.completed
+          || layer.fromDailyQuest
+          || layer.nodes == null
+          || layer.nodes.isEmpty()) {
+        continue;
+      }
+
+      boolean nodeRemoved = false;
+      for (int nodeIdx = layer.nodes.size() - 1; nodeIdx >= 0; nodeIdx--) {
+        DailyPlanNode node = layer.nodes.get(nodeIdx);
+        if (node == null || node.completed || node.ride == null) {
+          continue;
+        }
+        RideName ride = RideName.fromMatchString(node.ride);
+        if (ride == RideName.UNKNOWN
+            || counts.getRideCount(ride) < ModConfig.currentSetting.getMaxGoalForRide(ride)) {
+          continue;
+        }
+
+        layer.nodes.remove(nodeIdx);
+        if (layer.baselineCounts != null) {
+          layer.baselineCounts.remove(node.ride);
+        }
+        nodeRemoved = true;
+        anyRemoved = true;
+      }
+
+      if (!nodeRemoved) {
+        continue;
+      }
+      if (layer.nodes.isEmpty()) {
+        plan.layers.remove(layerIdx);
+      } else {
+        layer.recomputeCompleted();
+      }
+    }
     return anyRemoved;
   }
 
