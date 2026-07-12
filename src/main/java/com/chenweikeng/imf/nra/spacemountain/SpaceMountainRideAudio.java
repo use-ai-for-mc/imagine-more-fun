@@ -4,19 +4,15 @@ import com.chenweikeng.imf.nra.NotRidingAlertClient;
 import com.chenweikeng.imf.nra.audio.OpenAudioMcService;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.resources.sounds.AbstractTickableSoundInstance;
-import net.minecraft.client.resources.sounds.SoundInstance.Attenuation;
-import net.minecraft.resources.Identifier;
-import net.minecraft.sounds.SoundEvent;
-import net.minecraft.sounds.SoundSource;
-import net.minecraft.util.RandomSource;
 import net.minecraft.world.entity.Entity;
 
 /**
  * Continuous wind + rail-friction loops driven by the rider's live velocity and yaw rate. Both
- * loops are persistent {@link AbstractTickableSoundInstance}s started when {@link
+ * loops are persistent independent Java Sound clips started when {@link
  * SpaceMountainOverride#isActive()} flips true and stopped when it flips false. The volumes are
- * recomputed every client tick from the vehicle's per-tick position/yaw deltas.
+ * recomputed every client tick from the vehicle's per-tick position/yaw deltas. They deliberately
+ * bypass Minecraft's sound engine so Dynamic FPS cannot attenuate them when the window is unfocused
+ * or cancel them when its background volume is zero.
  *
  * <p>Signals (smoothed via EMA so they don't jitter at the loop level):
  *
@@ -29,70 +25,56 @@ import net.minecraft.world.entity.Entity;
  * <p>Mappings (smoothstep curves, all constants at top of file for fast tuning):
  *
  * <ul>
- *   <li><b>wind</b>: gain rises with speed, kicks in only above ~8 blocks/s
- *   <li><b>rail</b>: gain rises with sharpness AND is speed-gated (no squeal when stopped)
- *   <li><b>rail pitch</b>: rises gently with speed (15–25%) to break up the loop's perceived
- *       repetition without sounding artificial
+ *   <li><b>wind</b>: starts above 6 blocks/s, then grows into the full speed-driven rush
+ *   <li><b>rail</b>: starts above 5 blocks/s, with extra gain from sharp turns
  * </ul>
  *
- * <p>Both sounds are constructed as listener-relative with attenuation disabled — the rider is
- * always "inside" them; no 3D positional panning.
+ * <p>Both sounds are mono, non-positional loops — the rider is always "inside" them; no 3D
+ * attenuation or panning is applied.
  *
  * <p>Asset levels: pre-recorded sources differ in loudness, so each loop has its own {@code MAX_*}
  * ceiling. The source files were peak-normalized to roughly -2 dB / 0 dB (wind / rail) during the
- * project's audio bake — the {@code MAX_*_GAIN} constants below are tuned against those peaks so
- * the per-instance volume stays under {@code SoundEngine}'s 1.0 clamp across the full OAM range,
- * while still reproducing the legacy "rideAudioVolume=100%" loudness at the OAM=25% calibration
- * point.
+ * project's audio bake — the {@code MAX_*_GAIN} constants below are tuned against those peaks for a
+ * direct linear mapping from the OpenAudioMC slider that does not clip at the high end.
  *
  * <p><b>Master loudness tracks OpenAudioMC.</b> The output is scaled by {@link
  * OpenAudioMcService#getCurrentVolume()} so the wind and rail loops grow louder when the user
  * cranks the OAM music slider and quieter when they pull it down — both layers stay in balance
- * without a separate config knob. Calibration: OAM=25% reproduces the legacy "rideAudioVolume=100%"
- * loudness; OAM=100% is roughly 4× that. The scaling is linear in OAM up to where the per-instance
- * volume hits 1.0 (≈ OAM=100 for wind, ≈ OAM=87 for rail — rail's source asset was already nearly
- * peak-normalized so its headroom is limited).
+ * without a separate config knob. OAM=0/25/50/100% maps to 0/25/50/100% maximum wind gain; rail is
+ * kept slightly lower because its source asset is louder.
  */
 public final class SpaceMountainRideAudio {
 
-  private static final Identifier WIND_ID =
-      Identifier.fromNamespaceAndPath("imaginemorefun", "ride.wind");
-  private static final Identifier RAIL_ID =
-      Identifier.fromNamespaceAndPath("imaginemorefun", "ride.rail_friction");
+  private static final IndependentRideAudioLoop WIND_LOOP =
+      new IndependentRideAudioLoop("/assets/imaginemorefun/sounds/ride/wind.wav", "wind");
+  private static final IndependentRideAudioLoop RAIL_LOOP =
+      new IndependentRideAudioLoop(
+          "/assets/imaginemorefun/sounds/ride/rail_friction.wav", "rail-friction");
 
   // Per-loop output ceilings. Tuned against the asset peaks (wind ≈ -2 dB, rail ≈ 0 dB) so the
-  // legacy "rideAudioVolume=100%" loudness lands at OAM=25%, and the per-instance volume stays
-  // under SoundEngine's 1.0 clamp across the OAM range. Rail's ceiling is lower than wind's
-  // because the rail source (a real train recorded at speed) is already louder and would
-  // dominate the mix at full output.
-  private static final float MAX_WIND_GAIN = 0.131f;
-  private static final float MAX_RAIL_GAIN = 0.141f;
+  // legacy "rideAudioVolume=100%" loudness lands at OAM=25%, and the independent clip's linear
+  // volume stays at or below 1.0 across the OAM range. Rail's ceiling is lower than wind's because
+  // the rail source (a real train recorded at speed) is already louder and would dominate the mix
+  // at full output.
+  private static final float MAX_WIND_GAIN = 0.250f;
+  private static final float MAX_RAIL_GAIN = 0.220f;
 
   // Signal thresholds (blocks/s for speed; blocks/s² for sharpness).
-  private static final double WIND_LO_SPEED = 8.0;
-  private static final double WIND_HI_SPEED = 22.0;
+  private static final double WIND_LO_SPEED = 6.0;
+  private static final double WIND_HI_SPEED = 18.0;
   // Wind volume rises as smoothstep(speed)^WIND_CURVE_POWER — matches aeroacoustic scaling
   // (turbulent
-  // boundary-layer noise grows ~v³ in power; pure free-stream rush ~v²). 2.0 is a good middle.
-  // Bump toward 3.0 for an even more dramatic "kicks in only at speed" feel.
-  private static final double WIND_CURVE_POWER = 2.0;
+  // boundary-layer noise grows ~v³ in power; pure free-stream rush ~v²). The slightly softer
+  // curve keeps the loop present through the coaster's medium-speed sections.
+  private static final double WIND_CURVE_POWER = 1.5;
   private static final double RAIL_SHARP_LO = 2.0;
-  private static final double RAIL_SHARP_HI = 60.0;
-  private static final double RAIL_SPEED_LO = 2.0;
-  private static final double RAIL_SPEED_HI = 6.0;
-
-  // Rail pitch range (1.0 = neutral). Rises with speed.
-  private static final float RAIL_PITCH_LO = 0.90f;
-  private static final float RAIL_PITCH_HI = 1.20f;
+  private static final double RAIL_SHARP_HI = 35.0;
+  private static final double RAIL_SPEED_LO = 5.0;
+  private static final double RAIL_SPEED_HI = 10.0;
+  private static final double RAIL_STRAIGHT_BED = 0.25;
 
   // EMA smoothing — higher α reacts faster, lower lags more.
   private static final double SMOOTH_ALPHA = 0.35;
-
-  // Slew limit on the volume field per tick — prevents pops on start/stop.
-  private static final float VOLUME_SLEW = 0.04f;
-
-  private static WindLoop windLoop;
-  private static RailLoop railLoop;
 
   private static boolean wasActive = false;
   private static double prevX, prevY, prevZ;
@@ -111,8 +93,8 @@ public final class SpaceMountainRideAudio {
     boolean active = SpaceMountainOverride.isActive() && mc.player != null && mc.level != null;
 
     if (active != wasActive) {
-      if (active) startLoops(mc);
-      else stopLoops(mc);
+      if (active) startLoops();
+      else stopLoops();
       wasActive = active;
     }
     if (!active) {
@@ -144,120 +126,41 @@ public final class SpaceMountainRideAudio {
     havePrev = true;
 
     double sharpness = smoothedSpeed * Math.toRadians(smoothedYawRate);
-    // Master scale = OpenAudioMC volume (0..100) / 12.5. Calibration: OAM=25 → 2.0, which
-    // reproduces the loudness the project had at the legacy "rideAudioVolume=100%" setting.
-    // OAM=50 → 4.0, OAM=100 → 8.0. The MAX_*_GAIN ceilings are sized against the amplified asset
-    // peaks so the per-instance volume stays under SoundEngine's 1.0 clamp across the OAM range —
-    // wind is fully linear to OAM=100, rail flattens slightly above OAM≈87 because its asset has
-    // less headroom. When OAM isn't reporting a volume yet (-1), fall back to the 25% baseline so
-    // users who haven't connected an OAM session still hear the calibrated mix.
+    // Direct linear mapping: OAM=0/25/50/100 → scale=0/1/2/4. With MAX_WIND_GAIN=0.25 this maps
+    // maximum wind amplitude to exactly 0/25/50/100%. When OAM isn't reporting a volume yet (-1),
+    // use 25% as the neutral fallback.
     int oamVol = OpenAudioMcService.getInstance().getCurrentVolume();
     double effectiveVol = oamVol >= 0 ? oamVol : 25.0;
-    double volScale = effectiveVol / 12.5;
+    double volScale = effectiveVol / 25.0;
 
-    if (windLoop != null) {
-      double frac = smoothstep(WIND_LO_SPEED, WIND_HI_SPEED, smoothedSpeed);
-      float t = MAX_WIND_GAIN * (float) Math.pow(frac, WIND_CURVE_POWER);
-      windLoop.target = (float) (t * volScale);
-    }
-    if (railLoop != null) {
-      float vT =
-          (float)
-              (MAX_RAIL_GAIN
-                  * smoothstep(RAIL_SHARP_LO, RAIL_SHARP_HI, sharpness)
-                  * smoothstep(RAIL_SPEED_LO, RAIL_SPEED_HI, smoothedSpeed));
-      float pT =
-          RAIL_PITCH_LO
-              + (RAIL_PITCH_HI - RAIL_PITCH_LO)
-                  * (float) smoothstep(RAIL_SPEED_LO, WIND_HI_SPEED, smoothedSpeed);
-      railLoop.targetVol = (float) (vT * volScale);
-      railLoop.targetPitch = pT;
-    }
+    double windFrac =
+        Math.pow(smoothstep(WIND_LO_SPEED, WIND_HI_SPEED, smoothedSpeed), WIND_CURVE_POWER);
+    WIND_LOOP.tick((float) (MAX_WIND_GAIN * windFrac * volScale));
+
+    double cornerGain =
+        RAIL_STRAIGHT_BED
+            + (1.0 - RAIL_STRAIGHT_BED) * smoothstep(RAIL_SHARP_LO, RAIL_SHARP_HI, sharpness);
+    double railFrac = smoothstep(RAIL_SPEED_LO, RAIL_SPEED_HI, smoothedSpeed);
+    RAIL_LOOP.tick((float) (MAX_RAIL_GAIN * cornerGain * railFrac * volScale));
   }
 
-  private static void startLoops(Minecraft mc) {
-    if (windLoop == null) {
-      windLoop = new WindLoop();
-      mc.getSoundManager().play(windLoop);
-    }
-    if (railLoop == null) {
-      railLoop = new RailLoop();
-      mc.getSoundManager().play(railLoop);
-    }
-    NotRidingAlertClient.LOGGER.info("[SpaceMountainRideAudio] ride loops started");
+  private static void startLoops() {
+    boolean windStarted = WIND_LOOP.start();
+    boolean railStarted = RAIL_LOOP.start();
+    NotRidingAlertClient.LOGGER.info(
+        "[SpaceMountainRideAudio] independent ride loops started (wind={}, rail={})",
+        windStarted,
+        railStarted);
   }
 
-  private static void stopLoops(Minecraft mc) {
-    if (windLoop != null) {
-      mc.getSoundManager().stop(windLoop);
-      windLoop = null;
-    }
-    if (railLoop != null) {
-      mc.getSoundManager().stop(railLoop);
-      railLoop = null;
-    }
-    NotRidingAlertClient.LOGGER.info("[SpaceMountainRideAudio] ride loops stopped");
+  private static void stopLoops() {
+    WIND_LOOP.stop();
+    RAIL_LOOP.stop();
+    NotRidingAlertClient.LOGGER.info("[SpaceMountainRideAudio] independent ride loops stopped");
   }
 
   private static double smoothstep(double edge0, double edge1, double x) {
     double t = Math.max(0.0, Math.min(1.0, (x - edge0) / (edge1 - edge0)));
     return t * t * (3.0 - 2.0 * t);
-  }
-
-  private static class WindLoop extends AbstractTickableSoundInstance {
-    volatile float target = 0.0f;
-
-    WindLoop() {
-      super(
-          SoundEvent.createVariableRangeEvent(WIND_ID), SoundSource.AMBIENT, RandomSource.create());
-      this.looping = true;
-      this.delay = 0;
-      this.relative = true;
-      this.attenuation = Attenuation.NONE;
-      this.volume = 0.0f;
-      this.pitch = 1.0f;
-    }
-
-    @Override
-    public boolean canStartSilent() {
-      return true;
-    }
-
-    @Override
-    public void tick() {
-      float diff = target - volume;
-      if (Math.abs(diff) <= VOLUME_SLEW) volume = target;
-      else volume += Math.signum(diff) * VOLUME_SLEW;
-    }
-  }
-
-  private static class RailLoop extends AbstractTickableSoundInstance {
-    volatile float targetVol = 0.0f;
-    volatile float targetPitch = 1.0f;
-
-    RailLoop() {
-      super(
-          SoundEvent.createVariableRangeEvent(RAIL_ID), SoundSource.AMBIENT, RandomSource.create());
-      this.looping = true;
-      this.delay = 0;
-      this.relative = true;
-      this.attenuation = Attenuation.NONE;
-      this.volume = 0.0f;
-      this.pitch = 1.0f;
-    }
-
-    @Override
-    public boolean canStartSilent() {
-      return true;
-    }
-
-    @Override
-    public void tick() {
-      float vDiff = targetVol - volume;
-      if (Math.abs(vDiff) <= VOLUME_SLEW) volume = targetVol;
-      else volume += Math.signum(vDiff) * VOLUME_SLEW;
-      // Lighter slew on pitch; coupled to playback rate so abrupt changes are audible.
-      pitch += (targetPitch - pitch) * 0.1f;
-    }
   }
 }

@@ -33,6 +33,7 @@ While the gate is active the fullbright override is also suppressed — the dome
 | `SpaceMountainTunnelRenderer.java` | Launch-tunnel cylinder + tunnel screen effects. |
 | `SpaceMountainEntryTunnelSeal.java` | Plugs the launch-tunnel entry mouth with black concrete once the red tunnel effect starts; restores on ride-end. |
 | `SpaceMountainRideAudio.java` | Wind + rail-friction audio loops. |
+| `IndependentRideAudioLoop.java` | Java Sound PCM loop backend; bypasses Minecraft/Dynamic FPS volume handling. |
 | `SpaceMountainStarRenderer.java` | Static baked dome-wall starfield (~1000 stars) — a secondary layer rendered alongside the disco ball. |
 | `CoasterTrackData.java` | *(in `nra/coaster/`)* Shared parsed coaster path — loads `dome_track.bin` (x/y/z/yaw/pitch + per-sample bank `roll`) once for the track renderer; offers `nearestSample`. (Camera banking no longer reads it — see `CoasterTiltAmplifier`.) |
 | `SpaceMountainTrackRenderer.java` | Baked coaster-tube geometry (rails + spine + V-struts), banked into turns by the per-sample roll, drawn as near-invisible dark metal. |
@@ -88,7 +89,7 @@ Renders a cylindrical "launch-tunnel cover" around the rider during the tunnel w
 
 ## `SpaceMountainRideAudio`
 
-Two persistent looping sounds — wind and rail-friction — whose volume/pitch track the vehicle's per-tick speed and yaw rate. Started/stopped on the `SpaceMountainOverride.isActive()` transition. Coupled to the OpenAudioMc volume slider.
+Two persistent looping sounds — wind and rail-friction — whose volume tracks the vehicle's per-tick speed and yaw rate. Started/stopped on the `SpaceMountainOverride.isActive()` transition and coupled linearly to the OpenAudioMc volume slider. The loops play as PCM WAV clips through Java Sound rather than Minecraft's `SoundEngine`, so Dynamic FPS cannot attenuate or cancel them when the window is unfocused. Minecraft Master/Ambient sliders therefore do not affect these two physical layers. Wind starts above 6 blocks/s; rail starts above 5 blocks/s and gains extra volume in sharper turns.
 
 ## Track + camera banking — `CoasterTiltAmplifier` (in `nra/coaster/`)
 
