@@ -9,11 +9,13 @@ import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -39,7 +41,7 @@ import org.slf4j.LoggerFactory;
  *   {"type":"error","message":"..."}
  * </pre>
  */
-public class WebViewBridge {
+public class WebViewBridge implements AutoCloseable {
   private static final Logger LOGGER = LoggerFactory.getLogger("WebViewBridge");
   private static final long EVAL_TIMEOUT_SECONDS = 10;
 
@@ -93,7 +95,11 @@ public class WebViewBridge {
   private Process process;
   private BufferedWriter writer;
   private Thread readerThread;
+  private Thread errorThread;
   private volatile boolean running;
+  private final AtomicBoolean stopping = new AtomicBoolean();
+  private volatile Runnable exitListener = () -> {};
+  private volatile String sessionId = "unassigned";
   private volatile StartFailure startFailure;
   private final Map<String, CompletableFuture<JSONObject>> pendingEvals = new ConcurrentHashMap<>();
   private final CompletableFuture<Void> readyFuture = new CompletableFuture<>();
@@ -152,9 +158,24 @@ public class WebViewBridge {
           .onExit()
           .thenAccept(
               p -> {
+                running = false;
                 if (!readyFuture.isDone()) {
                   readyFuture.completeExceptionally(
                       new IOException("helper exited with code " + p.exitValue()));
+                }
+                if (!stopping.get()) {
+                  LOGGER.warn(
+                      "WebView helper exited unexpectedly (session={}, pid={}, code={})",
+                      sessionId,
+                      p.pid(),
+                      p.exitValue());
+                  exitListener.run();
+                } else {
+                  LOGGER.info(
+                      "WebView helper exited (session={}, pid={}, code={})",
+                      sessionId,
+                      p.pid(),
+                      p.exitValue());
                 }
               });
 
@@ -166,6 +187,9 @@ public class WebViewBridge {
       readerThread = new Thread(this::readLoop, "WebViewBridge-Reader");
       readerThread.setDaemon(true);
       readerThread.start();
+      errorThread = new Thread(this::readErrorLoop, "WebViewBridge-Stderr");
+      errorThread.setDaemon(true);
+      errorThread.start();
 
       // Wait for the helper to signal ready
       try {
@@ -179,7 +203,7 @@ public class WebViewBridge {
         return false;
       }
 
-      LOGGER.info("WebView helper process started (pid={})", process.pid());
+      LOGGER.info("WebView helper process started (session={}, pid={})", sessionId, process.pid());
       return true;
     } catch (IOException e) {
       startFailure = StartFailure.HELPER_LAUNCH_FAILED;
@@ -188,31 +212,75 @@ public class WebViewBridge {
     }
   }
 
-  public void stop() {
-    running = false;
-    try {
-      sendCommand(new JSONObject().put("cmd", "quit"));
-    } catch (Exception e) {
-      // Best effort
+  public void setExitListener(Runnable listener) {
+    exitListener = listener != null ? listener : () -> {};
+  }
+
+  public void setSessionId(String sessionId) {
+    this.sessionId = sessionId;
+  }
+
+  public synchronized void stop() {
+    if (!stopping.compareAndSet(false, true)) {
+      return;
     }
-    if (process != null) {
+
+    Process ownedProcess = process;
+    long pid = ownedProcess != null ? ownedProcess.pid() : -1;
+    List<ProcessHandle> ownedDescendants =
+        ownedProcess != null ? ownedProcess.descendants().toList() : List.of();
+    LOGGER.info("Stopping WebView helper (session={}, pid={})", sessionId, pid);
+
+    // Send quit while running is still true. The old order set running=false first, causing
+    // sendCommand() to silently reject the quit command and forcing every shutdown to wait five
+    // seconds before SIGKILL.
+    sendCommand(new JSONObject().put("cmd", "quit"));
+    running = false;
+    closeWriter();
+
+    if (ownedProcess != null) {
       try {
-        if (!process.waitFor(5, TimeUnit.SECONDS)) {
-          process.destroyForcibly();
+        if (!ownedProcess.waitFor(3, TimeUnit.SECONDS)) {
+          LOGGER.warn("WebView helper did not exit after quit; terminating owned pid={}", pid);
+          ownedProcess.destroy();
+          if (!ownedProcess.waitFor(2, TimeUnit.SECONDS)) {
+            ownedProcess.destroyForcibly();
+            ownedProcess.waitFor(2, TimeUnit.SECONDS);
+          }
         }
       } catch (InterruptedException e) {
-        process.destroyForcibly();
+        ownedProcess.destroyForcibly();
         Thread.currentThread().interrupt();
       }
       process = null;
     }
-    writer = null;
-
-    // Fail all pending evals
-    for (var entry : pendingEvals.entrySet()) {
-      entry.getValue().completeExceptionally(new IOException("WebView bridge stopped"));
+    joinReaderThread(readerThread);
+    joinReaderThread(errorThread);
+    readerThread = null;
+    errorThread = null;
+    // Only process handles captured from this exact helper are eligible. Never scan or kill by a
+    // generic WebKit process name, because other applications have unrelated WebKit children.
+    for (ProcessHandle descendant : ownedDescendants) {
+      if (descendant.isAlive()) {
+        LOGGER.warn(
+            "Terminating orphaned helper descendant (session={}, helperPid={}, childPid={})",
+            sessionId,
+            pid,
+            descendant.pid());
+        descendant.destroy();
+        if (descendant.isAlive()) {
+          descendant.destroyForcibly();
+        }
+      }
     }
-    pendingEvals.clear();
+
+    failPendingEvals(new IOException("WebView bridge stopped"));
+    LOGGER.info("WebView helper stop complete (session={}, pid={})", sessionId, pid);
+  }
+
+  @Override
+  public void close() {
+    stop();
   }
 
   public void loadUrl(String url) {
@@ -224,7 +292,11 @@ public class WebViewBridge {
     CompletableFuture<JSONObject> future = new CompletableFuture<>();
     pendingEvals.put(id, future);
 
-    sendCommand(new JSONObject().put("cmd", "eval").put("js", js).put("id", id));
+    if (!sendCommand(new JSONObject().put("cmd", "eval").put("js", js).put("id", id))) {
+      pendingEvals.remove(id);
+      future.completeExceptionally(new IOException("WebView helper is not running"));
+      return future;
+    }
 
     // Auto-timeout to prevent leaks
     future
@@ -241,9 +313,9 @@ public class WebViewBridge {
     return running && process != null && process.isAlive();
   }
 
-  private void sendCommand(JSONObject command) {
+  private boolean sendCommand(JSONObject command) {
     if (writer == null || !isRunning()) {
-      return;
+      return false;
     }
     try {
       synchronized (this) {
@@ -251,9 +323,30 @@ public class WebViewBridge {
         writer.newLine();
         writer.flush();
       }
+      return true;
     } catch (IOException e) {
       LOGGER.error("Failed to send command to WebView helper", e);
+      return false;
     }
+  }
+
+  private void closeWriter() {
+    BufferedWriter currentWriter = writer;
+    writer = null;
+    if (currentWriter != null) {
+      try {
+        currentWriter.close();
+      } catch (IOException e) {
+        LOGGER.debug("Failed to close WebView helper stdin", e);
+      }
+    }
+  }
+
+  private void failPendingEvals(IOException cause) {
+    for (var entry : pendingEvals.entrySet()) {
+      entry.getValue().completeExceptionally(cause);
+    }
+    pendingEvals.clear();
   }
 
   private void readLoop() {
@@ -275,11 +368,37 @@ public class WebViewBridge {
     }
     running = false;
 
-    // Fail all pending evals
-    for (var entry : pendingEvals.entrySet()) {
-      entry.getValue().completeExceptionally(new IOException("WebView helper process ended"));
+    failPendingEvals(new IOException("WebView helper process ended"));
+  }
+
+  private void readErrorLoop() {
+    Process currentProcess = process;
+    if (currentProcess == null) {
+      return;
     }
-    pendingEvals.clear();
+    try (BufferedReader reader =
+        new BufferedReader(
+            new InputStreamReader(currentProcess.getErrorStream(), StandardCharsets.UTF_8))) {
+      String line;
+      while ((line = reader.readLine()) != null) {
+        LOGGER.warn("[native helper stderr] {}", line);
+      }
+    } catch (IOException e) {
+      if (running) {
+        LOGGER.warn("WebView helper stderr read error", e);
+      }
+    }
+  }
+
+  private static void joinReaderThread(Thread thread) {
+    if (thread == null || thread == Thread.currentThread()) {
+      return;
+    }
+    try {
+      thread.join(500);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
   }
 
   private void handleResponse(JSONObject response) {
@@ -324,6 +443,12 @@ public class WebViewBridge {
         break;
       case "web_content_terminated":
         LOGGER.warn("WebKit content process terminated (WebView audio engine crashed)");
+        break;
+      case "webview_destroyed":
+        LOGGER.info("Native helper confirmed WKWebView destruction");
+        break;
+      case "helper_exiting":
+        LOGGER.info("Native helper is exiting");
         break;
       default:
         LOGGER.debug("Unknown helper response type: {}", type);

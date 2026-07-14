@@ -55,9 +55,14 @@ class WebViewManager: NSObject, WKNavigationDelegate, WKUIDelegate {
     let webView: WKWebView
     let window: NSWindow
     let consoleHandler = ConsoleMessageHandler()
+    private var destroyed = false
+    private var shutdownCompletion: (() -> Void)?
 
     override init() {
         let config = WKWebViewConfiguration()
+        // Java launches one helper process per IMF session, which is the effective isolation
+        // boundary on modern macOS (custom WKProcessPool instances have had no effect since 12.0).
+        config.websiteDataStore = .nonPersistent()
         config.mediaTypesRequiringUserActionForPlayback = []  // No user gesture needed
         config.defaultWebpagePreferences.allowsContentJavaScript = true
         config.preferences.isFraudulentWebsiteWarningEnabled = false
@@ -188,6 +193,17 @@ class WebViewManager: NSObject, WKNavigationDelegate, WKUIDelegate {
                         if (ctx.state !== 'running') ctx.resume();
                     });
                 };
+
+                window.__nra_shutdownAudio = function() {
+                    document.querySelectorAll('audio,video').forEach(function(media) {
+                        try { media.pause(); } catch(e) {}
+                        try { media.removeAttribute('src'); media.load(); } catch(e) {}
+                    });
+                    var contexts = _allContexts.splice(0, _allContexts.length);
+                    return Promise.allSettled(contexts.map(function(ctx) {
+                        try { return ctx.close(); } catch(e) { return Promise.resolve(); }
+                    }));
+                };
             })();
             """, injectionTime: .atDocumentStart, forMainFrameOnly: false)
         config.userContentController.addUserScript(audioPolyfill)
@@ -286,6 +302,11 @@ class WebViewManager: NSObject, WKNavigationDelegate, WKUIDelegate {
     }
 
     func evaluateJS(_ js: String, id: String) {
+        guard !destroyed else {
+            writeLine(jsonLine(["type": "eval_result", "id": id,
+                                "result": ["error": "WebView is shutting down"]]))
+            return
+        }
         webView.evaluateJavaScript(js) { result, error in
             if let error = error {
                 writeLine(jsonLine([
@@ -317,6 +338,44 @@ class WebViewManager: NSObject, WKNavigationDelegate, WKUIDelegate {
                 "result": resultDict
             ]))
         }
+    }
+
+    /// Stops media, detaches WebKit callbacks and closes the hidden window. The deadline makes
+    /// teardown independent of a responsive JavaScript channel.
+    func shutdown(completion: @escaping () -> Void) {
+        guard !destroyed else {
+            completion()
+            return
+        }
+        shutdownCompletion = completion
+        webView.evaluateJavaScript("""
+            (async function() {
+              if (window.__nra_shutdownAudio) await window.__nra_shutdownAudio();
+              return true;
+            })();
+            """) { [weak self] _, _ in
+                self?.finishShutdown()
+            }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.75) { [weak self] in
+            self?.finishShutdown()
+        }
+    }
+
+    func finishShutdown() {
+        guard !destroyed else { return }
+        destroyed = true
+        webView.stopLoading()
+        webView.navigationDelegate = nil
+        webView.uiDelegate = nil
+        webView.configuration.userContentController.removeScriptMessageHandler(forName: "nativeLog")
+        webView.configuration.userContentController.removeAllUserScripts()
+        webView.removeFromSuperview()
+        window.contentView = nil
+        window.close()
+        writeLine(jsonLine(["type": "webview_destroyed"]))
+        let completion = shutdownCompletion
+        shutdownCompletion = nil
+        completion?()
     }
 
     // MARK: - WKNavigationDelegate
@@ -398,7 +457,9 @@ class StdinReader {
                 }
             case "quit":
                 DispatchQueue.main.async {
-                    NSApplication.shared.terminate(nil)
+                    self.manager.shutdown {
+                        NSApplication.shared.terminate(nil)
+                    }
                 }
                 return
             default:
@@ -407,7 +468,9 @@ class StdinReader {
         }
 
         DispatchQueue.main.async {
-            NSApplication.shared.terminate(nil)
+            self.manager.shutdown {
+                NSApplication.shared.terminate(nil)
+            }
         }
     }
 }
@@ -436,6 +499,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         reader.startReading()
 
         writeLine(jsonLine(["type": "ready"]))
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        manager?.finishShutdown()
+        if let token = activityToken {
+            ProcessInfo.processInfo.endActivity(token)
+            activityToken = nil
+        }
+        writeLine(jsonLine(["type": "helper_exiting"]))
     }
 }
 
