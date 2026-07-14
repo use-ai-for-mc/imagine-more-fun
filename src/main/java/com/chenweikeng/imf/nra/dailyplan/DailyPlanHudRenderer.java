@@ -9,6 +9,7 @@ import com.chenweikeng.imf.nra.config.SortingRules;
 import com.chenweikeng.imf.nra.config.TrackerDisplayMode;
 import com.chenweikeng.imf.nra.dailyplan.DailyPlanLayer.LayerType;
 import com.chenweikeng.imf.nra.ride.AutograbHolder;
+import com.chenweikeng.imf.nra.ride.ClosestRideHolder;
 import com.chenweikeng.imf.nra.ride.CurrentRideHolder;
 import com.chenweikeng.imf.nra.ride.RideCountManager;
 import com.chenweikeng.imf.nra.ride.RideName;
@@ -138,6 +139,9 @@ public final class DailyPlanHudRenderer {
     RidingStatus riding = buildRidingStatus(client);
     if (riding == null) {
       riding = buildSpecialQuestNudge(plan);
+    }
+    if (riding == null) {
+      riding = buildClosestRideStatus();
     }
     int ridingWidth = riding == null ? 0 : font.width(riding.text);
     int ridingExtraHeight = riding == null ? 0 : FONT_HEIGHT + 2;
@@ -567,6 +571,46 @@ public final class DailyPlanHudRenderer {
       return new RidingStatus("\u2605 Open /daily after finishing the quest", COLOR_IDLE);
     }
     return null;
+  }
+
+  /**
+   * Idle-only fallback showing the remaining rides for the nearest attraction. The closest-ride
+   * tracker deliberately has no distance cutoff; park areas are dense enough that the nearest ride
+   * remains useful context. Completed rides and rides without a configured goal stay silent.
+   */
+  private static RidingStatus buildClosestRideStatus() {
+    RideName ride = ClosestRideHolder.getClosestRide();
+    if (ride == null) {
+      return null;
+    }
+
+    RideGoal goal = StrategyCalculator.getGoalForRide(ride);
+    if (goal == null) {
+      return null;
+    }
+
+    int ridesNeeded;
+    int targetGoal;
+    if (ModConfig.currentSetting.sortingRules == SortingRules.TOTAL_TIME_ASC
+        || ModConfig.currentSetting.sortingRules == SortingRules.TOTAL_TIME_DESC) {
+      ridesNeeded = goal.getMaxRidesNeeded();
+      targetGoal = goal.getMaxGoal();
+    } else {
+      ridesNeeded = goal.getNextGoalRidesNeeded();
+      targetGoal = goal.getNextGoal();
+    }
+    if (ridesNeeded <= 0) {
+      return null;
+    }
+
+    String text =
+        "Nearest ride: "
+            + ride.getDisplayName()
+            + " \u00B7 "
+            + ridesNeeded
+            + (ridesNeeded == 1 ? " ride to " : " rides to ")
+            + formatGoalNumber(targetGoal);
+    return new RidingStatus(text, ModConfig.currentSetting.trackerClosestRideColor);
   }
 
   private static boolean isSpecialPinKey(String pinKey) {
