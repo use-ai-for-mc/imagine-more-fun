@@ -2,6 +2,7 @@ package com.chenweikeng.imf.nra.audio;
 
 import com.chenweikeng.imf.nra.handler.ReminderHandler;
 import java.net.URI;
+import java.util.UUID;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -36,7 +37,6 @@ public class OpenAudioMcService {
   /** Host of OpenAudioMC session URLs; what follows it varies between server versions. */
   private static final String URL_PREFIX = "https://session.openaudiomc.net";
 
-  private static final int MAX_RECONNECT_ATTEMPTS = 3;
   private static final int MAX_MID_SESSION_DROP_ATTEMPTS = 3;
   private static final int MONITOR_INTERVAL_MS = 3000;
   private static final int CONNECTION_TIMEOUT_MS = 60000;
@@ -55,9 +55,27 @@ public class OpenAudioMcService {
         var rangeValue = hasRangeInput ? parseInt(rangeInput.value) : -1;
 
         var buttons = Array.prototype.slice.call(document.querySelectorAll('button, [role="button"]'));
-        var hasStartButton = buttons.some(
+        var startButton = buttons.find(
           function(el) { return (el.outerText || el.textContent || '').trim().toLowerCase() === 'start audio session'; }
         );
+        var hasStartButton = !!startButton;
+        if (startButton) {
+          var rect = startButton.getBoundingClientRect();
+          var common = { bubbles: true, cancelable: true, view: window,
+                         clientX: rect.left + rect.width / 2,
+                         clientY: rect.top + rect.height / 2,
+                         button: 0, buttons: 1 };
+          try {
+            startButton.dispatchEvent(new PointerEvent('pointerdown', common));
+            startButton.dispatchEvent(new PointerEvent('pointerup', common));
+          } catch(pe) {}
+          startButton.dispatchEvent(new MouseEvent('mousedown', common));
+          startButton.dispatchEvent(new MouseEvent('mouseup', common));
+          startButton.dispatchEvent(new MouseEvent('click', common));
+          setTimeout(function() {
+            if (window.__nra_resumeAllAudio) window.__nra_resumeAllAudio();
+          }, 500);
+        }
 
         var currentUrl = window.location.href;
         var bodyLen = (document.body && document.body.innerHTML) ? document.body.innerHTML.length : 0;
@@ -70,41 +88,6 @@ public class OpenAudioMcService {
           hasSession: currentUrl.indexOf('session=') !== -1 || currentUrl.indexOf('#') !== -1,
           bodyLength: bodyLen
         };
-      })();
-      """;
-
-  /** JavaScript to auto-click the "Start Audio Session" button using synthetic events. */
-  private static final String CLICK_START_JS =
-      """
-      (function() {
-        var buttons = Array.prototype.slice.call(document.querySelectorAll('button, [role="button"]'));
-        var btn = buttons.find(
-          function(b) { return (b.outerText || b.textContent || '').trim().toLowerCase() === 'start audio session'; }
-        );
-        if (!btn) return { clicked: false };
-
-        var rect = btn.getBoundingClientRect();
-        var cx = rect.left + rect.width / 2;
-        var cy = rect.top + rect.height / 2;
-        var common = { bubbles: true, cancelable: true, view: window,
-                       clientX: cx, clientY: cy, screenX: cx, screenY: cy,
-                       button: 0, buttons: 1 };
-
-        try {
-          btn.dispatchEvent(new PointerEvent('pointerdown', common));
-          btn.dispatchEvent(new PointerEvent('pointerup', common));
-        } catch(pe) {}
-
-        btn.dispatchEvent(new MouseEvent('mousedown', common));
-        btn.dispatchEvent(new MouseEvent('mouseup', common));
-        btn.dispatchEvent(new MouseEvent('click', common));
-
-        // Force-resume all AudioContexts after a short delay
-        setTimeout(function() {
-          if (window.__nra_resumeAllAudio) window.__nra_resumeAllAudio();
-        }, 500);
-
-        return { clicked: true };
       })();
       """;
 
@@ -139,15 +122,18 @@ public class OpenAudioMcService {
   private long lastEngineFailureNotifyMs;
 
   private WebViewBridge bridge;
+  private final AudioSessionLifecycle lifecycle = new AudioSessionLifecycle();
   private String savedSessionUrl;
-  private boolean isConnected;
-  private boolean isActive;
+  private volatile boolean isConnected;
+  private volatile boolean isActive;
   private boolean hasReportedFailure;
-  private int reconnectAttempts;
   private int midSessionDropAttempts;
-  private volatile boolean serverEndedSession;
   private ScheduledExecutorService scheduler;
-  private ScheduledFuture<?> monitorTask;
+  private ScheduledFuture<?> pendingRecoveryTask;
+  private ScheduledFuture<?> autoConnectTask;
+  private ScheduledFuture<?> pendingCommandClearTask;
+  private ScheduledFuture<?> reconnectFallbackTask;
+  private int recoveryAttempts;
   private long monitorStartTimeMs;
   private int pageLoadCount;
   private volatile boolean pendingCommandConnect;
@@ -221,86 +207,70 @@ public class OpenAudioMcService {
     }
     if (isActive) {
       LOGGER.info("OpenAudioMC already active with different URL, disconnecting first");
-      disconnect();
+      terminateSession("replaced-by-new-url");
     }
 
     LOGGER.info("Connecting to OpenAudioMC: {}", sessionUrl);
 
-    // A helper that crashed mid-session leaves a bridge object whose process is dead; loading
-    // URLs into it silently does nothing. Discard it so we attempt a fresh start.
-    if (bridge != null && !bridge.isRunning()) {
-      LOGGER.warn("Audio engine helper process is no longer running, discarding old bridge");
-      bridge.stop();
-      bridge = null;
+    // Each logical session owns a fresh helper/WebKit process context. Reusing a WKWebView after a
+    // media or eval failure can retain WebKit media assertions and the old GPU process
+    // indefinitely.
+    WebViewBridge.StartFailure preflight = WebViewBridge.preflightCheck();
+    if (preflight != null) {
+      reportEngineFailure(preflight);
+      return;
     }
-
-    if (bridge == null) {
-      // Spawn-free runtime check first: when a runtime is missing this fails instantly and
-      // quietly (throttled report) instead of spawning a doomed helper and waiting out its
-      // 15-second ready timeout on every server audio prompt.
-      WebViewBridge.StartFailure preflight = WebViewBridge.preflightCheck();
-      if (preflight != null) {
-        reportEngineFailure(preflight);
-        return;
-      }
-      notifyUser("Starting audio engine...");
-      WebViewBridge newBridge = new WebViewBridge();
-      if (!newBridge.start()) {
-        LOGGER.error("Failed to start WebView bridge — OpenAudioMC audio will not work");
-        WebViewBridge.StartFailure failure = newBridge.getStartFailure();
-        newBridge.stop();
-        reportEngineFailure(failure);
-        return;
-      }
-      bridge = newBridge;
-      lastEngineFailure = null;
+    notifyUser("Starting audio engine...");
+    String sessionId = UUID.randomUUID().toString();
+    WebViewBridge newBridge = new WebViewBridge();
+    newBridge.setSessionId(sessionId);
+    newBridge.setExitListener(() -> onHelperChannelDisconnected(sessionId, newBridge));
+    if (!newBridge.start()) {
+      LOGGER.error("Failed to start WebView bridge — OpenAudioMC audio will not work");
+      WebViewBridge.StartFailure failure = newBridge.getStartFailure();
+      newBridge.stop();
+      reportEngineFailure(failure);
+      return;
+    }
+    bridge = newBridge;
+    lifecycle.start(sessionId, newBridge);
+    lastEngineFailure = null;
+    if (!newBridge.isRunning()) {
+      onHelperChannelDisconnected(sessionId, newBridge);
+      return;
     }
 
     savedSessionUrl = sessionUrl;
     isActive = true;
     isConnected = false;
     hasReportedFailure = false;
-    reconnectAttempts = 0;
     midSessionDropAttempts = 0;
-    serverEndedSession = false;
     monitorStartTimeMs = System.currentTimeMillis();
 
     ReminderHandler.getInstance().setAudioConnected(false);
 
     pageLoadCount++;
     bridge.loadUrl(sessionUrl);
-    startMonitoring();
+    LOGGER.info("Audio session loading (session={}, url={})", sessionId, sessionUrl);
+    startMonitoring(sessionId);
   }
 
-  /** Stops the current audio session. Navigates the webview to about:blank (stops audio). */
-  public void disconnect() {
-    LOGGER.info("Disconnecting OpenAudioMC");
-    stopMonitoring();
-    isActive = false;
-    isConnected = false;
-    currentVolume = -1;
-    ReminderHandler.getInstance().setAudioConnected(false);
-
-    if (bridge != null) {
-      bridge.loadUrl("about:blank");
-    }
+  /** Stops the current audio session and destroys its helper/WKWebView. */
+  public synchronized void disconnect() {
+    terminateSession("disconnect");
+    recoveryAttempts = 0;
   }
 
   /** Attempts to reconnect using the last known session URL. */
-  public void reconnect() {
-    if (savedSessionUrl == null) {
+  public synchronized void reconnect() {
+    String reconnectUrl = savedSessionUrl;
+    if (reconnectUrl == null) {
       return;
     }
-    LOGGER.info("Reconnecting to OpenAudioMC");
-    isConnected = false;
-    hasReportedFailure = false;
-    monitorStartTimeMs = System.currentTimeMillis();
-
-    if (bridge != null) {
-      pageLoadCount++;
-      bridge.loadUrl(savedSessionUrl);
-    }
-    startMonitoring();
+    String oldSessionId = lifecycle.sessionId();
+    LOGGER.info("Reconnecting audio session (session={})", oldSessionId);
+    terminateSession("reconnect");
+    connect(reconnectUrl);
   }
 
   /**
@@ -324,19 +294,15 @@ public class OpenAudioMcService {
   }
 
   /** Full cleanup: stops monitoring, kills the helper process, nulls all references. */
-  public void dispose() {
-    stopMonitoring();
+  public synchronized void dispose() {
+    cancelAllScheduledTasks();
+    lifecycle.minecraftStopping();
+    resetSessionState();
     if (scheduler != null) {
       scheduler.shutdownNow();
       scheduler = null;
     }
-    if (bridge != null) {
-      bridge.stop();
-      bridge = null;
-    }
-    savedSessionUrl = null;
-    isActive = false;
-    isConnected = false;
+    LOGGER.info("OpenAudioMC service disposed for Minecraft shutdown");
   }
 
   /**
@@ -344,7 +310,6 @@ public class OpenAudioMcService {
    * server recognizes the connection as live.
    */
   public void onServerConfirmedConnection() {
-    serverEndedSession = false;
     midSessionDropAttempts = 0;
     alreadyConnectedRetries = 0;
   }
@@ -388,41 +353,23 @@ public class OpenAudioMcService {
         alreadyConnectedRetries,
         MAX_ALREADY_CONNECTED_RETRIES);
 
-    // Reset so connectViaCommand will proceed and the monitor stops reloading the dead URL.
-    stopMonitoring();
-    isActive = false;
-    isConnected = false;
-    savedSessionUrl = null;
-    serverEndedSession = false;
-    pendingCommandConnect = false;
-    if (bridge != null) {
-      bridge.loadUrl("about:blank");
-    }
-
-    if (scheduler == null || scheduler.isShutdown()) {
-      scheduler =
-          Executors.newSingleThreadScheduledExecutor(
-              r -> {
-                Thread t = new Thread(r, "OpenAudioMC-Monitor");
-                t.setDaemon(true);
-                return t;
-              });
-    }
-    scheduler.schedule(
-        this::connectViaCommand, ALREADY_CONNECTED_RETRY_DELAY_MS, TimeUnit.MILLISECONDS);
+    // Destroy the old helper before requesting a fresh signed URL.
+    terminateSession("already-connected-desync");
+    scheduleFreshSessionRequest("already-connected-desync", ALREADY_CONNECTED_RETRY_DELAY_MS);
   }
 
   /**
    * Called when the server chat says "Your audio session has been ended" — the server has
    * terminated the session, so reconnecting with the same URL won't help.
    */
-  public void onServerEndedSession() {
-    LOGGER.info("Server ended the audio session");
-    serverEndedSession = true;
-    if (isConnected) {
-      isConnected = false;
-      ReminderHandler.getInstance().setAudioConnected(false);
-    }
+  public synchronized void onServerEndedSession() {
+    String endedSessionId = lifecycle.sessionId();
+    LOGGER.info("Server ended the audio session (session={})", endedSessionId);
+    cancelAllScheduledTasks();
+    lifecycle.serverEnded();
+    resetSessionState();
+    notifyUser("Audio session ended by server. Requesting a fresh one...");
+    scheduleFreshSessionRequest("server-ended", MONITOR_INTERVAL_MS);
   }
 
   /**
@@ -430,31 +377,27 @@ public class OpenAudioMcService {
    * /audio so auto-connect no longer depends on the server's own join message arriving. Skips
    * silently if a session is already active when the delay elapses (the server's join hook won).
    */
-  public void autoConnectOnJoin() {
-    if (scheduler == null || scheduler.isShutdown()) {
-      scheduler =
-          Executors.newSingleThreadScheduledExecutor(
-              r -> {
-                Thread t = new Thread(r, "OpenAudioMC-Monitor");
-                t.setDaemon(true);
-                return t;
-              });
+  public synchronized void autoConnectOnJoin() {
+    ensureScheduler();
+    if (autoConnectTask != null) {
+      autoConnectTask.cancel(false);
     }
-    scheduler.schedule(
-        () -> {
-          if (!isActive) {
-            connectViaCommand();
-          }
-        },
-        AUTO_CONNECT_DELAY_MS,
-        TimeUnit.MILLISECONDS);
+    autoConnectTask =
+        scheduler.schedule(
+            () -> {
+              if (!isActive) {
+                connectViaCommand();
+              }
+            },
+            AUTO_CONNECT_DELAY_MS,
+            TimeUnit.MILLISECONDS);
   }
 
   /**
    * Called from /oa connect. Sends /audio to the server to request a fresh session URL. The
    * ChatListenerMixin will detect the URL and call connect() automatically.
    */
-  public void connectViaCommand() {
+  public synchronized void connectViaCommand() {
     if (isActive && isConnected) {
       notifyUser("Already connected to audio.");
       return;
@@ -476,21 +419,17 @@ public class OpenAudioMcService {
     }
 
     // Clear the flag after 10 seconds if no URL was received
-    if (scheduler == null || scheduler.isShutdown()) {
-      scheduler =
-          Executors.newSingleThreadScheduledExecutor(
-              r -> {
-                Thread t = new Thread(r, "OpenAudioMC-Monitor");
-                t.setDaemon(true);
-                return t;
-              });
+    ensureScheduler();
+    if (pendingCommandClearTask != null) {
+      pendingCommandClearTask.cancel(false);
     }
-    scheduler.schedule(() -> pendingCommandConnect = false, 10, TimeUnit.SECONDS);
+    pendingCommandClearTask =
+        scheduler.schedule(() -> pendingCommandConnect = false, 10, TimeUnit.SECONDS);
   }
 
   /** Called from /oa disconnect. Stops the current audio session and notifies the user. */
-  public void disconnectViaCommand() {
-    if (!isActive) {
+  public synchronized void disconnectViaCommand() {
+    if (!isActive && pendingRecoveryTask == null && !pendingCommandConnect) {
       notifyUser("Not connected to audio.");
       return;
     }
@@ -502,32 +441,28 @@ public class OpenAudioMcService {
    * Called from /oa reconnect. Tries to reload the saved session URL first. If not connected after
    * 30 seconds, falls back to disconnect + fresh /audio.
    */
-  public void reconnectWithFallback() {
+  public synchronized void reconnectWithFallback() {
     if (savedSessionUrl != null && bridge != null && bridge.isRunning()) {
       notifyUser("Refreshing audio session...");
       reconnect();
 
       // Schedule fallback: if not connected after 30s, disconnect and request fresh URL
-      if (scheduler == null || scheduler.isShutdown()) {
-        scheduler =
-            Executors.newSingleThreadScheduledExecutor(
-                r -> {
-                  Thread t = new Thread(r, "OpenAudioMC-Monitor");
-                  t.setDaemon(true);
-                  return t;
-                });
+      ensureScheduler();
+      if (reconnectFallbackTask != null) {
+        reconnectFallbackTask.cancel(false);
       }
-      scheduler.schedule(
-          () -> {
-            if (!isConnected && isActive) {
-              LOGGER.info("Reconnect refresh failed after 30s, falling back to fresh /audio");
-              disconnect();
-              notifyUser("Refresh failed, requesting new session...");
-              connectViaCommand();
-            }
-          },
-          30,
-          TimeUnit.SECONDS);
+      reconnectFallbackTask =
+          scheduler.schedule(
+              () -> {
+                if (!isConnected && isActive) {
+                  LOGGER.info("Reconnect refresh failed after 30s, falling back to fresh /audio");
+                  disconnect();
+                  notifyUser("Refresh failed, requesting new session...");
+                  connectViaCommand();
+                }
+              },
+              30,
+              TimeUnit.SECONDS);
     } else {
       notifyUser("No saved session, requesting new one...");
       connectViaCommand();
@@ -603,48 +538,73 @@ public class OpenAudioMcService {
             });
   }
 
-  private void startMonitoring() {
-    stopMonitoring();
-    if (scheduler == null || scheduler.isShutdown()) {
-      scheduler =
-          Executors.newSingleThreadScheduledExecutor(
-              r -> {
-                Thread t = new Thread(r, "OpenAudioMC-Monitor");
-                t.setDaemon(true);
-                return t;
-              });
-    }
-    monitorTask =
-        scheduler.scheduleAtFixedRate(
-            this::monitorSession, MONITOR_INTERVAL_MS, MONITOR_INTERVAL_MS, TimeUnit.MILLISECONDS);
+  private void startMonitoring(String sessionId) {
+    scheduleMonitor(sessionId, MONITOR_INTERVAL_MS);
   }
 
-  private void stopMonitoring() {
-    if (monitorTask != null) {
-      monitorTask.cancel(false);
-      monitorTask = null;
-    }
+  private void scheduleMonitor(String sessionId, long delayMs) {
+    ensureScheduler();
+    lifecycle.setMonitorTask(
+        scheduler.schedule(() -> monitorSession(sessionId), delayMs, TimeUnit.MILLISECONDS));
   }
 
-  private void monitorSession() {
-    if (bridge == null || !bridge.isRunning() || !isActive) {
-      return;
+  /**
+   * Runs at most one eval at a time. The next poll is scheduled only after this eval completes, so
+   * a wedged WebKit main frame cannot accumulate a new runJavaScript request every three seconds.
+   */
+  private void monitorSession(String sessionId) {
+    WebViewBridge currentBridge;
+    synchronized (this) {
+      if (!sessionId.equals(lifecycle.sessionId())
+          || bridge == null
+          || !bridge.isRunning()
+          || !isActive) {
+        return;
+      }
+      currentBridge = bridge;
     }
 
-    bridge
+    currentBridge
         .evaluateJs(STATUS_CHECK_JS)
-        .thenAccept(this::handleMonitorResult)
-        .exceptionally(
-            ex -> {
-              // Runs every 3s; a one-line warn is enough — a full stack trace per poll floods
-              // the log when the helper is wedged.
-              LOGGER.warn("Monitor eval failed: {}", ex.toString());
-              return null;
+        .whenComplete(
+            (result, failure) -> {
+              if (failure != null) {
+                handleMonitorFailure(sessionId, failure);
+                return;
+              }
+              synchronized (OpenAudioMcService.this) {
+                if (!sessionId.equals(lifecycle.sessionId()) || !isActive) {
+                  return;
+                }
+                lifecycle.monitorSucceeded();
+                handleMonitorResult(sessionId, result);
+                if (sessionId.equals(lifecycle.sessionId()) && isActive) {
+                  scheduleMonitor(sessionId, MONITOR_INTERVAL_MS);
+                }
+              }
             });
   }
 
-  private void handleMonitorResult(JSONObject result) {
-    if (result == null || !isActive) {
+  private synchronized void handleMonitorFailure(String sessionId, Throwable failure) {
+    if (!sessionId.equals(lifecycle.sessionId()) || !isActive) {
+      return;
+    }
+    AudioSessionLifecycle.MonitorFailureDecision decision = lifecycle.monitorFailed(failure);
+    if (decision.retry()) {
+      scheduleMonitor(sessionId, decision.delayMs());
+      return;
+    }
+
+    // monitorFailed closed the session-owned helper after the bounded retry limit.
+    cancelAllScheduledTasks();
+    resetSessionState();
+    notifyUser(
+        "Audio engine stopped after repeated monitor timeouts. Requesting a fresh session...");
+    scheduleRecoveryWithBackoff("monitor-timeout");
+  }
+
+  private synchronized void handleMonitorResult(String sessionId, JSONObject result) {
+    if (result == null || !sessionId.equals(lifecycle.sessionId()) || !isActive) {
       return;
     }
 
@@ -653,17 +613,6 @@ public class OpenAudioMcService {
     String currentUrl = result.optString("currentUrl", "");
     boolean hasSession = result.optBoolean("hasSession", false);
     boolean wasConnected = isConnected;
-
-    // Server told us the session is over (via the "Your audio session has been ended" chat
-    // message). React typically keeps the volume slider mounted for ~3 s after the underlying
-    // socket dies, so a naive hasRangeInput check here would re-declare us connected and fire
-    // a misleading "Audio connected!" notification. Treat this as a soft terminate that drops
-    // the dead session URL but keeps the bridge subprocess alive, and request a fresh /audio
-    // so OpenAudioMC issues a brand-new signed URL.
-    if (serverEndedSession) {
-      handleServerEndedReconnect();
-      return;
-    }
 
     if (hasRangeInput) {
       // Track volume from the range input
@@ -674,9 +623,9 @@ public class OpenAudioMcService {
 
       // Audio session is active
       if (!isConnected) {
-        LOGGER.info("OpenAudioMC audio session connected");
+        LOGGER.info("OpenAudioMC audio session connected (session={})", sessionId);
         isConnected = true;
-        reconnectAttempts = 0;
+        recoveryAttempts = 0;
         ReminderHandler.getInstance().setAudioConnected(true);
         notifyUser(
             "Audio connected! Volume: "
@@ -688,27 +637,8 @@ public class OpenAudioMcService {
         savedSessionUrl = currentUrl;
       }
     } else if (hasStartButton) {
-      // Page loaded but session not started — auto-click the button
+      // STATUS_CHECK_JS clicked the button in the same serialized eval.
       LOGGER.info("Auto-clicking 'Start Audio Session' button");
-      bridge.evaluateJs(CLICK_START_JS);
-    } else if (!hasSession
-        && !isOpenAudioMcUrl(currentUrl)
-        && savedSessionUrl != null
-        && wasConnected) {
-      // Session was lost (page navigated away or crashed)
-      if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-        reconnectAttempts++;
-        LOGGER.warn(
-            "Session lost, reconnecting (attempt {}/{})",
-            reconnectAttempts,
-            MAX_RECONNECT_ATTEMPTS);
-        isConnected = false;
-        ReminderHandler.getInstance().setAudioConnected(false);
-        monitorStartTimeMs = System.currentTimeMillis();
-        bridge.loadUrl(savedSessionUrl);
-      } else {
-        handleFailure("max_reconnect");
-      }
     } else {
       // Check for connection timeout
       long elapsed = System.currentTimeMillis() - monitorStartTimeMs;
@@ -718,49 +648,119 @@ public class OpenAudioMcService {
     }
 
     // Detect mid-session drop (was connected but volume slider disappeared).
-    // serverEndedSession is handled by the early-return above, so it can't reach here.
     if (wasConnected && !hasRangeInput) {
-      isConnected = false;
-      ReminderHandler.getInstance().setAudioConnected(false);
-
-      if (midSessionDropAttempts < MAX_MID_SESSION_DROP_ATTEMPTS) {
-        midSessionDropAttempts++;
-        LOGGER.warn(
-            "Audio session dropped, reconnecting (attempt {}/{})",
-            midSessionDropAttempts,
-            MAX_MID_SESSION_DROP_ATTEMPTS);
-        monitorStartTimeMs = System.currentTimeMillis();
-        bridge.loadUrl(savedSessionUrl);
-      } else {
-        LOGGER.error("Audio session dropped too many times, giving up");
-        handleFailure("mid_session_drop");
-        notifyUser(
-            "Audio session lost after multiple reconnection attempts. Use /audio to reconnect.");
-      }
+      midSessionDropAttempts++;
+      LOGGER.warn(
+          "Audio session dropped; destroying old helper before recovery (session={}, attempt={}/{})",
+          sessionId,
+          midSessionDropAttempts,
+          MAX_MID_SESSION_DROP_ATTEMPTS);
+      terminateSession("mid-session-drop");
+      scheduleRecoveryWithBackoff("mid-session-drop");
     }
   }
 
-  /**
-   * Soft-terminates the current session in response to a "Your audio session has been ended" chat
-   * message from the server, then schedules a single {@code /audio} request so the server issues a
-   * fresh signed URL. The bridge subprocess is kept alive — the new URL will be loaded into the
-   * existing WKWebView. If the user explicitly meant to end audio (e.g. they ran {@code /audio
-   * off}) they can run {@code /oa disconnect} within the retry window; the fresh /audio request
-   * will then no-op because savedSessionUrl is null and isActive=false.
-   */
-  private void handleServerEndedReconnect() {
-    LOGGER.info("Server ended the audio session; soft-terminating and requesting fresh /audio");
-    stopMonitoring();
+  private synchronized void handleFailure(String reason) {
+    LOGGER.error("OpenAudioMC connection failed: {}", reason);
+    hasReportedFailure = true;
+    terminateSession(reason);
+  }
+
+  private synchronized void onHelperChannelDisconnected(
+      String sessionId, WebViewBridge disconnectedBridge) {
+    if (!sessionId.equals(lifecycle.sessionId()) || bridge != disconnectedBridge) {
+      return;
+    }
+    LOGGER.warn("Audio helper channel disconnected unexpectedly (session={})", sessionId);
+    cancelAllScheduledTasks();
+    lifecycle.helperDisconnected();
+    resetSessionState();
+    scheduleRecoveryWithBackoff("helper-channel-disconnected");
+  }
+
+  /** Called when leaving any multiplayer server; never schedules an automatic reconnect. */
+  public synchronized void onLeaveServer() {
+    cancelAllScheduledTasks();
+    lifecycle.leaveServer();
+    resetSessionState();
+    recoveryAttempts = 0;
+  }
+
+  private synchronized void terminateSession(String reason) {
+    cancelAllScheduledTasks();
+    lifecycle.stop(reason);
+    resetSessionState();
+  }
+
+  private void resetSessionState() {
+    bridge = null;
+    savedSessionUrl = null;
     isActive = false;
     isConnected = false;
     currentVolume = -1;
-    savedSessionUrl = null;
-    serverEndedSession = false;
-    midSessionDropAttempts = 0;
-    reconnectAttempts = 0;
+    pendingCommandConnect = false;
     ReminderHandler.getInstance().setAudioConnected(false);
-    notifyUser("Audio session ended by server. Requesting a fresh one...");
+  }
 
+  private void scheduleRecoveryWithBackoff(String reason) {
+    if (recoveryAttempts >= MAX_MID_SESSION_DROP_ATTEMPTS) {
+      LOGGER.error(
+          "Audio recovery limit reached; leaving helper stopped (reason={}, attempts={})",
+          reason,
+          recoveryAttempts);
+      notifyUser("Audio recovery stopped after repeated failures. Use /oa connect to try again.");
+      return;
+    }
+    recoveryAttempts++;
+    long delayMs = MONITOR_INTERVAL_MS * (1L << (recoveryAttempts - 1));
+    scheduleFreshSessionRequest(reason, delayMs);
+  }
+
+  private void scheduleFreshSessionRequest(String reason, long delayMs) {
+    ensureScheduler();
+    cancelPendingRecovery();
+    int attempt = recoveryAttempts;
+    LOGGER.info(
+        "Scheduling fresh audio session (reason={}, attempt={}, delayMs={})",
+        reason,
+        attempt,
+        delayMs);
+    pendingRecoveryTask =
+        scheduler.schedule(
+            () -> {
+              synchronized (OpenAudioMcService.this) {
+                pendingRecoveryTask = null;
+              }
+              connectViaCommand();
+            },
+            delayMs,
+            TimeUnit.MILLISECONDS);
+  }
+
+  private void cancelPendingRecovery() {
+    if (pendingRecoveryTask != null) {
+      pendingRecoveryTask.cancel(false);
+      pendingRecoveryTask = null;
+    }
+  }
+
+  private void cancelAllScheduledTasks() {
+    cancelPendingRecovery();
+    if (autoConnectTask != null) {
+      autoConnectTask.cancel(false);
+      autoConnectTask = null;
+    }
+    if (pendingCommandClearTask != null) {
+      pendingCommandClearTask.cancel(false);
+      pendingCommandClearTask = null;
+    }
+    if (reconnectFallbackTask != null) {
+      reconnectFallbackTask.cancel(false);
+      reconnectFallbackTask = null;
+    }
+  }
+
+  private void ensureScheduler() {
     if (scheduler == null || scheduler.isShutdown()) {
       scheduler =
           Executors.newSingleThreadScheduledExecutor(
@@ -770,24 +770,6 @@ public class OpenAudioMcService {
                 return t;
               });
     }
-    // Give the server 3 s to settle before asking for a new session URL.
-    scheduler.schedule(this::connectViaCommand, 3, TimeUnit.SECONDS);
-  }
-
-  private void handleFailure(String reason) {
-    LOGGER.error("OpenAudioMC connection failed: {}", reason);
-    hasReportedFailure = true;
-    isActive = false;
-    isConnected = false;
-    currentVolume = -1;
-    stopMonitoring();
-    ReminderHandler.getInstance().setAudioConnected(false);
-
-    if (bridge != null) {
-      bridge.stop();
-      bridge = null;
-    }
-    savedSessionUrl = null;
   }
 
   /**
