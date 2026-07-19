@@ -12,12 +12,29 @@ shares a helper or WebView with any later session.
   seconds; the third consecutive failure stops the session and helper.
 - Server end, helper EOF, session drop, reconnect, manual disconnect, server leave, and Minecraft
   shutdown cancel the monitor and related scheduled work before closing the helper.
-- Native shutdown pauses media, removes media sources, closes tracked `AudioContext` instances,
-  detaches delegates and script handlers, removes the `WKWebView`, and closes its window.
+- Native shutdown pauses media, removes media sources, closes still-live `AudioContext` instances,
+  detaches delegates and script handlers, removes the `WKWebView`, and closes its window. The
+  page-side context list uses `WeakRef`; it never keeps detached Web Audio graphs alive merely so
+  they can be resumed or closed later.
 - Java waits for graceful helper exit, then terminates only the exact helper PID and descendant
   handles captured from it. It never searches for or kills WebKit processes by name.
 - If Minecraft exits without its normal lifecycle callback, closing the parent pipe produces EOF in
   the helper and triggers the same native cleanup path.
+
+## Detached media guard
+
+OpenAudioMC can receive an expired pickup immediately before the current ride media. Its
+`MediaTrack.applyStartDateIfAny()` calls `stop()`, which removes the non-looping track from the
+channel, but the surrounding async `play()` path can still proceed to `audio.play()`. If WebKit's
+play promise is delayed, that element becomes audible after channel removal and no longer responds
+to channel or master-volume updates. A second, current media command then produces the audible
+duplicate.
+
+The macOS helper records only weak per-element ownership signals. It rejects a detached URL-backed
+audio element when either its track listener was removed before playback or the element was stopped
+before its first play attempt. Attached page media, previously-started pause/resume, video, and
+`srcObject` voice media are excluded. Temporary lifecycle diagnostics log media IDs and source
+hashes, never signed media URLs.
 
 ## Longer-term migration
 
