@@ -422,7 +422,11 @@ public class WebViewBridge implements AutoCloseable {
       case "console":
         String level = response.optString("level", "log");
         String msg = response.optString("message", "");
-        if ("error".equals(level) || "uncaught".equals(level) || "rejection".equals(level)) {
+        // The temporary media diagnostic uses a dedicated prefix so it remains visible without
+        // enabling the full (very noisy) OpenAudioMC console stream.
+        if (msg.startsWith("[IMF-AUDIO-TRACE ")) {
+          LOGGER.info("{}", msg);
+        } else if ("error".equals(level) || "uncaught".equals(level) || "rejection".equals(level)) {
           LOGGER.warn("[JS {}] {}", level, msg);
         } else if ("warn".equals(level)) {
           LOGGER.debug("[JS {}] {}", level, msg);
