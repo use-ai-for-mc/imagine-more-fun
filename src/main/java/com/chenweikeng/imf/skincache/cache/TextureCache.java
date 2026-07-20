@@ -2,9 +2,9 @@ package com.chenweikeng.imf.skincache.cache;
 
 import com.chenweikeng.imf.ImfFileIO;
 import com.chenweikeng.imf.skincache.SkinCacheMod;
+import com.chenweikeng.imf.skincache.persistence.CoalescedSaveQueue;
 import com.chenweikeng.imf.skincache.util.TextureValidator;
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import java.io.IOException;
 import java.lang.reflect.Type;
@@ -41,7 +41,8 @@ import net.fabricmc.loader.api.FabricLoader;
  */
 public final class TextureCache {
 
-  private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+  /** Compact JSON reduces whole-index write volume without changing the on-disk schema. */
+  private static final Gson GSON = new Gson();
 
   /** Hard TTL: entries unaccessed for longer than this are evicted. */
   private static final long DEFAULT_TTL_MS = 30L * 24 * 60 * 60 * 1000L; // 30 days
@@ -57,6 +58,12 @@ public final class TextureCache {
   /** Periodic maintenance interval (save dirty access tracking + run eviction). */
   private static final long PERIODIC_INTERVAL_SEC = 60;
 
+  /** New textures are persisted at most once per debounce window. */
+  private static final long SAVE_DEBOUNCE_SEC = 30;
+
+  /** Persist access-only LRU metadata in coarse batches; the texture bytes are already durable. */
+  private static final long ACCESS_PERSIST_INTERVAL_MS = 15 * 60 * 1000L;
+
   private static Path cacheDir;
   private static Path texturesDir;
   private static Path indexFile;
@@ -70,11 +77,14 @@ public final class TextureCache {
             return t;
           });
 
-  /** Set by put/evict; triggers a near-immediate coalesced save via {@link #saveIndexAsync()}. */
-  private static final AtomicBoolean saveDirty = new AtomicBoolean(false);
-
   /** Set by access-time bumps; flushed only by the periodic maintenance thread. */
   private static final AtomicBoolean accessDirty = new AtomicBoolean(false);
+
+  private static final CoalescedSaveQueue SAVE_QUEUE =
+      new CoalescedSaveQueue(
+          SAVE_EXECUTOR, SAVE_DEBOUNCE_SEC, TimeUnit.SECONDS, TextureCache::saveIndex);
+
+  private static volatile long lastSuccessfulSaveMs;
 
   // ── Initialisation ─────────────────────────────────────────────
 
@@ -84,6 +94,7 @@ public final class TextureCache {
     cacheDir = gameDir.resolve("skincache");
     texturesDir = cacheDir.resolve("textures");
     indexFile = cacheDir.resolve("index.json");
+    lastSuccessfulSaveMs = System.currentTimeMillis();
 
     try {
       Files.createDirectories(texturesDir);
@@ -106,7 +117,7 @@ public final class TextureCache {
             new Thread(
                 () -> {
                   try {
-                    saveIndex();
+                    SAVE_QUEUE.flushNow();
                   } catch (Exception e) {
                     SkinCacheMod.LOGGER.warn("[SkinCache] shutdown saveIndex failed", e);
                   }
@@ -269,9 +280,9 @@ public final class TextureCache {
     try {
       evictExpired();
       evictOverflow();
-      // If only access-time bumps have happened since the last save, flush them now
-      if (accessDirty.compareAndSet(true, false) && !saveDirty.get()) {
-        saveIndex();
+      long now = System.currentTimeMillis();
+      if (accessDirty.get() && now - lastSuccessfulSaveMs >= ACCESS_PERSIST_INTERVAL_MS) {
+        SAVE_QUEUE.requestSave();
       }
     } catch (Exception e) {
       SkinCacheMod.LOGGER.warn("[SkinCache] Periodic maintenance failed", e);
@@ -312,21 +323,23 @@ public final class TextureCache {
   }
 
   private static void saveIndexAsync() {
-    // Coalesce rapid saves: only submit a new task if one isn't already queued
-    if (saveDirty.compareAndSet(false, true)) {
-      SAVE_EXECUTOR.execute(
-          () -> {
-            saveDirty.set(false);
-            // saveIndex implicitly persists any pending access-bumps too,
-            // so clear that flag to avoid an immediately-following redundant save
-            accessDirty.set(false);
-            saveIndex();
-          });
-    }
+    SAVE_QUEUE.requestSave();
   }
 
-  private static synchronized void saveIndex() {
-    ImfFileIO.writeJsonAtomic(indexFile, GSON, index, SkinCacheMod.LOGGER, "SkinCache index");
+  private static synchronized boolean saveIndex() {
+    if (indexFile == null) return true;
+
+    // Clear before serialization so an access that races with this write remains dirty for the next
+    // coarse persistence batch.
+    accessDirty.set(false);
+    boolean saved =
+        ImfFileIO.writeJsonAtomic(indexFile, GSON, index, SkinCacheMod.LOGGER, "SkinCache index");
+    if (saved) {
+      lastSuccessfulSaveMs = System.currentTimeMillis();
+    } else {
+      accessDirty.set(true);
+    }
+    return saved;
   }
 
   // ── Utilities ──────────────────────────────────────────────────
