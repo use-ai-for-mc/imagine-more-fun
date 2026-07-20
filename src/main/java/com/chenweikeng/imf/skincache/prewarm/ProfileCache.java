@@ -2,15 +2,16 @@ package com.chenweikeng.imf.skincache.prewarm;
 
 import com.chenweikeng.imf.ImfFileIO;
 import com.chenweikeng.imf.skincache.SkinCacheMod;
+import com.chenweikeng.imf.skincache.persistence.CoalescedSaveQueue;
 import com.google.common.hash.Hashing;
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 import java.lang.reflect.Type;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -38,7 +39,8 @@ import net.fabricmc.loader.api.FabricLoader;
  */
 public final class ProfileCache {
 
-  private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+  /** Compact JSON substantially reduces allocation and write volume for the 20k-entry index. */
+  private static final Gson GSON = new Gson();
 
   /** Hard TTL: profiles unaccessed for longer than this are evicted. */
   private static final long DEFAULT_TTL_MS = 90L * 24 * 60 * 60 * 1000L; // 90 days
@@ -54,6 +56,12 @@ public final class ProfileCache {
   /** Periodic maintenance interval. */
   private static final long PERIODIC_INTERVAL_SEC = 60;
 
+  /** New/changed profiles are persisted at most once per debounce window. */
+  private static final long SAVE_DEBOUNCE_SEC = 30;
+
+  /** Access-only timestamps do not need crash-level durability; persist them in coarse batches. */
+  private static final long ACCESS_PERSIST_INTERVAL_MS = 15 * 60 * 1000L;
+
   private static Path cacheFile;
   private static final ConcurrentHashMap<String, ProfileEntry> profiles = new ConcurrentHashMap<>();
 
@@ -65,17 +73,21 @@ public final class ProfileCache {
             return t;
           });
 
-  /** Set by put/evict; triggers a near-immediate coalesced save. */
-  private static final AtomicBoolean saveDirty = new AtomicBoolean(false);
-
   /** Set by access-time bumps; flushed only by the periodic maintenance thread. */
   private static final AtomicBoolean accessDirty = new AtomicBoolean(false);
+
+  private static final CoalescedSaveQueue SAVE_QUEUE =
+      new CoalescedSaveQueue(
+          SAVE_EXECUTOR, SAVE_DEBOUNCE_SEC, TimeUnit.SECONDS, ProfileCache::saveIndex);
+
+  private static volatile long lastSuccessfulSaveMs;
 
   private ProfileCache() {}
 
   public static void init() {
     Path gameDir = FabricLoader.getInstance().getGameDir();
     cacheFile = gameDir.resolve("skincache").resolve("profiles.json");
+    lastSuccessfulSaveMs = System.currentTimeMillis();
     loadIndex();
     evictExpired();
 
@@ -90,7 +102,7 @@ public final class ProfileCache {
             new Thread(
                 () -> {
                   try {
-                    saveIndex();
+                    SAVE_QUEUE.flushNow();
                   } catch (Exception ignored) {
                   }
                 },
@@ -106,14 +118,24 @@ public final class ProfileCache {
    */
   public static void put(String uuid, String textureUrl, String textureHash) {
     long now = System.currentTimeMillis();
+    String textureIdPath = "skins/" + Hashing.sha1().hashUnencodedChars(textureHash).toString();
+    ProfileEntry current = profiles.get(uuid);
+
+    // registerTextures can be called repeatedly for the same resolved profile. Treat an identical
+    // mapping as an access instead of rewriting the entire 20k-entry JSON index.
+    if (matches(current, uuid, textureUrl, textureHash, textureIdPath)) {
+      bumpAccess(current, now, effectiveLastAccessed(current));
+      return;
+    }
+
     ProfileEntry entry = new ProfileEntry();
     entry.uuid = uuid;
     entry.textureUrl = textureUrl;
     entry.textureHash = textureHash;
     // Replicate SkinManager.TextureCache.registerTexture's ID generation:
     // sha1(textureHash) -> "skins/<sha1>"
-    entry.textureIdPath = "skins/" + Hashing.sha1().hashUnencodedChars(textureHash).toString();
-    entry.timestamp = now;
+    entry.textureIdPath = textureIdPath;
+    entry.timestamp = current != null && current.timestamp > 0 ? current.timestamp : now;
     entry.lastAccessed = now;
     profiles.put(uuid, entry);
     saveAsync();
@@ -194,8 +216,9 @@ public final class ProfileCache {
     try {
       evictExpired();
       evictOverflow();
-      if (accessDirty.compareAndSet(true, false) && !saveDirty.get()) {
-        saveIndex();
+      long now = System.currentTimeMillis();
+      if (accessDirty.get() && now - lastSuccessfulSaveMs >= ACCESS_PERSIST_INTERVAL_MS) {
+        SAVE_QUEUE.requestSave();
       }
     } catch (Exception e) {
       SkinCacheMod.LOGGER.warn("[SkinCache] Profile cache periodic maintenance failed", e);
@@ -215,6 +238,19 @@ public final class ProfileCache {
     }
   }
 
+  static boolean matches(
+      ProfileEntry entry,
+      String uuid,
+      String textureUrl,
+      String textureHash,
+      String textureIdPath) {
+    return entry != null
+        && Objects.equals(entry.uuid, uuid)
+        && Objects.equals(entry.textureUrl, textureUrl)
+        && Objects.equals(entry.textureHash, textureHash)
+        && Objects.equals(entry.textureIdPath, textureIdPath);
+  }
+
   // ── Persistence ──────────────────────────────────────────────────
 
   private static synchronized void loadIndex() {
@@ -230,20 +266,24 @@ public final class ProfileCache {
   }
 
   private static void saveAsync() {
-    if (saveDirty.compareAndSet(false, true)) {
-      SAVE_EXECUTOR.execute(
-          () -> {
-            saveDirty.set(false);
-            accessDirty.set(false);
-            saveIndex();
-          });
-    }
+    SAVE_QUEUE.requestSave();
   }
 
-  private static synchronized void saveIndex() {
-    if (cacheFile == null) return;
-    ImfFileIO.writeJsonAtomic(
-        cacheFile, GSON, profiles, SkinCacheMod.LOGGER, "SkinCache profile cache");
+  private static synchronized boolean saveIndex() {
+    if (cacheFile == null) return true;
+
+    // Clear before serialization. A cache hit that races with the write sets this back to true and
+    // is persisted by a later batch rather than being accidentally forgotten.
+    accessDirty.set(false);
+    boolean saved =
+        ImfFileIO.writeJsonAtomic(
+            cacheFile, GSON, profiles, SkinCacheMod.LOGGER, "SkinCache profile cache");
+    if (saved) {
+      lastSuccessfulSaveMs = System.currentTimeMillis();
+    } else {
+      accessDirty.set(true);
+    }
+    return saved;
   }
 
   // ── Entry ────────────────────────────────────────────────────────
