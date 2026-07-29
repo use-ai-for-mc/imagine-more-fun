@@ -7,8 +7,12 @@
 	"client": [
 		"CanoeGuiSetOverlayMessageMixin",
 		"ImfAlphaTableContainerScreenMixin",
+		"ImfArmorStandCollectibleOutlineMixin",
 		"ImfDailyObjectivesScreenMixin",
 		"ImfInventoryScreenMixin",
+		"ImfParticlePacketCaptureMixin",
+		"ImfQuestCollectibleGlowMixin",
+		"ImfQuestNightMixin",
 		"ImfScreenInvoker",
 		"NraAvatarRendererMixin",
 		"NraBossHealthOverlayAccessor",

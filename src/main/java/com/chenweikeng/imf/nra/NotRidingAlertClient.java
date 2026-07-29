@@ -21,6 +21,7 @@ import com.chenweikeng.imf.nra.handler.HibernationHandler;
 import com.chenweikeng.imf.nra.handler.MonkeycraftAutograbOverlayRenderer;
 import com.chenweikeng.imf.nra.handler.ReminderHandler;
 import com.chenweikeng.imf.nra.handler.ScoreboardHandler;
+import com.chenweikeng.imf.nra.quest.QuestCollectibleGlow;
 import com.chenweikeng.imf.nra.redcartrolley.RctCalibration;
 import com.chenweikeng.imf.nra.redcartrolley.RctCaptureRecorder;
 import com.chenweikeng.imf.nra.report.DailyReport;
@@ -230,6 +231,7 @@ public class NotRidingAlertClient implements ClientModInitializer {
     advanceNoticeHandler.tick(client);
     reminderHandler.track(client, currentTick);
     ClosedCaptionHolder.getInstance().tick();
+    QuestCollectibleGlow.tick(client);
 
     // ---- periodic checks ----
     RideCountManager.getInstance().checkAndSaveIfNeeded();
@@ -268,6 +270,7 @@ public class NotRidingAlertClient implements ClientModInitializer {
     reminderHandler.reset();
     advanceNoticeHandler.reset();
     RideReportNotifier.getInstance().reset();
+    QuestCollectibleGlow.reset();
 
     // UI / cursor
     ClosedCaptionHolder.getInstance().clear();

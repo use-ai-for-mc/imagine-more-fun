@@ -1,5 +1,6 @@
 package com.chenweikeng.imf.mixin;
 
+import com.chenweikeng.imf.nra.quest.QuestCollectibleGlow;
 import com.chenweikeng.imf.nra.spacemountain.SpaceMountainEntityHider;
 import com.chenweikeng.imf.nra.spacemountain.SpaceMountainOverride;
 import net.minecraft.client.renderer.culling.Frustum;
@@ -31,6 +32,10 @@ public class NraEntityRendererHideMixin {
       double camY,
       double camZ,
       CallbackInfoReturnable<Boolean> cir) {
+    if (QuestCollectibleGlow.isMarked(entity)) {
+      cir.setReturnValue(true);
+      return;
+    }
     if (SpaceMountainOverride.isActive()
         && entity instanceof ArmorStand stand
         && SpaceMountainEntityHider.shouldHide(stand)) {
