@@ -2,6 +2,7 @@ package com.chenweikeng.imf;
 
 import com.chenweikeng.imf.nra.NotRidingAlertClient;
 import com.chenweikeng.imf.nra.canoe.CanoeHelperClient;
+import com.chenweikeng.imf.nra.quest.QuestCollectibleBeamRenderer;
 import com.chenweikeng.imf.nra.spacemountain.SpaceMountainBlockOverride;
 import com.chenweikeng.imf.nra.spacemountain.SpaceMountainDiscoBall;
 import com.chenweikeng.imf.nra.spacemountain.SpaceMountainEntryTunnelSeal;
@@ -43,6 +44,7 @@ public class ImfClient implements ClientModInitializer {
     SpaceMountainEntryTunnelSeal.init();
     SpaceMountainDiscoBall.register();
     SpaceMountainRideAudio.register();
+    QuestCollectibleBeamRenderer.register();
 
     new NotRidingAlertClient().onInitializeClient();
     new PimClient().onInitializeClient();
