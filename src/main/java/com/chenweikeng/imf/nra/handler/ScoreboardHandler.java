@@ -119,7 +119,7 @@ public class ScoreboardHandler {
       return;
     }
 
-    if (!TutorialManager.getInstance().isCompletedForCurrentVersion()) {
+    if (!TutorialManager.getInstance().isCompletedForCurrentTutorial()) {
       return;
     }
 

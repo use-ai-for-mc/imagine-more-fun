@@ -18,7 +18,7 @@ public class ConfigReminderHandler {
       return;
     }
 
-    if (TutorialManager.getInstance().isCompletedForCurrentVersion()) {
+    if (TutorialManager.getInstance().isCompletedForCurrentTutorial()) {
       return;
     }
 
