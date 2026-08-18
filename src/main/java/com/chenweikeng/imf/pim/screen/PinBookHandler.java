@@ -1,6 +1,7 @@
 package com.chenweikeng.imf.pim.screen;
 
 import com.chenweikeng.imf.ImfFileIO;
+import com.chenweikeng.imf.ImfStorage;
 import com.chenweikeng.imf.pim.PimClient;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -38,7 +39,7 @@ public class PinBookHandler {
     this.pendingMissingSeries = new ArrayList<>();
     this.pendingNewSeries = new ArrayList<>();
     this.tickCount = 0;
-    this.dataFile = new File("config/pim_pin_book.json");
+    this.dataFile = ImfStorage.pimPinBook().toFile();
     load();
   }
 

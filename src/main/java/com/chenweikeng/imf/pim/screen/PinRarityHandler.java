@@ -1,6 +1,7 @@
 package com.chenweikeng.imf.pim.screen;
 
 import com.chenweikeng.imf.ImfFileIO;
+import com.chenweikeng.imf.ImfStorage;
 import com.chenweikeng.imf.pim.PimClient;
 import com.chenweikeng.imf.pim.pin.PinPackTier;
 import com.google.gson.Gson;
@@ -38,7 +39,7 @@ public class PinRarityHandler {
   private PinRarityHandler() {
     this.gson = new GsonBuilder().setPrettyPrinting().create();
     this.seriesMap = new HashMap<>();
-    this.dataFile = new File("config/pim_pin_rarity.json");
+    this.dataFile = ImfStorage.pimPinRarity().toFile();
     load();
   }
 

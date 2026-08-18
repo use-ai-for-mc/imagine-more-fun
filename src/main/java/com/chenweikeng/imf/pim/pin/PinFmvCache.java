@@ -1,5 +1,6 @@
 package com.chenweikeng.imf.pim.pin;
 
+import com.chenweikeng.imf.ImfStorage;
 import com.chenweikeng.imf.pim.PimClient;
 import java.io.File;
 
@@ -13,7 +14,7 @@ import java.io.File;
  * predate the GUI don't leave it lying around.
  */
 public final class PinFmvCache {
-  private static final File DATA_FILE = new File("config/pim_fmv.json");
+  private static final File DATA_FILE = ImfStorage.pimLegacyFmv().toFile();
 
   private PinFmvCache() {}
 
