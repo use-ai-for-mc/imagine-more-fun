@@ -7,7 +7,7 @@ import com.chenweikeng.imf.nra.config.StrategyHudRendererVersion;
 import com.chenweikeng.imf.nra.config.TrackerDisplayMode;
 import com.chenweikeng.imf.nra.strategy.RideGoal;
 import com.chenweikeng.imf.nra.strategy.StrategyCalculator;
-import com.chenweikeng.imf.nra.util.TimeFormatUtil;
+import com.chenweikeng.imf.nra.strategy.StrategyHudBase;
 import com.chenweikeng.imf.nra.wizard.WizardPage;
 import com.chenweikeng.imf.nra.wizard.layout.RenderBlock;
 import com.chenweikeng.imf.nra.wizard.layout.VerticalAlignment;
@@ -46,6 +46,8 @@ public class Page6TrackerSettings extends WizardPage {
       leftColumn.add(text(onlyAutograbbingSection()));
       leftColumn.add(separator(20));
       leftColumn.add(text(rideDisplayCountSection()));
+      leftColumn.add(separator(20));
+      leftColumn.add(text(strategyDurationSection()));
       leftColumn.add(separator(20));
       leftColumn.add(text(maxGoalSection()));
       leftColumn.add(separator(20));
@@ -146,6 +148,23 @@ public class Page6TrackerSettings extends WizardPage {
     content = append(content, literal("  "));
     content = append(content, incrementLink(maxGoalLink(current.next()), "[+]"));
 
+    return content;
+  }
+
+  private Component strategyDurationSection() {
+    boolean useTotalHours = ModConfig.currentSetting.strategyHubUseTotalHours;
+    Component status =
+        useTotalHours
+            ? colored("Enabled", ChatFormatting.GREEN)
+            : colored("Disabled", ChatFormatting.RED);
+
+    Component content = literal("");
+    content = append(content, bold("Long Duration Format"));
+    content = append(content, literal("\n\n"));
+    content = append(content, literal("Show durations over 24 hours as total hours and minutes? "));
+    content = append(content, status);
+    content = append(content, literal("  "));
+    content = append(content, isEnabledLink(useTotalHours, "strategyHubUseTotalHours"));
     return content;
   }
 
@@ -271,10 +290,10 @@ public class Page6TrackerSettings extends WizardPage {
       if (ModConfig.currentSetting.sortingRules == SortingRules.TOTAL_TIME_ASC
           || ModConfig.currentSetting.sortingRules == SortingRules.TOTAL_TIME_DESC) {
         ridesNeeded = goal.getMaxRidesNeeded() + "+";
-        timeNeeded = TimeFormatUtil.formatDuration(goal.getMaxTimeNeeded());
+        timeNeeded = StrategyHudBase.formatStrategyDuration(goal.getMaxTimeNeeded());
       } else {
         ridesNeeded = goal.getNextGoalRidesNeeded() + "+";
-        timeNeeded = TimeFormatUtil.formatDuration(goal.getNextGoalTimeNeeded());
+        timeNeeded = StrategyHudBase.formatStrategyDuration(goal.getNextGoalTimeNeeded());
       }
 
       content = append(content, literal(name + ": "));
