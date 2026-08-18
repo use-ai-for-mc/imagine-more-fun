@@ -12,12 +12,21 @@ import java.util.List;
 import java.util.Set;
 import java.util.function.Predicate;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.client.player.LocalPlayer;
 
 public class AutograbHolder {
   private static final String REGIONS_RESOURCE = "/assets/not-riding-alert/autograb-regions.json";
   private static final List<AutograbRegion> REGIONS = new ArrayList<>();
   private static final Set<RideName> AUTOGRAB_RIDES = new HashSet<>();
+  private static ClientLevel cachedLevel;
+  private static LocalPlayer cachedPlayer;
+  private static long cachedGameTime;
+  private static double cachedX;
+  private static double cachedY;
+  private static double cachedZ;
+  private static RideName cachedRide;
+  private static boolean locationCacheValid;
 
   static {
     loadRegions();
@@ -67,14 +76,49 @@ public class AutograbHolder {
 
   public static RideName getRideAtLocation(Minecraft client) {
     if (client == null || client.player == null || client.level == null) {
+      resetLocationCache();
       return null;
     }
+
+    LocalPlayer player = client.player;
+    ClientLevel level = client.level;
+    long gameTime = level.getGameTime();
+    double x = player.getX();
+    double y = player.getY();
+    double z = player.getZ();
+    if (locationCacheValid
+        && cachedLevel == level
+        && cachedPlayer == player
+        && cachedGameTime == gameTime
+        && Double.compare(cachedX, x) == 0
+        && Double.compare(cachedY, y) == 0
+        && Double.compare(cachedZ, z) == 0) {
+      return cachedRide;
+    }
+
+    RideName ride = null;
     for (AutograbRegion region : REGIONS) {
       if (region.contains(client)) {
-        return region.getRide();
+        ride = region.getRide();
+        break;
       }
     }
-    return null;
+    cachedLevel = level;
+    cachedPlayer = player;
+    cachedGameTime = gameTime;
+    cachedX = x;
+    cachedY = y;
+    cachedZ = z;
+    cachedRide = ride;
+    locationCacheValid = true;
+    return ride;
+  }
+
+  public static void resetLocationCache() {
+    cachedLevel = null;
+    cachedPlayer = null;
+    cachedRide = null;
+    locationCacheValid = false;
   }
 
   public static boolean hasAutograb(RideName ride) {
