@@ -1,7 +1,6 @@
 package com.chenweikeng.imf.mixin;
 
 import com.chenweikeng.imf.skincache.SkinCacheMod;
-import com.chenweikeng.imf.skincache.cache.TextureCache;
 import com.chenweikeng.imf.skincache.prewarm.ProfileCache;
 import com.mojang.authlib.minecraft.MinecraftProfileTexture;
 import com.mojang.authlib.minecraft.MinecraftProfileTextures;
@@ -12,22 +11,11 @@ import net.minecraft.world.entity.player.PlayerSkin;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
-/**
- * Mixin into SkinManager: - Runs cache cleanup on init - Captures resolved profiles (UUID → texture
- * URL/hash) for the profile cache
- */
+/** Captures resolved skin profiles (UUID → texture URL/hash) for the profile cache. */
 @Mixin(SkinManager.class)
 public abstract class SkinCacheSkinManagerMixin {
-
-  @Inject(method = "<init>", at = @At("RETURN"))
-  private void skincache$onInit(CallbackInfo ci) {
-    SkinCacheMod.LOGGER.debug("[SkinCache] SkinManager initialised — running cache cleanup");
-    TextureCache.evictExpired();
-    TextureCache.evictOverflow();
-  }
 
   /**
    * After registerTextures resolves a profile's textures, capture the mapping UUID → texture URL +
