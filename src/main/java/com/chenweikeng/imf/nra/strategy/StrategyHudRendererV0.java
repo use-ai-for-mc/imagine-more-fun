@@ -61,8 +61,6 @@ public class StrategyHudRendererV0 {
       return;
     }
 
-    update();
-
     int screenWidth = client.getWindow().getGuiScaledWidth();
     int xLeft = 50;
     int xRight = screenWidth - 50;
