@@ -1,12 +1,15 @@
 # Coaster camera-banking — multi-ride generalization (abandoned)
 
+> Archived experiment record. Do not treat paths, tuning values, or references in this file as
+> current implementation guidance. See `docs/features/SPACE_MOUNTAIN.md` for the current boundary.
+
 Active 2026-05-20 – 2026-05-21. Tried to generalize the Space Mountain camera-bank pattern (track recording → per-sample roll → camera roll mixin) to several ImagineFun coasters. **Abandoned 2026-05-21** after discovering that the bundled SmoothCoasters mod (`SmoothCoasters-1.21.11-v1.jar`) already tilts the camera server-side on the rides we were targeting, so our work was duplicating an existing feature and producing a visible double-tilt.
 
 ## Final state
 
 | Coaster | Status |
 |---|---|
-| Space Mountain / Hyperspace Mountain | camera bank **reimplemented 2026-05-26** to scale SmoothCoasters' own tilt (intercept `SmoothCoasters.setRotation`, scale the pose's roll) instead of the baked-track bank, then **generalized** into a global "Coaster Tilt" multiplier that applies to *all* SC-tilted coasters — see `SPACE-MOUNTAIN-PROGRESS.md`. The baked `dome_track.bin` now feeds only the SM/HSM rail geometry. |
+| Space Mountain / Hyperspace Mountain | camera bank **reimplemented 2026-05-26** to scale SmoothCoasters' own tilt (intercept `SmoothCoasters.setRotation`, scale the pose's roll) instead of the baked-track bank, then **generalized** into a global "Coaster Tilt" multiplier that applies to *all* SC-tilted coasters — see `SPACE_MOUNTAIN_PROGRESS_2026-05.md`. The baked `dome_track.bin` now feeds only the SM/HSM rail geometry. |
 | Big Thunder Mountain | dropped — SC tilts it already |
 | Radiator Springs Racers | dropped — SC tilts it (we initially shipped a bake here and it appeared to work; user later confirmed SC also handles RSR and removed our duplicate) |
 | Chip 'n' Dale's Gadget Coaster | dropped — SC tilts it already |
@@ -18,7 +21,7 @@ Active 2026-05-20 – 2026-05-21. Tried to generalize the Space Mountain camera-
 Code:
 - `CoasterTrackData` — per-ride IFTC v1/v2 binary loader; RESOURCES map currently has only `dome_track.bin` (SM/HSM share it). Still used by the track renderer for rail-geometry banking.
 
-> **Camera bank superseded 2026-05-26.** `CoasterCameraBank` (per-tick baked-track roll lookup, EMA-smoothed) and `NraCameraRollMixin` (roll applied at `GameRenderer.renderLevel` HEAD) were **removed** and replaced by `CoasterTiltAmplifier` + `NraSmoothCoastersRotationMixin`, which scale SmoothCoasters' own camera pose instead of computing a roll from the baked track. It was then **generalized the same day** from the SM/HSM-only "Additional Tilt" toggle into a global "Coaster Tilt" multiplier (`coasterTiltMultiplier`, double 0.0–2.0, default 1.0) that applies to every SC-tilted coaster, ImagineFun-gated. The baked `roll` column now feeds only the rail geometry (`SpaceMountainTrackRenderer`). See `SPACE-MOUNTAIN-PROGRESS.md`. This is the inverse of the project's original worry — rather than deleting SM banking as redundant with SC, it now *rides on* SC.
+> **Camera bank superseded 2026-05-26.** `CoasterCameraBank` (per-tick baked-track roll lookup, EMA-smoothed) and `NraCameraRollMixin` (roll applied at `GameRenderer.renderLevel` HEAD) were **removed** and replaced by `CoasterTiltAmplifier` + `NraSmoothCoastersRotationMixin`, which scale SmoothCoasters' own camera pose instead of computing a roll from the baked track. It was then **generalized the same day** from the SM/HSM-only "Additional Tilt" toggle into a global "Coaster Tilt" multiplier (`coasterTiltMultiplier`, double 0.0–2.0, default 1.0) that applies to every SC-tilted coaster, ImagineFun-gated. The baked `roll` column now feeds only the rail geometry (`SpaceMountainTrackRenderer`). See `SPACE_MOUNTAIN_PROGRESS_2026-05.md`. This is the inverse of the project's original worry — rather than deleting SM banking as redundant with SC, it now *rides on* SC.
 
 Resources (`src/main/resources/imaginemorefun/`):
 - `dome_track.bin` — SM/HSM track (IFTC v2). Pre-existed the project.

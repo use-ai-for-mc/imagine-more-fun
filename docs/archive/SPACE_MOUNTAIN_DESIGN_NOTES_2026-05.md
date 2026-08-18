@@ -1,6 +1,11 @@
 # Space Mountain / Hyperspace Mountain — overlay design guidelines
 
-Companion to [SPACE-MOUNTAIN-PROGRESS.md](SPACE-MOUNTAIN-PROGRESS.md). PROGRESS.md describes **what is deployed and how each subsystem works**; this doc is the **design-decision log** — the rationale and rules behind the overlay experience, plus open questions awaiting a call.
+> Archived May 2026 design log. It is evidence of prior decisions, not the current source of truth.
+> See `docs/features/SPACE_MOUNTAIN.md` for current architecture.
+
+Companion to
+[SPACE_MOUNTAIN_PROGRESS_2026-05.md](SPACE_MOUNTAIN_PROGRESS_2026-05.md). The progress file
+describes what was deployed at that time; this file is the matching design-decision log.
 
 > **Rewritten 2026-05-17.** The previous version predated the IFOV-overlay unification and the STL / debug-tooling cleanup. Its context section and its one filled-in guideline (G-1) described a runtime block-fill rule that no longer exists. This version is re-grounded on the current architecture. G-2…G-7 were never written and remain open.
 

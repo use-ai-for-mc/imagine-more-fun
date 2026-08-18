@@ -69,6 +69,10 @@ The built mod jar lands in `build/libs/`.
 
 Native helper binaries are generated during the release workflow. GitHub Actions builds the macOS Swift helpers and Windows .NET helpers, assembles them into `src/main/resources/native/`, verifies the final jar contains them, and publishes tagged releases. Local `./gradlew build` is fine for Java-side development, but a release jar must come from the tagged GitHub Actions build or from `./build-and-deploy.sh`, which rebuilds native helpers before packaging.
 
+Coding agents should begin with [`AGENTS.md`](AGENTS.md) and the
+[`docs/README.md`](docs/README.md) documentation map. Historical progress files are intentionally
+separated from current behavior contracts there.
+
 ## License
 
 ImagineMoreFun is released under the [MIT License](LICENSE). The bundled audio assets keep their own licenses (CC BY 3.0 and the Mixkit license) — see Audio credits below.
