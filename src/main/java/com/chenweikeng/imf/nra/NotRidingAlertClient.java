@@ -274,6 +274,7 @@ public class NotRidingAlertClient implements ClientModInitializer {
     advanceNoticeHandler.reset();
     RideReportNotifier.getInstance().reset();
     QuestCollectibleGlow.reset();
+    AutograbHolder.resetLocationCache();
 
     // UI / cursor
     ClosedCaptionHolder.getInstance().clear();
