@@ -31,7 +31,6 @@ public class ImfAlphaTableContainerScreenMixin {
   @Inject(at = @At("TAIL"), method = "render")
   public void imf$renderAlphaTable(
       GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
-    AlphaTableRenderer.debugMixinHookFiredCount++;
     AlphaTableRenderer.renderIfVisible(
         guiGraphics,
         (Screen) (Object) this,

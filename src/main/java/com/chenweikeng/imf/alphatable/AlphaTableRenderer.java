@@ -53,17 +53,6 @@ public final class AlphaTableRenderer {
 
   private static boolean linkRectsValid = false;
 
-  // --- DEBUG COUNTERS (read via the debug bridge) ---
-  // debugMixinHookFiredCount: bumped at the very start of the mixin handler before any branching;
-  //   tells us whether the @Inject was actually spliced into mouseClicked at runtime.
-  // debugClickCallCount: bumped inside handleClick, only fires for left-clicks that pass isLeft.
-  public static volatile int debugMixinHookFiredCount = 0;
-  public static volatile int debugClickCallCount = 0;
-  public static volatile double debugLastClickX = Double.NaN;
-  public static volatile double debugLastClickY = Double.NaN;
-  public static volatile boolean debugLastClickHit = false;
-  public static volatile int debugLastClickHitIndex = -1;
-
   private AlphaTableRenderer() {}
 
   private static Link makeLink(String label, String url) {
@@ -106,19 +95,12 @@ public final class AlphaTableRenderer {
    * confirmation popup fires exactly like chat hyperlinks.
    */
   public static boolean handleClick(double mouseX, double mouseY, Screen screen) {
-    debugClickCallCount++;
-    debugLastClickX = mouseX;
-    debugLastClickY = mouseY;
-    debugLastClickHit = false;
-    debugLastClickHitIndex = -1;
     if (!linkRectsValid || screen == null || !shouldShow(screen)) {
       return false;
     }
     for (int i = 0; i < LINKS.length; i++) {
       int[] r = LINK_RECTS[i];
       if (mouseX >= r[0] && mouseX < r[2] && mouseY >= r[1] && mouseY < r[3]) {
-        debugLastClickHit = true;
-        debugLastClickHitIndex = i;
         ImfScreenInvoker.imf$defaultHandleClickEvent(
             LINKS[i].clickEvent(), Minecraft.getInstance(), screen);
         return true;
