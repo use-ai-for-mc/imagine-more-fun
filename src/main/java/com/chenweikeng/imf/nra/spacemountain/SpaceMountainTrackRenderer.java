@@ -109,7 +109,7 @@ public final class SpaceMountainTrackRenderer {
 
   public static void setEnabled(boolean enabled) {
     ENABLED = enabled;
-    NotRidingAlertClient.LOGGER.info("[SpaceMountainTrackRenderer] enabled={}", enabled);
+    NotRidingAlertClient.LOGGER.debug("[SpaceMountainTrackRenderer] enabled={}", enabled);
   }
 
   public static boolean isEnabled() {

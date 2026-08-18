@@ -25,7 +25,7 @@ public final class PinHoarderHelper {
     // Schedule a check for a few ticks later to ensure inventory is updated
     pendingSlotCheck = true;
     ticksUntilCheck = 2;
-    PimClient.LOGGER.info("[PinHoarder] Trade completed, scheduling slot check");
+    PimClient.LOGGER.debug("[PinHoarder] Trade completed, scheduling slot check");
   }
 
   /** Called every client tick. */
@@ -47,24 +47,24 @@ public final class PinHoarderHelper {
     Minecraft mc = Minecraft.getInstance();
     Player player = mc.player;
     if (player == null) {
-      PimClient.LOGGER.info("[PinHoarder] No player, aborting");
+      PimClient.LOGGER.debug("[PinHoarder] No player, aborting");
       return;
     }
 
     Inventory inventory = player.getInventory();
     int currentSlot = inventory.getSelectedSlot();
-    PimClient.LOGGER.info("[PinHoarder] Checking slot {}", currentSlot);
+    PimClient.LOGGER.debug("[PinHoarder] Checking slot {}", currentSlot);
 
     // Check if current slot is empty
     ItemStack currentItem = inventory.getItem(currentSlot);
     if (!currentItem.isEmpty()) {
       // Current slot still has an item - don't advance
-      PimClient.LOGGER.info(
+      PimClient.LOGGER.debug(
           "[PinHoarder] Current slot not empty: {}", currentItem.getHoverName().getString());
       return;
     }
 
-    PimClient.LOGGER.info("[PinHoarder] Current slot empty, searching for next pin");
+    PimClient.LOGGER.debug("[PinHoarder] Current slot empty, searching for next pin");
 
     // Find next slot with a non-MINT pin in hotbar (slots 0-8)
     for (int i = 1; i < 9; i++) {
@@ -78,28 +78,28 @@ public final class PinHoarderHelper {
       PinDetailHandler.PinDetailEntry entry = PinDetailHandler.parsePinEntry(stack);
       if (entry != null && entry.condition != PinDetailHandler.PinCondition.MINT) {
         // Found a non-MINT pin - switch to this slot
-        PimClient.LOGGER.info("[PinHoarder] Found non-MINT pin in slot {}, switching", checkSlot);
+        PimClient.LOGGER.debug("[PinHoarder] Found non-MINT pin in slot {}, switching", checkSlot);
         inventory.setSelectedSlot(checkSlot);
         return;
       }
     }
 
-    PimClient.LOGGER.info("[PinHoarder] No pins in hotbar, checking for packs");
+    PimClient.LOGGER.debug("[PinHoarder] No pins in hotbar, checking for packs");
 
     // No non-MINT pins found in hotbar - check if hotbar has useful pin packs first
     if (hasUsefulPinPackInHotbar(inventory)) {
       // There's a useful pack in hotbar - player can switch to it manually
-      PimClient.LOGGER.info("[PinHoarder] Found useful pack in hotbar, not opening inventory");
+      PimClient.LOGGER.debug("[PinHoarder] Found useful pack in hotbar, not opening inventory");
       return;
     }
 
     // Check if main inventory (non-hotbar) has useful pin packs
     if (hasUsefulPinPacksInMainInventory(inventory)) {
       // Open the inventory screen
-      PimClient.LOGGER.info("[PinHoarder] Found useful packs in inventory, opening inventory");
+      PimClient.LOGGER.debug("[PinHoarder] Found useful packs in inventory, opening inventory");
       mc.setScreen(new InventoryScreen(player));
     } else {
-      PimClient.LOGGER.info("[PinHoarder] No useful packs found");
+      PimClient.LOGGER.debug("[PinHoarder] No useful packs found");
     }
   }
 
@@ -114,7 +114,7 @@ public final class PinHoarderHelper {
       }
 
       if (isUsefulPinPack(stack)) {
-        PimClient.LOGGER.info("[PinHoarder] Found useful pack in hotbar slot {}", slot);
+        PimClient.LOGGER.debug("[PinHoarder] Found useful pack in hotbar slot {}", slot);
         return true;
       }
     }
@@ -133,7 +133,7 @@ public final class PinHoarderHelper {
       }
 
       if (isUsefulPinPack(stack)) {
-        PimClient.LOGGER.info("[PinHoarder] Found useful pack in inventory slot {}", slot);
+        PimClient.LOGGER.debug("[PinHoarder] Found useful pack in inventory slot {}", slot);
         return true;
       }
     }

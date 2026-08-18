@@ -1,6 +1,5 @@
 package com.chenweikeng.imf.nra.tracker;
 
-import com.chenweikeng.imf.nra.NotRidingAlertClient;
 import com.chenweikeng.imf.nra.session.SessionTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -60,12 +59,6 @@ public final class FoodConsumptionTracker {
     pendingSlot = slot;
     pendingStackSize = stack.getCount();
     ticksToCheck = CHECK_TICKS;
-
-    NotRidingAlertClient.LOGGER.info(
-        "[FoodTracker] Started tracking: {} in slot {} (count: {})",
-        itemName,
-        slot,
-        pendingStackSize);
   }
 
   /** Called every client tick to check if pending food was consumed. */
@@ -75,12 +68,6 @@ public final class FoodConsumptionTracker {
     }
 
     ticksToCheck--;
-
-    // Log every 10 ticks to avoid spam
-    if (ticksToCheck % 10 == 0) {
-      NotRidingAlertClient.LOGGER.info(
-          "[FoodTracker] Tick check: {} ticks remaining for {}", ticksToCheck, pendingFoodName);
-    }
 
     Minecraft mc = Minecraft.getInstance();
     LocalPlayer player = mc.player;
@@ -102,19 +89,12 @@ public final class FoodConsumptionTracker {
       // If slot has different item type, it was swapped
       if (!currentStack.isEmpty() && currentStack.getItem() != pendingItemType) {
         // Different item in slot - was swapped, not consumed
-        NotRidingAlertClient.LOGGER.info(
-            "[FoodTracker] Item swapped, cancelling tracking: {} (slot {} now has: {})",
-            pendingFoodName,
-            pendingSlot,
-            currentStack.getHoverName().getString());
         clearPending();
         return;
       }
 
       // Food was consumed! (slot empty or same item with lower count)
       String consumedName = pendingFoodName;
-      NotRidingAlertClient.LOGGER.info("[FoodTracker] Consumed: {}", consumedName);
-
       // Record the consumption
       SessionTracker.getInstance().onFoodConsumed(consumedName);
 
@@ -126,17 +106,12 @@ public final class FoodConsumptionTracker {
     if (currentStack.getItem() != pendingItemType
         || !currentStack.getHoverName().getString().equals(pendingFoodName)) {
       // Item was swapped with same count - cancel tracking
-      NotRidingAlertClient.LOGGER.info(
-          "[FoodTracker] Item swapped (same count), cancelling: {} -> {}",
-          pendingFoodName,
-          currentStack.getHoverName().getString());
       clearPending();
       return;
     }
 
     // If we've run out of ticks to check, cancel tracking
     if (ticksToCheck <= 0) {
-      NotRidingAlertClient.LOGGER.info("[FoodTracker] Timed out tracking: {}", pendingFoodName);
       clearPending();
     }
   }
