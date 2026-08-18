@@ -75,8 +75,6 @@ public class StrategyHudRendererV1 {
       return;
     }
 
-    update();
-
     int screenWidth = client.getWindow().getGuiScaledWidth();
     int textPadding = 5;
     int xLeft = textPadding;

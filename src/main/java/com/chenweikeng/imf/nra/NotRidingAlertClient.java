@@ -242,6 +242,7 @@ public class NotRidingAlertClient implements ClientModInitializer {
     RideReportNotifier.getInstance().tick();
     FoodConsumptionTracker.getInstance().tick();
     StatusBarController.getInstance().tick(client);
+    StrategyHudRendererDispatcher.update();
 
     tickCounter++;
     if (tickCounter >= Timing.ALERT_CHECK_INTERVAL) {

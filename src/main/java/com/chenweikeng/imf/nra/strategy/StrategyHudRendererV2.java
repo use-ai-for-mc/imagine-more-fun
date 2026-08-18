@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.UUID;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.BossHealthOverlay;
 import net.minecraft.client.gui.components.LerpingBossEvent;
@@ -53,6 +54,11 @@ public class StrategyHudRendererV2 {
 
   private record LayoutCandidate(
       int numColumns, int numRows, java.util.List<int[]> columnMaxWidths) {}
+
+  private static List<EntryComponents> cachedLayoutEntries = List.of();
+  private static int cachedLayoutScreenWidth = -1;
+  private static Font cachedLayoutFont;
+  private static LayoutResult cachedLayout;
 
   private record FullModeRenderContext(
       GuiGraphics context,
@@ -99,8 +105,6 @@ public class StrategyHudRendererV2 {
     if (bossEvents != null && !bossEvents.isEmpty()) {
       return;
     }
-
-    update();
 
     if (client == null || client.player == null || client.font == null) {
       return;
@@ -209,7 +213,7 @@ public class StrategyHudRendererV2 {
       return;
     }
 
-    LayoutResult layout = computeLayout(entries, screenWidth, client.font);
+    LayoutResult layout = getOrComputeLayout(entries, screenWidth, client.font);
     int numColumns = layout.optimalColumns();
     java.util.List<int[]> entryXPositions = layout.entryXPositions();
 
@@ -372,8 +376,22 @@ public class StrategyHudRendererV2 {
     return Math.min(1.0f, (float) elapsed / ANIMATION_DURATION_MS);
   }
 
+  private static LayoutResult getOrComputeLayout(
+      List<EntryComponents> entries, int screenWidth, Font font) {
+    if (cachedLayout == null
+        || cachedLayoutScreenWidth != screenWidth
+        || cachedLayoutFont != font
+        || !cachedLayoutEntries.equals(entries)) {
+      cachedLayoutEntries = List.copyOf(entries);
+      cachedLayoutScreenWidth = screenWidth;
+      cachedLayoutFont = font;
+      cachedLayout = computeLayout(entries, screenWidth, font);
+    }
+    return cachedLayout;
+  }
+
   private static LayoutResult computeLayout(
-      List<EntryComponents> entries, int screenWidth, net.minecraft.client.gui.Font font) {
+      List<EntryComponents> entries, int screenWidth, Font font) {
 
     if (entries.isEmpty()) {
       return new LayoutResult(0, List.of(), List.of(), 0);
