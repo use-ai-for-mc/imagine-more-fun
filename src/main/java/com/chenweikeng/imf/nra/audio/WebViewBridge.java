@@ -16,6 +16,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,7 +28,7 @@ import org.slf4j.LoggerFactory;
  * <p>Protocol - commands (Java → helper stdin):
  *
  * <pre>
- *   {"cmd":"load","url":"https://..."}
+ *   {"cmd":"load","url":"https://...","preferredVolume":35}
  *   {"cmd":"eval","js":"...","id":"uuid"}
  *   {"cmd":"quit"}
  * </pre>
@@ -36,14 +37,18 @@ import org.slf4j.LoggerFactory;
  *
  * <pre>
  *   {"type":"ready"}
- *   {"type":"loaded","url":"..."}
+ *   {"type":"loaded","success":true}
  *   {"type":"eval_result","id":"uuid","result":{...}}
+ *   {"type":"gpu_memory_health","pid":123,"physicalFootprintBytes":123456}
+ *   {"type":"gpu_memory_pressure","reason":"rapid-growth","mediaSnapshot":[...]}
+ *   {"type":"gpu_memory_monitor_failed","pid":123,"unavailableDurationMs":300000}
  *   {"type":"error","message":"..."}
  * </pre>
  */
 public class WebViewBridge implements AutoCloseable {
   private static final Logger LOGGER = LoggerFactory.getLogger("WebViewBridge");
   private static final long EVAL_TIMEOUT_SECONDS = 10;
+  static final long HELPER_READY_TIMEOUT_SECONDS = 30;
 
   /**
    * Why {@link #start()} failed, with user-facing guidance for the causes the player can fix
@@ -99,8 +104,11 @@ public class WebViewBridge implements AutoCloseable {
   private volatile boolean running;
   private final AtomicBoolean stopping = new AtomicBoolean();
   private volatile Runnable exitListener = () -> {};
+  private volatile Consumer<String> engineFailureListener = reason -> {};
   private volatile String sessionId = "unassigned";
+  private volatile long helperGeneration;
   private volatile StartFailure startFailure;
+  private boolean gpuMemoryTelemetryUnavailable;
   private final Map<String, CompletableFuture<JSONObject>> pendingEvals = new ConcurrentHashMap<>();
   private final CompletableFuture<Void> readyFuture = new CompletableFuture<>();
 
@@ -191,9 +199,12 @@ public class WebViewBridge implements AutoCloseable {
       errorThread.setDaemon(true);
       errorThread.start();
 
-      // Wait for the helper to signal ready
+      // A cold WKWebView launch can exceed 15 seconds while macOS initializes WebKit services.
+      // Killing it at that boundary immediately starts another GPU/WebContent generation and can
+      // create a severe CPU/IO spike. Give one owned helper enough time and recover with backoff if
+      // it genuinely cannot start.
       try {
-        readyFuture.get(15, TimeUnit.SECONDS);
+        readyFuture.get(HELPER_READY_TIMEOUT_SECONDS, TimeUnit.SECONDS);
       } catch (Exception e) {
         if (startFailure == null) {
           startFailure = StartFailure.HELPER_NOT_READY;
@@ -203,7 +214,11 @@ public class WebViewBridge implements AutoCloseable {
         return false;
       }
 
-      LOGGER.info("WebView helper process started (session={}, pid={})", sessionId, process.pid());
+      LOGGER.info(
+          "WebView helper process started (session={}, helperGeneration={}, pid={})",
+          sessionId,
+          helperGeneration,
+          process.pid());
       return true;
     } catch (IOException e) {
       startFailure = StartFailure.HELPER_LAUNCH_FAILED;
@@ -216,8 +231,16 @@ public class WebViewBridge implements AutoCloseable {
     exitListener = listener != null ? listener : () -> {};
   }
 
+  public void setEngineFailureListener(Consumer<String> listener) {
+    engineFailureListener = listener != null ? listener : reason -> {};
+  }
+
   public void setSessionId(String sessionId) {
     this.sessionId = sessionId;
+  }
+
+  public void setHelperGeneration(long helperGeneration) {
+    this.helperGeneration = helperGeneration;
   }
 
   public synchronized void stop() {
@@ -284,7 +307,16 @@ public class WebViewBridge implements AutoCloseable {
   }
 
   public void loadUrl(String url) {
-    sendCommand(new JSONObject().put("cmd", "load").put("url", url));
+    loadUrl(url, AudioVolumeState.UNKNOWN);
+  }
+
+  /** Loads a page and arms the macOS helper's pre-play volume gate when a preference is known. */
+  public void loadUrl(String url, int preferredVolume) {
+    JSONObject command = new JSONObject().put("cmd", "load").put("url", url);
+    if (AudioVolumeState.isValid(preferredVolume)) {
+      command.put("preferredVolume", preferredVolume);
+    }
+    sendCommand(command);
   }
 
   public CompletableFuture<JSONObject> evaluateJs(String js) {
@@ -358,7 +390,7 @@ public class WebViewBridge implements AutoCloseable {
         try {
           handleResponse(new JSONObject(line));
         } catch (Exception e) {
-          LOGGER.warn("Failed to parse helper response: {}", line, e);
+          LOGGER.warn("Failed to parse helper response (payloadLength={})", line.length(), e);
         }
       }
     } catch (IOException e) {
@@ -381,7 +413,7 @@ public class WebViewBridge implements AutoCloseable {
             new InputStreamReader(currentProcess.getErrorStream(), StandardCharsets.UTF_8))) {
       String line;
       while ((line = reader.readLine()) != null) {
-        LOGGER.warn("[native helper stderr] {}", line);
+        LOGGER.warn("[native helper stderr] {}", OpenAudioMcService.sanitizeLogMessage(line));
       }
     } catch (IOException e) {
       if (running) {
@@ -401,11 +433,13 @@ public class WebViewBridge implements AutoCloseable {
     }
   }
 
-  private void handleResponse(JSONObject response) {
+  void handleResponse(JSONObject response) {
     String type = response.optString("type", "");
     switch (type) {
       case "ready":
-        LOGGER.info("WebView helper is ready");
+        LOGGER.info(
+            "WebView helper is ready (audioInjectionMode={})",
+            response.optString("audioInjectionMode", "unknown"));
         readyFuture.complete(null);
         break;
       case "eval_result":
@@ -417,15 +451,15 @@ public class WebViewBridge implements AutoCloseable {
         }
         break;
       case "loaded":
-        LOGGER.debug("Page loaded: {}", response.optString("url", ""));
+        LOGGER.debug("OpenAudioMC page loaded");
         break;
       case "console":
         String level = response.optString("level", "log");
-        String msg = response.optString("message", "");
-        // The temporary media diagnostic uses a dedicated prefix so it remains visible without
-        // enabling the full (very noisy) OpenAudioMC console stream.
-        if (msg.startsWith("[IMF-AUDIO-TRACE ")) {
-          LOGGER.info("{}", msg);
+        String msg = OpenAudioMcService.sanitizeLogMessage(response.optString("message", ""));
+        // Diagnostic streams stay behind DEBUG so an accidentally enabled observation mode cannot
+        // flood production INFO logs.
+        if (msg.startsWith("[IMF-AUDIO-TRACE ") || msg.startsWith("[IMF-AUDIO-OBSERVE ")) {
+          LOGGER.debug("{}", msg);
         } else if ("error".equals(level) || "uncaught".equals(level) || "rejection".equals(level)) {
           LOGGER.warn("[JS {}] {}", level, msg);
         } else if ("warn".equals(level)) {
@@ -434,7 +468,8 @@ public class WebViewBridge implements AutoCloseable {
         break;
       case "error":
         String errorMessage = response.optString("message", "");
-        LOGGER.warn("WebView helper error: {}", errorMessage);
+        LOGGER.warn(
+            "WebView helper error: {}", OpenAudioMcService.sanitizeLogMessage(errorMessage));
         if (!readyFuture.isDone()) {
           // Startup error (the helper reports its WebView2 init exception this way and then
           // exits). Classify it so the user gets actionable guidance, and fail the ready-wait
@@ -447,6 +482,108 @@ public class WebViewBridge implements AutoCloseable {
         break;
       case "web_content_terminated":
         LOGGER.warn("WebKit content process terminated (WebView audio engine crashed)");
+        notifyEngineFailure("web-content-terminated");
+        break;
+      case "gpu_process_observed":
+        LOGGER.info(
+            "WebKit GPU process observed (session={}, helperGeneration={}, gpuPid={})",
+            sessionId,
+            helperGeneration,
+            response.optLong("pid", -1));
+        break;
+      case "gpu_process_changed":
+        LOGGER.warn(
+            "WebKit GPU process changed (session={}, helperGeneration={}, oldPid={}, newPid={})",
+            sessionId,
+            helperGeneration,
+            response.optLong("oldPid", -1),
+            response.optLong("newPid", -1));
+        notifyEngineFailure("gpu-process-changed");
+        break;
+      case "gpu_memory_health":
+        if (gpuMemoryTelemetryUnavailable) {
+          gpuMemoryTelemetryUnavailable = false;
+          LOGGER.info(
+              "WebKit GPU footprint telemetry restored (session={}, helperGeneration={},"
+                  + " gpuPid={})",
+              sessionId,
+              helperGeneration,
+              response.optLong("pid", -1));
+        }
+        LOGGER.debug(
+            "WebKit GPU memory health (session={}, helperGeneration={}, gpuPid={},"
+                + " footprintMiB={}, residentMiB={}, lifetimeMaxMiB={}, windowDeltaMiB={},"
+                + " windowDurationMs={}, absoluteBreachSamples={}, absoluteLimitMiB={},"
+                + " rapidGrowthLimitMiB={}, rapidGrowthFloorMiB={}, rapidGrowthWindowMs={})",
+            sessionId,
+            helperGeneration,
+            response.optLong("pid", -1),
+            bytesToMiB(response.optLong("physicalFootprintBytes", 0)),
+            bytesToMiB(response.optLong("residentBytes", 0)),
+            bytesToMiB(response.optLong("lifetimeMaxFootprintBytes", 0)),
+            bytesToMiB(response.optLong("windowDeltaBytes", 0)),
+            response.optLong("windowDurationMs", 0),
+            response.optInt("absoluteBreachSamples", 0),
+            bytesToMiB(response.optLong("absoluteLimitBytes", 0)),
+            bytesToMiB(response.optLong("rapidGrowthLimitBytes", 0)),
+            bytesToMiB(response.optLong("rapidGrowthFloorBytes", 0)),
+            response.optLong("rapidGrowthWindowMs", 0));
+        break;
+      case "gpu_memory_unavailable":
+        boolean firstUnavailableSample = !gpuMemoryTelemetryUnavailable;
+        gpuMemoryTelemetryUnavailable = true;
+        if (firstUnavailableSample) {
+          LOGGER.warn(
+              "WebKit GPU physical-footprint telemetry became unavailable (session={},"
+                  + " helperGeneration={}, gpuPid={}, recycleAfterMs={})",
+              sessionId,
+              helperGeneration,
+              response.optLong("pid", -1),
+              response.optLong("recycleAfterMs", 0));
+        } else {
+          LOGGER.debug(
+              "WebKit GPU footprint telemetry still unavailable (session={},"
+                  + " helperGeneration={}, gpuPid={}, consecutiveFailures={},"
+                  + " unavailableDurationMs={})",
+              sessionId,
+              helperGeneration,
+              response.optLong("pid", -1),
+              response.optInt("consecutiveFailures", 0),
+              response.optLong("unavailableDurationMs", 0));
+        }
+        break;
+      case "gpu_memory_monitor_failed":
+        LOGGER.warn(
+            "WebKit GPU footprint monitor remained unavailable; recycling complete helper"
+                + " (session={}, helperGeneration={}, gpuPid={}, consecutiveFailures={},"
+                + " unavailableDurationMs={}, recycleAfterMs={})",
+            sessionId,
+            helperGeneration,
+            response.optLong("pid", -1),
+            response.optInt("consecutiveFailures", 0),
+            response.optLong("unavailableDurationMs", 0),
+            response.optLong("recycleAfterMs", 0));
+        notifyEngineFailure("gpu-memory-monitor-unavailable");
+        break;
+      case "gpu_memory_pressure":
+        String pressureReason = response.optString("reason", "unknown");
+        LOGGER.warn(
+            "WebKit GPU memory pressure detected; recycling complete helper (session={},"
+                + " helperGeneration={}, reason={}, gpuPid={}, footprintMiB={}, residentMiB={},"
+                + " lifetimeMaxMiB={}, windowDeltaMiB={}, windowDurationMs={},"
+                + " absoluteBreachSamples={}, mediaSnapshot={})",
+            sessionId,
+            helperGeneration,
+            pressureReason,
+            response.optLong("pid", -1),
+            bytesToMiB(response.optLong("physicalFootprintBytes", 0)),
+            bytesToMiB(response.optLong("residentBytes", 0)),
+            bytesToMiB(response.optLong("lifetimeMaxFootprintBytes", 0)),
+            bytesToMiB(response.optLong("windowDeltaBytes", 0)),
+            response.optLong("windowDurationMs", 0),
+            response.optInt("absoluteBreachSamples", 0),
+            response.optJSONArray("mediaSnapshot"));
+        notifyEngineFailure("gpu-memory-pressure-" + pressureReason);
         break;
       case "webview_destroyed":
         LOGGER.info("Native helper confirmed WKWebView destruction");
@@ -457,6 +594,18 @@ public class WebViewBridge implements AutoCloseable {
       default:
         LOGGER.debug("Unknown helper response type: {}", type);
     }
+  }
+
+  private void notifyEngineFailure(String reason) {
+    try {
+      engineFailureListener.accept(reason);
+    } catch (RuntimeException e) {
+      LOGGER.error("Audio engine failure listener crashed (reason={})", reason, e);
+    }
+  }
+
+  private static long bytesToMiB(long bytes) {
+    return Math.max(0, bytes) / (1024 * 1024);
   }
 
   private Path findHelperBinary() {

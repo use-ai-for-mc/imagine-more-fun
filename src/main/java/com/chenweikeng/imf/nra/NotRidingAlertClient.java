@@ -47,6 +47,7 @@ import com.chenweikeng.imf.nra.wizard.TutorialManager;
 import com.chenweikeng.imf.nra.wizard.WizardScreen;
 import com.mojang.brigadier.CommandDispatcher;
 import com.mojang.brigadier.arguments.StringArgumentType;
+import java.util.concurrent.CompletableFuture;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
@@ -100,8 +101,9 @@ public class NotRidingAlertClient implements ClientModInitializer {
           if (ServerState.isImagineFunServer()) {
             MonkeycraftCompat.init();
             SessionTracker.getInstance().onSessionStart();
-            if (ModConfig.currentSetting.enableOpenAudioMc) {
-              OpenAudioMcService.getInstance().autoConnectOnJoin();
+            OpenAudioMcService audioService = OpenAudioMcService.getInstance();
+            if (audioService.shouldConnectOnJoin(ModConfig.currentSetting.enableOpenAudioMc)) {
+              audioService.autoConnectOnJoin();
             }
           }
           if (ServerState.isImagineFunServer()
@@ -395,7 +397,8 @@ public class NotRidingAlertClient implements ClientModInitializer {
                 ClientCommandManager.literal("disconnect")
                     .executes(
                         context -> {
-                          OpenAudioMcService.getInstance().disconnectViaCommand();
+                          CompletableFuture.runAsync(
+                              () -> OpenAudioMcService.getInstance().disconnectViaCommand());
                           return 1;
                         }))
             .then(
