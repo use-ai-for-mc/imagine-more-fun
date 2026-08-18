@@ -2,7 +2,6 @@ package com.chenweikeng.imf;
 
 import com.chenweikeng.imf.nra.NotRidingAlertClient;
 import com.chenweikeng.imf.nra.canoe.CanoeHelperClient;
-import com.chenweikeng.imf.nra.quest.QuestCollectibleBeamRenderer;
 import com.chenweikeng.imf.nra.spacemountain.SpaceMountainBlockOverride;
 import com.chenweikeng.imf.nra.spacemountain.SpaceMountainDiscoBall;
 import com.chenweikeng.imf.nra.spacemountain.SpaceMountainEntryTunnelSeal;
@@ -19,9 +18,9 @@ import org.slf4j.LoggerFactory;
 /**
  * Single client entrypoint for the merged ImagineMoreFun mod.
  *
- * <p>This class wires together three formerly-independent mods into one. Each sub-mod's original
- * initializer is still invoked unchanged — the order is NRA → PIM → SkinCache, but none of them has
- * a hard dependency on another, so the order is not load-bearing.
+ * <p>This class wires together three formerly-independent mods plus the shared Space Mountain and
+ * Canoe Helper integrations. The initialization order is Space Mountain helpers → NRA → PIM →
+ * SkinCache → Canoe Helper.
  *
  * <p>Storage migration runs exactly once before any sub-mod initializer touches the filesystem.
  */
@@ -44,7 +43,6 @@ public class ImfClient implements ClientModInitializer {
     SpaceMountainEntryTunnelSeal.init();
     SpaceMountainDiscoBall.register();
     SpaceMountainRideAudio.register();
-    QuestCollectibleBeamRenderer.register();
 
     new NotRidingAlertClient().onInitializeClient();
     new PimClient().onInitializeClient();

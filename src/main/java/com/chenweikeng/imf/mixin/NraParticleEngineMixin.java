@@ -1,7 +1,5 @@
 package com.chenweikeng.imf.mixin;
 
-import com.chenweikeng.imf.nra.debug.DustParticlePacketCapture;
-import com.chenweikeng.imf.nra.quest.QuestCollectibleGlow;
 import com.chenweikeng.imf.nra.spacemountain.SpaceMountainOverride;
 import net.minecraft.client.particle.Particle;
 import net.minecraft.client.particle.ParticleEngine;
@@ -30,8 +28,6 @@ public class NraParticleEngineMixin {
       double ya,
       double za,
       CallbackInfoReturnable<Particle> cir) {
-    DustParticlePacketCapture.captureCreated(options, x, y, z, xa, ya, za);
-    QuestCollectibleGlow.observeDust(options, x, y, z);
     if (!SpaceMountainOverride.isActive()) return;
     if (options.getType() == ParticleTypes.END_ROD) {
       cir.setReturnValue(null);

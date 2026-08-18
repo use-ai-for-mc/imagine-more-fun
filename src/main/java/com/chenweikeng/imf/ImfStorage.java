@@ -105,19 +105,6 @@ public final class ImfStorage {
   }
 
   /**
-   * Directory holding Red Car Trolley movement captures (one NDJSON file per recording session).
-   */
-  public static Path rctCaptureDir() {
-    Path p = root().resolve("rct-captures");
-    try {
-      Files.createDirectories(p);
-    } catch (IOException e) {
-      ImfClient.LOGGER.warn("Could not create RCT capture directory {}", p, e);
-    }
-    return p;
-  }
-
-  /**
    * Marker file written once migration from the old {@code config/not-riding-alert*} paths has run.
    */
   public static Path migrationMarker() {
