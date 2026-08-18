@@ -38,6 +38,8 @@ import com.chenweikeng.imf.nra.ride.RideCountManager;
 import com.chenweikeng.imf.nra.ride.RideName;
 import com.chenweikeng.imf.nra.session.SessionStatsHudRenderer;
 import com.chenweikeng.imf.nra.session.SessionTracker;
+import com.chenweikeng.imf.nra.showtime.ShowtimeCountdownController;
+import com.chenweikeng.imf.nra.showtime.ShowtimeCountdownHudRenderer;
 import com.chenweikeng.imf.nra.status.StatusBarController;
 import com.chenweikeng.imf.nra.strategy.StrategyHudRendererDispatcher;
 import com.chenweikeng.imf.nra.tracker.FoodConsumptionTracker;
@@ -125,6 +127,7 @@ public class NotRidingAlertClient implements ClientModInitializer {
           StatusBarController.getInstance().onDisconnect();
           ServerState.onDisconnect();
           RctCaptureRecorder.getInstance().stopOnDisconnect();
+          ShowtimeCountdownController.getInstance().reset();
           resetAllTrackers();
         });
 
@@ -167,6 +170,13 @@ public class NotRidingAlertClient implements ClientModInitializer {
     if (sessionStatsId != null) {
       HudElementRegistry.attachElementBefore(
           VanillaHudElements.CHAT, sessionStatsId, SessionStatsHudRenderer::render);
+    }
+
+    Identifier showtimeCountdownHudId =
+        Identifier.fromNamespaceAndPath(NotRidingAlertClient.MOD_ID, "showtime_countdown");
+    if (showtimeCountdownHudId != null) {
+      HudElementRegistry.attachElementBefore(
+          VanillaHudElements.CHAT, showtimeCountdownHudId, ShowtimeCountdownHudRenderer::render);
     }
 
     Identifier monkeycraftAutograbOverlayId =
