@@ -135,6 +135,7 @@ public final class ConfigDiffSummary {
     diffBool(diffs, "hibernate", a.hibernationWhenRiding, b.hibernationWhenRiding);
     diffBool(diffs, "stats", a.showSessionStats, b.showSessionStats);
     diffBool(diffs, "OpenAudioMC", a.enableOpenAudioMc, b.enableOpenAudioMc);
+    diffBool(diffs, "attention", a.systemAttentionOnAlert, b.systemAttentionOnAlert);
     if (a.fullbrightMode != b.fullbrightMode) {
       diffs.add("fullbright " + a.fullbrightMode.name().toLowerCase());
     }

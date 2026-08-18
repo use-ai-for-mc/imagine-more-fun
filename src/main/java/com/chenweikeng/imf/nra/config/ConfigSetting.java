@@ -12,6 +12,7 @@ import java.util.stream.Collectors;
 public class ConfigSetting {
   public boolean globalEnable = ConfigDefaults.GLOBAL_ENABLE;
   public boolean enabled = ConfigDefaults.ENABLED;
+  public boolean systemAttentionOnAlert = ConfigDefaults.SYSTEM_ATTENTION_ON_ALERT;
   public String soundId = ConfigDefaults.SOUND_ID;
   public boolean blindWhenRiding = ConfigDefaults.BLIND_WHEN_RIDING;
   public FullbrightMode fullbrightMode = ConfigDefaults.FULLBRIGHT_MODE;
@@ -88,6 +89,7 @@ public class ConfigSetting {
   public void resetToDefaults() {
     globalEnable = ConfigDefaults.GLOBAL_ENABLE;
     enabled = ConfigDefaults.ENABLED;
+    systemAttentionOnAlert = ConfigDefaults.SYSTEM_ATTENTION_ON_ALERT;
     soundId = ConfigDefaults.SOUND_ID;
     blindWhenRiding = ConfigDefaults.BLIND_WHEN_RIDING;
     fullbrightMode = ConfigDefaults.FULLBRIGHT_MODE;
@@ -143,6 +145,7 @@ public class ConfigSetting {
     ConfigSetting copy = new ConfigSetting();
     copy.globalEnable = this.globalEnable;
     copy.enabled = this.enabled;
+    copy.systemAttentionOnAlert = this.systemAttentionOnAlert;
     copy.soundId = this.soundId;
     copy.blindWhenRiding = this.blindWhenRiding;
     copy.fullbrightMode = this.fullbrightMode;
@@ -201,6 +204,7 @@ public class ConfigSetting {
     ConfigSetting that = (ConfigSetting) o;
     return globalEnable == that.globalEnable
         && enabled == that.enabled
+        && systemAttentionOnAlert == that.systemAttentionOnAlert
         && blindWhenRiding == that.blindWhenRiding
         && fullbrightMode == that.fullbrightMode
         && cursorReleaseTiming == that.cursorReleaseTiming
@@ -252,6 +256,7 @@ public class ConfigSetting {
     return Objects.hash(
         globalEnable,
         enabled,
+        systemAttentionOnAlert,
         soundId,
         blindWhenRiding,
         fullbrightMode,

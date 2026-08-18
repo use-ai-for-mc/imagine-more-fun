@@ -95,6 +95,16 @@ public class ClothConfigScreen {
             .setSaveConsumer(soundId -> profile.soundId = soundId)
             .build());
     alertGroup.add(
+        entryBuilder
+            .startBooleanToggle(
+                Component.translatable("config.not-riding-alert.systemAttentionOnAlert"),
+                profile.systemAttentionOnAlert)
+            .setDefaultValue(ConfigDefaults.SYSTEM_ATTENTION_ON_ALERT)
+            .setTooltip(
+                Component.translatable("config.not-riding-alert.systemAttentionOnAlert.tooltip"))
+            .setSaveConsumer(newValue -> profile.systemAttentionOnAlert = newValue)
+            .build());
+    alertGroup.add(
         new ScreenOpenButtonEntry(
             Component.literal("Advance notice"),
             () -> {

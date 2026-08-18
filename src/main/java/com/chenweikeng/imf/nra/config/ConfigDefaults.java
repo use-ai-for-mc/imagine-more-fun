@@ -5,6 +5,7 @@ public final class ConfigDefaults {
 
   public static final boolean GLOBAL_ENABLE = true;
   public static final boolean ENABLED = true;
+  public static final boolean SYSTEM_ATTENTION_ON_ALERT = false;
   public static final String SOUND_ID = "entity.experience_orb.pickup";
   public static final boolean BLIND_WHEN_RIDING = true;
   public static final FullbrightMode FULLBRIGHT_MODE = FullbrightMode.NONE;

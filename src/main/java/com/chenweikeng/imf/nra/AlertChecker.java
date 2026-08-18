@@ -2,6 +2,7 @@ package com.chenweikeng.imf.nra;
 
 import com.chenweikeng.imf.nra.config.ModConfig;
 import com.chenweikeng.imf.nra.handler.FireworkViewingHandler;
+import com.chenweikeng.imf.nra.handler.SystemAttentionHandler;
 import com.chenweikeng.imf.nra.tracker.PlayerMovementTracker;
 import com.chenweikeng.imf.nra.tracker.RideStateTracker;
 import com.chenweikeng.imf.nra.tracker.SuppressionRegionTracker;
@@ -22,6 +23,7 @@ public class AlertChecker {
 
     if (autograbFailureActive) {
       SoundHelper.playConfiguredSound(client);
+      SystemAttentionHandler.getInstance().onAlert(client);
       return;
     }
 
@@ -38,6 +40,7 @@ public class AlertChecker {
         && !rideStateTracker.isLincolnSuppressionActive()
         && !FireworkViewingHandler.getInstance().isViewingFirework()) {
       SoundHelper.playConfiguredSound(client);
+      SystemAttentionHandler.getInstance().onAlert(client);
     }
   }
 }

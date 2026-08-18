@@ -22,6 +22,8 @@
   "config.not-riding-alert.enabled.tooltip": "Make an alert sound if the player is not riding any ride",
   "config.not-riding-alert.soundId": "Sound effect of the alert",
   "config.not-riding-alert.soundId.tooltip": "The sound ID to play when alerting (e.g., entity.experience_orb.pickup)",
+  "config.not-riding-alert.systemAttentionOnAlert": "Flash app icon on alert",
+  "config.not-riding-alert.systemAttentionOnAlert.tooltip": "When the alert fires while the game window is unfocused or minimized, keep bouncing the Dock icon (macOS) / flashing the taskbar button (Windows) until you switch back to the game window. Does not steal focus.",
   "config.not-riding-alert.blindWhenRiding": "Dim the screen when riding",
   "config.not-riding-alert.blindWhenRiding.tooltip": "Dim the screen when riding to reduce distractions",
   "config.not-riding-alert.fullbright": "Fullbright",
