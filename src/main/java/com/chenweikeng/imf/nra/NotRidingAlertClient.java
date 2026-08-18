@@ -22,9 +22,6 @@ import com.chenweikeng.imf.nra.handler.MonkeycraftAutograbOverlayRenderer;
 import com.chenweikeng.imf.nra.handler.ReminderHandler;
 import com.chenweikeng.imf.nra.handler.ScoreboardHandler;
 import com.chenweikeng.imf.nra.handler.SystemAttentionHandler;
-import com.chenweikeng.imf.nra.quest.QuestCollectibleGlow;
-import com.chenweikeng.imf.nra.redcartrolley.RctCalibration;
-import com.chenweikeng.imf.nra.redcartrolley.RctCaptureRecorder;
 import com.chenweikeng.imf.nra.report.DailyReport;
 import com.chenweikeng.imf.nra.report.DailyReportGenerator;
 import com.chenweikeng.imf.nra.report.DailyRideSnapshot;
@@ -49,7 +46,6 @@ import com.chenweikeng.imf.nra.tracker.SuppressionRegionTracker;
 import com.chenweikeng.imf.nra.wizard.TutorialManager;
 import com.chenweikeng.imf.nra.wizard.WizardScreen;
 import com.mojang.brigadier.CommandDispatcher;
-import com.mojang.brigadier.arguments.StringArgumentType;
 import java.util.concurrent.CompletableFuture;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
@@ -84,7 +80,6 @@ public class NotRidingAlertClient implements ClientModInitializer {
   private final AlertChecker alertChecker = new AlertChecker();
   private final CursorManager cursorManager = new CursorManager();
   private final AdvanceNoticeHandler advanceNoticeHandler = new AdvanceNoticeHandler();
-
   private int tickCounter = 0;
 
   @Override
@@ -126,7 +121,6 @@ public class NotRidingAlertClient implements ClientModInitializer {
           OpenAudioMcService.getInstance().onLeaveServer();
           StatusBarController.getInstance().onDisconnect();
           ServerState.onDisconnect();
-          RctCaptureRecorder.getInstance().stopOnDisconnect();
           ShowtimeCountdownController.getInstance().reset();
           resetAllTrackers();
         });
@@ -239,13 +233,10 @@ public class NotRidingAlertClient implements ClientModInitializer {
     configReminderHandler.track(client, currentTick);
     scoreboardHandler.track(client);
     ClosestRideHolder.update(client);
-    RctCaptureRecorder.getInstance().tick(client);
-    RctCalibration.getInstance().tick(client);
     advanceNoticeHandler.tick(client);
     reminderHandler.track(client, currentTick);
     SystemAttentionHandler.getInstance().tick(client);
     ClosedCaptionHolder.getInstance().tick();
-    QuestCollectibleGlow.tick(client);
 
     // ---- periodic checks ----
     RideCountManager.getInstance().checkAndSaveIfNeeded();
@@ -281,12 +272,10 @@ public class NotRidingAlertClient implements ClientModInitializer {
     HibernationHandler.getInstance().reset();
     scoreboardHandler.reset();
     ClosestRideHolder.reset();
-    RctCalibration.getInstance().reset();
     reminderHandler.reset();
     advanceNoticeHandler.reset();
     SystemAttentionHandler.getInstance().reset();
     RideReportNotifier.getInstance().reset();
-    QuestCollectibleGlow.reset();
     AutograbHolder.resetLocationCache();
 
     // UI / cursor
@@ -325,54 +314,6 @@ public class NotRidingAlertClient implements ClientModInitializer {
                               });
                           return 1;
                         }))
-            .then(
-                ClientCommandManager.literal("rct")
-                    .executes(
-                        context -> {
-                          RctCalibration.getInstance().status();
-                          return 1;
-                        })
-                    .then(
-                        ClientCommandManager.literal("capture")
-                            .then(
-                                ClientCommandManager.literal("start")
-                                    .executes(
-                                        context -> {
-                                          RctCaptureRecorder.getInstance().start();
-                                          return 1;
-                                        }))
-                            .then(
-                                ClientCommandManager.literal("stop")
-                                    .executes(
-                                        context -> {
-                                          RctCaptureRecorder.getInstance().stop();
-                                          return 1;
-                                        }))
-                            .then(
-                                ClientCommandManager.literal("status")
-                                    .executes(
-                                        context -> {
-                                          RctCaptureRecorder.getInstance().status();
-                                          return 1;
-                                        }))
-                            .then(
-                                ClientCommandManager.literal("mark")
-                                    .executes(
-                                        context -> {
-                                          RctCaptureRecorder.getInstance().mark("");
-                                          return 1;
-                                        })
-                                    .then(
-                                        ClientCommandManager.argument(
-                                                "label", StringArgumentType.greedyString())
-                                            .executes(
-                                                context -> {
-                                                  RctCaptureRecorder.getInstance()
-                                                      .mark(
-                                                          StringArgumentType.getString(
-                                                              context, "label"));
-                                                  return 1;
-                                                })))))
             .then(
                 ClientCommandManager.literal("profile")
                     .then(
