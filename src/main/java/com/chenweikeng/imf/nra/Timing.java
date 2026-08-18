@@ -12,6 +12,9 @@ public final class Timing {
   // Small delay after entering the autograb zone before minimizing the window,
   // so the player has a moment to walk away from the risky border of the zone.
   public static final int ZONE_ENTRY_MINIMIZE_DELAY_TICKS = 5;
+  // Interval for re-issuing the OS attention request (macOS Dock bounce / Windows taskbar
+  // flash) while the not-riding alert keeps firing and the window stays unfocused.
+  public static final int SYSTEM_ATTENTION_REPEAT_TICKS = 50;
 
   private Timing() {}
 }
