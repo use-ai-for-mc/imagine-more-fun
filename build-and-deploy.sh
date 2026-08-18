@@ -86,7 +86,7 @@ fi
 
 echo "Building ImagineMoreFun mod..."
 cd "${PROJECT_DIR}"
-./gradlew spotlessApply
+./gradlew spotlessCheck
 ./gradlew build
 
 if [ ! -f "${SOURCE_JAR}" ]; then
