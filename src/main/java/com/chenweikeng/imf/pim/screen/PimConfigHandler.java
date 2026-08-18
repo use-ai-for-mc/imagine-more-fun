@@ -1,6 +1,7 @@
 package com.chenweikeng.imf.pim.screen;
 
 import com.chenweikeng.imf.ImfFileIO;
+import com.chenweikeng.imf.ImfStorage;
 import com.chenweikeng.imf.pim.PimClient;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -14,7 +15,7 @@ public class PimConfigHandler {
 
   private PimConfigHandler() {
     this.gson = new GsonBuilder().setPrettyPrinting().create();
-    this.configFile = new File("config/pim_config.json");
+    this.configFile = ImfStorage.pimConfig().toFile();
     load();
   }
 

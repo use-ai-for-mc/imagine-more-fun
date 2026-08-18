@@ -9,7 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * One-time migration of NRA and PIM on-disk state into {@code config/imaginemorefun/}.
+ * One-time migration of NRA on-disk state into {@code config/imaginemorefun/}.
  *
  * <p>On first launch of the merged mod, each legacy path under {@code config/} is moved into the
  * new location. After a successful pass, a marker file is written and subsequent launches

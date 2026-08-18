@@ -13,7 +13,9 @@ import net.fabricmc.loader.api.FabricLoader;
  * than hard-coding.
  *
  * <p>SkinCache continues to use {@code <gameDir>/skincache/} (separate tree under the game
- * directory, not the config directory) and is not routed through this class. PIM has no disk state.
+ * directory, not the config directory) and is not routed through this class. PIM's existing files
+ * remain at the root of {@code config/}, but are resolved here so they do not depend on the JVM
+ * working directory.
  */
 public final class ImfStorage {
 
@@ -75,6 +77,28 @@ public final class ImfStorage {
     return root().resolve("nra-audio.json");
   }
 
+  // PIM-owned files. These intentionally remain at the config root for compatibility.
+
+  public static Path pimConfig() {
+    return configRoot().resolve("pim_config.json");
+  }
+
+  public static Path pimPinBook() {
+    return configRoot().resolve("pim_pin_book.json");
+  }
+
+  public static Path pimPinDetail() {
+    return configRoot().resolve("pim_pin_detail.json");
+  }
+
+  public static Path pimPinRarity() {
+    return configRoot().resolve("pim_pin_rarity.json");
+  }
+
+  public static Path pimLegacyFmv() {
+    return configRoot().resolve("pim_fmv.json");
+  }
+
   /** Directory for user-overridden WebView helper binaries (OpenAudioMc integration). */
   public static Path nativeHelperDir() {
     return root().resolve("native");
@@ -103,5 +127,9 @@ public final class ImfStorage {
   /** Marker file written once the first-launch Ride Plan nudge has been applied. */
   public static Path ridePlanNudgeMarker() {
     return root().resolve(".ride-plan-nudge");
+  }
+
+  private static Path configRoot() {
+    return FabricLoader.getInstance().getConfigDir();
   }
 }

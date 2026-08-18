@@ -1,6 +1,7 @@
 package com.chenweikeng.imf.pim.screen;
 
 import com.chenweikeng.imf.ImfFileIO;
+import com.chenweikeng.imf.ImfStorage;
 import com.chenweikeng.imf.nra.session.SessionTracker;
 import com.chenweikeng.imf.pim.PimClient;
 import com.chenweikeng.imf.pim.pin.Rarity;
@@ -51,7 +52,7 @@ public class PinDetailHandler {
     this.gson = new GsonBuilder().setPrettyPrinting().create();
     this.detailMap = new HashMap<>();
     this.pendingUpdatedCountBySeries = new HashMap<>();
-    this.dataFile = new File("config/pim_pin_detail.json");
+    this.dataFile = ImfStorage.pimPinDetail().toFile();
     load();
   }
 
