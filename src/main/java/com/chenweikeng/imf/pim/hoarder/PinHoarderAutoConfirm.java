@@ -47,7 +47,7 @@ public final class PinHoarderAutoConfirm {
     }
 
     if (!isNearPinHoarder()) {
-      PimClient.LOGGER.info(
+      PimClient.LOGGER.debug(
           "[PinHoarderAutoConfirm] Confirm Trade screen but not near Pin Hoarder");
       return;
     }
@@ -55,7 +55,7 @@ public final class PinHoarderAutoConfirm {
     // Schedule auto-confirm for next tick to ensure screen is fully initialized
     pendingAutoConfirm = true;
     ticksUntilConfirm = 1;
-    PimClient.LOGGER.info("[PinHoarderAutoConfirm] Scheduling auto-confirm");
+    PimClient.LOGGER.debug("[PinHoarderAutoConfirm] Scheduling auto-confirm");
   }
 
   /** Called every client tick. */
@@ -78,13 +78,13 @@ public final class PinHoarderAutoConfirm {
     Screen screen = mc.screen;
 
     if (!(screen instanceof AbstractContainerScreen<?> containerScreen)) {
-      PimClient.LOGGER.info("[PinHoarderAutoConfirm] Screen changed, aborting");
+      PimClient.LOGGER.debug("[PinHoarderAutoConfirm] Screen changed, aborting");
       return;
     }
 
     String title = screen.getTitle().getString();
     if (!CONFIRM_TRADE_TITLE.equals(title)) {
-      PimClient.LOGGER.info("[PinHoarderAutoConfirm] Title changed, aborting");
+      PimClient.LOGGER.debug("[PinHoarderAutoConfirm] Title changed, aborting");
       return;
     }
 
@@ -92,13 +92,13 @@ public final class PinHoarderAutoConfirm {
 
     // Verify Confirm button is in expected slot
     if (menu.slots.size() <= CONFIRM_SLOT) {
-      PimClient.LOGGER.info("[PinHoarderAutoConfirm] Not enough slots, aborting");
+      PimClient.LOGGER.debug("[PinHoarderAutoConfirm] Not enough slots, aborting");
       return;
     }
 
     ItemStack confirmItem = menu.getSlot(CONFIRM_SLOT).getItem();
     if (confirmItem.isEmpty() || !confirmItem.getHoverName().getString().equals("Confirm")) {
-      PimClient.LOGGER.info(
+      PimClient.LOGGER.debug(
           "[PinHoarderAutoConfirm] Confirm button not found in slot {}, found: {}",
           CONFIRM_SLOT,
           confirmItem.getHoverName().getString());
@@ -111,7 +111,7 @@ public final class PinHoarderAutoConfirm {
       return;
     }
 
-    PimClient.LOGGER.info("[PinHoarderAutoConfirm] Clicking Confirm button");
+    PimClient.LOGGER.debug("[PinHoarderAutoConfirm] Clicking Confirm button");
 
     // Simulate left click on the Confirm slot
     mc.gameMode.handleInventoryMouseClick(
@@ -144,7 +144,7 @@ public final class PinHoarderAutoConfirm {
       double distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
 
       if (distance <= MAX_DISTANCE) {
-        PimClient.LOGGER.info(
+        PimClient.LOGGER.debug(
             "[PinHoarderAutoConfirm] Player is {} blocks from Pin Hoarder",
             String.format("%.1f", distance));
         return true;

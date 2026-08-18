@@ -155,7 +155,7 @@ public final class SpaceMountainDiscoBall {
     b.aimYaw = yaw;
     b.aimPitch = pitch;
     balls.add(b);
-    NotRidingAlertClient.LOGGER.info(
+    NotRidingAlertClient.LOGGER.debug(
         "[SpaceMountainDiscoBall] added ball {} at ({}, {}, {}) aim=({}, {})",
         balls.size() - 1,
         x,
@@ -169,7 +169,7 @@ public final class SpaceMountainDiscoBall {
 
   public static void clearBalls() {
     balls.clear();
-    NotRidingAlertClient.LOGGER.info("[SpaceMountainDiscoBall] cleared all balls");
+    NotRidingAlertClient.LOGGER.debug("[SpaceMountainDiscoBall] cleared all balls");
     save();
   }
 
@@ -180,7 +180,7 @@ public final class SpaceMountainDiscoBall {
     } else if (index < balls.size()) {
       balls.get(index).spinRate = degPerSec;
     }
-    NotRidingAlertClient.LOGGER.info(
+    NotRidingAlertClient.LOGGER.debug(
         "[SpaceMountainDiscoBall] setSpin index={} rate={}", index, degPerSec);
     save();
   }
@@ -199,7 +199,7 @@ public final class SpaceMountainDiscoBall {
     if (!enabled) {
       for (Ball b : balls) b.spinRate = 0.0;
     }
-    NotRidingAlertClient.LOGGER.info(
+    NotRidingAlertClient.LOGGER.debug(
         "[SpaceMountainDiscoBall] setAutoSpin enabled={} rate={}", enabled, degPerSec);
     save();
   }
@@ -222,7 +222,7 @@ public final class SpaceMountainDiscoBall {
       b.maxCloseDots = maxDots;
       b.dirty = true;
     }
-    NotRidingAlertClient.LOGGER.info(
+    NotRidingAlertClient.LOGGER.debug(
         "[SpaceMountainDiscoBall] setCloseLimit index={} closeRadius={} maxDots={}",
         index,
         closeRadius,
@@ -237,7 +237,7 @@ public final class SpaceMountainDiscoBall {
 
   public static void setEnabled(boolean enabled) {
     ENABLED = enabled;
-    NotRidingAlertClient.LOGGER.info("[SpaceMountainDiscoBall] enabled={}", enabled);
+    NotRidingAlertClient.LOGGER.debug("[SpaceMountainDiscoBall] enabled={}", enabled);
   }
 
   /**
@@ -248,7 +248,7 @@ public final class SpaceMountainDiscoBall {
    */
   public static void setSpDevPreview(boolean enabled) {
     spDevPreview = enabled;
-    NotRidingAlertClient.LOGGER.info("[SpaceMountainDiscoBall] spDevPreview={}", enabled);
+    NotRidingAlertClient.LOGGER.debug("[SpaceMountainDiscoBall] spDevPreview={}", enabled);
   }
 
   public static boolean isEnabled() {
@@ -547,7 +547,7 @@ public final class SpaceMountainDiscoBall {
     for (Ball b : balls) b.spinRate = 0.0;
     balls.get(next).spinRate = autoSpinRate;
     autoSpinCurrent = next;
-    NotRidingAlertClient.LOGGER.info("[SpaceMountainDiscoBall] auto-spin -> ball {}", next);
+    NotRidingAlertClient.LOGGER.debug("[SpaceMountainDiscoBall] auto-spin -> ball {}", next);
   }
 
   private static void render(WorldRenderContext ctx) {

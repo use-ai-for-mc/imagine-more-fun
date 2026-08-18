@@ -82,7 +82,7 @@ public final class SpaceMountainStarRenderer {
 
   public static void setEnabled(boolean enabled) {
     ENABLED = enabled;
-    NotRidingAlertClient.LOGGER.info("[SpaceMountainStarRenderer] enabled={}", enabled);
+    NotRidingAlertClient.LOGGER.debug("[SpaceMountainStarRenderer] enabled={}", enabled);
   }
 
   public static boolean isEnabled() {
@@ -95,7 +95,7 @@ public final class SpaceMountainStarRenderer {
    */
   public static void setSpDevPreview(boolean enabled) {
     spDevPreview = enabled;
-    NotRidingAlertClient.LOGGER.info("[SpaceMountainStarRenderer] spDevPreview={}", enabled);
+    NotRidingAlertClient.LOGGER.debug("[SpaceMountainStarRenderer] spDevPreview={}", enabled);
   }
 
   /** Re-read dome_borders.bin and re-pick the stars — picks up a freshly re-baked borders file. */
