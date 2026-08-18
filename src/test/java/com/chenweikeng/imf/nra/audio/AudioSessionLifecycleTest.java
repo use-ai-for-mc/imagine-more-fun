@@ -31,6 +31,15 @@ class AudioSessionLifecycleTest {
   }
 
   @Test
+  void helperEngineFailureStopsMonitorAndClosesHelper() {
+    Fixture fixture = new Fixture();
+
+    fixture.lifecycle.helperEngineFailed("gpu-process-changed");
+
+    fixture.assertReleased();
+  }
+
+  @Test
   void monitorTimeoutRetriesWithBackoffThenClosesHelper() {
     Fixture fixture = new Fixture();
     TimeoutException timeout = new TimeoutException("monitor eval timed out");

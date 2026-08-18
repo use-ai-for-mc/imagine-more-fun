@@ -70,6 +70,11 @@ public final class ImfStorage {
     return root().resolve("nra-daily-quests.json");
   }
 
+  /** OpenAudioMC preferences that must survive helper and Minecraft process restarts. */
+  public static Path nraAudioState() {
+    return root().resolve("nra-audio.json");
+  }
+
   /** Directory for user-overridden WebView helper binaries (OpenAudioMc integration). */
   public static Path nativeHelperDir() {
     return root().resolve("native");

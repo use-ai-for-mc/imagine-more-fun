@@ -85,6 +85,10 @@ final class AudioSessionLifecycle {
     stop("helper-channel-disconnected");
   }
 
+  synchronized void helperEngineFailed(String reason) {
+    stop("helper-engine-" + reason);
+  }
+
   synchronized void leaveServer() {
     stop("left-server");
   }

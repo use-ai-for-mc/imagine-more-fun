@@ -16,6 +16,8 @@ import com.chenweikeng.imf.pim.hoarder.PinHoarderHelper;
 import java.awt.Color;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import net.minecraft.client.multiplayer.chat.ChatListener;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
@@ -32,6 +34,8 @@ public class NraChatListenerMixin {
   private static final String ATTRACTION_OVERVIEW_MARKER =
       "<<-----------| Attraction Overview |----------->>";
   private static final String CC_MARKER = "[CC]";
+  private static final Pattern AUDIO_VOLUME_CHANGED =
+      Pattern.compile("Your volume has been changed to (\\d{1,3})%");
 
   @Inject(at = @At("HEAD"), method = "handleSystemMessage", cancellable = true)
   private void imf$onGameMessage(Component message, boolean overlay, CallbackInfo ci) {
@@ -41,6 +45,12 @@ public class NraChatListenerMixin {
     if (message == null) return;
 
     String msg = message.getString();
+
+    Matcher volumeChanged = AUDIO_VOLUME_CHANGED.matcher(msg);
+    if (volumeChanged.find()) {
+      OpenAudioMcService.getInstance()
+          .onServerVolumeChanged(Integer.parseInt(volumeChanged.group(1)));
+    }
 
     if (msg.startsWith(CC_MARKER)) {
       ClosedCaptionMode mode = ModConfig.currentSetting.closedCaptionMode;
@@ -61,16 +71,18 @@ public class NraChatListenerMixin {
 
     if (msg.equals("You are now connected with the audio client!")) {
       ReminderHandler.getInstance().setAudioConnected(true);
-      if (ModConfig.currentSetting.enableOpenAudioMc) {
-        OpenAudioMcService.getInstance().onServerConfirmedConnection();
+      OpenAudioMcService audioService = OpenAudioMcService.getInstance();
+      if (audioService.shouldManageServerAudioEvents()) {
+        audioService.onServerConfirmedConnection();
       }
       return;
     }
     if (msg.equals("You are already connected to the web client")) {
-      if (ModConfig.currentSetting.enableOpenAudioMc) {
+      OpenAudioMcService audioService = OpenAudioMcService.getInstance();
+      if (audioService.shouldManageServerAudioEvents()) {
         // May be benign (we're genuinely connected) or a desync (server holds the old
         // session while our webview lost it). The service decides and recovers.
-        OpenAudioMcService.getInstance().onServerAlreadyConnected();
+        CompletableFuture.runAsync(audioService::onServerAlreadyConnected);
       } else {
         ReminderHandler.getInstance().setAudioConnected(true);
       }
@@ -78,24 +90,28 @@ public class NraChatListenerMixin {
     }
     if (msg.equals("Your audio session has been ended")) {
       ReminderHandler.getInstance().setAudioConnected(false);
-      if (ModConfig.currentSetting.enableOpenAudioMc) {
-        OpenAudioMcService.getInstance().onServerEndedSession();
+      OpenAudioMcService audioService = OpenAudioMcService.getInstance();
+      if (audioService.shouldManageServerAudioEvents()) {
+        // Session teardown waits for the helper process to exit and must not hold up the render
+        // thread's input loop.
+        CompletableFuture.runAsync(audioService::onServerEndedSession);
       }
       return;
     }
     if (msg.equals("    + Audio Boost (x1.25)")) {
       ReminderHandler.getInstance().setAudioConnected(true);
-      if (ModConfig.currentSetting.enableOpenAudioMc) {
-        OpenAudioMcService.getInstance().onServerConfirmedConnection();
+      OpenAudioMcService audioService = OpenAudioMcService.getInstance();
+      if (audioService.shouldManageServerAudioEvents()) {
+        audioService.onServerConfirmedConnection();
       }
       return;
     }
 
     // Check for OpenAudioMC session URLs in ClickEvents.
-    // connect() is run async because WebViewBridge.start() blocks up to 15s waiting for the
-    // native helper process — running it on the render thread would visibly freeze the game.
-    if (ModConfig.currentSetting.enableOpenAudioMc
-        || OpenAudioMcService.getInstance().isPendingCommandConnect()) {
+    // connect() is run async because WebViewBridge.start() can wait up to 30s for a cold WKWebView.
+    // The service reserves startup state under a short lock, then performs that wait lock-free so
+    // render-thread chat and input handling remain responsive.
+    if (OpenAudioMcService.getInstance().shouldManageServerAudioEvents()) {
       String sessionUrl = OpenAudioMcService.extractSessionUrl(message);
       if (sessionUrl != null) {
         CompletableFuture.runAsync(() -> OpenAudioMcService.getInstance().connect(sessionUrl));
