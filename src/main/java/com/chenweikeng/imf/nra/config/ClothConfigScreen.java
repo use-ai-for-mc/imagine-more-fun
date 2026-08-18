@@ -591,6 +591,16 @@ public class ClothConfigScreen {
             .build());
     strategyHubGroup.add(
         entryBuilder
+            .startBooleanToggle(
+                Component.translatable("config.not-riding-alert.strategyHubUseTotalHours"),
+                profile.strategyHubUseTotalHours)
+            .setDefaultValue(ConfigDefaults.STRATEGY_HUB_USE_TOTAL_HOURS)
+            .setTooltip(
+                Component.translatable("config.not-riding-alert.strategyHubUseTotalHours.tooltip"))
+            .setSaveConsumer(newValue -> profile.strategyHubUseTotalHours = newValue)
+            .build());
+    strategyHubGroup.add(
+        entryBuilder
             .startEnumSelector(
                 Component.translatable("config.not-riding-alert.sortingRules"),
                 SortingRules.class,

@@ -153,6 +153,7 @@ public final class ConfigDiffSummary {
     if (a.strategyHudRendererVersion != b.strategyHudRendererVersion) {
       diffs.add("HUD " + a.strategyHudRendererVersion.name());
     }
+    diffBool(diffs, "total hours", a.strategyHubUseTotalHours, b.strategyHubUseTotalHours);
     if (a.closedCaptionMode != b.closedCaptionMode) {
       diffs.add("captions " + a.closedCaptionMode.name().toLowerCase());
     }

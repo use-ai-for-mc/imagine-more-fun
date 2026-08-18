@@ -95,6 +95,12 @@ public final class StrategyHudBase {
     };
   }
 
+  /** Formats a duration using the Strategy Hub's configured day/hour display mode. */
+  public static String formatStrategyDuration(long seconds) {
+    return TimeFormatUtil.formatDuration(
+        seconds, ModConfig.currentSetting.strategyHubUseTotalHours);
+  }
+
   /**
    * Formats a ride name with status annotations (progress/remaining time for riding rides,
    * "Autograbbing…" for autograb targets, "Closest" for closest-ride candidates).
@@ -118,7 +124,7 @@ public final class StrategyHudBase {
         if (remainingSeconds < 0) {
           remainingSeconds = 0;
         }
-        String timeLeft = TimeFormatUtil.formatDuration(remainingSeconds);
+        String timeLeft = formatStrategyDuration(remainingSeconds);
         rideName += " (" + progress + "%, " + timeLeft + " left)";
       } else if (progress != null) {
         rideName += " (" + progress + "%)";
@@ -164,7 +170,7 @@ public final class StrategyHudBase {
     }
     return String.format(
         "%s - %d more, %s",
-        formattedRide.getName(), ridesNeeded, TimeFormatUtil.formatDuration(timeNeeded));
+        formattedRide.getName(), ridesNeeded, formatStrategyDuration(timeNeeded));
   }
 
   /** Maps a {@link RideStatus} to the configured ARGB colour. */

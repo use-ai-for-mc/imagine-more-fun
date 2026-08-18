@@ -10,7 +10,6 @@ import com.chenweikeng.imf.nra.ride.AutograbHolder;
 import com.chenweikeng.imf.nra.ride.ClosestRideHolder;
 import com.chenweikeng.imf.nra.ride.CurrentRideHolder;
 import com.chenweikeng.imf.nra.ride.RideName;
-import com.chenweikeng.imf.nra.util.TimeFormatUtil;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -157,7 +156,7 @@ public class StrategyHudRendererV2 {
         } else {
           entries.add(
               new EntryComponents(
-                  name, ridesNeeded + "+", TimeFormatUtil.formatDuration(timeNeeded)));
+                  name, ridesNeeded + "+", StrategyHudBase.formatStrategyDuration(timeNeeded)));
         }
 
         if (isClosest) {
@@ -193,7 +192,7 @@ public class StrategyHudRendererV2 {
             time = "";
           } else {
             rides = ridesNeeded + "+";
-            time = TimeFormatUtil.formatDuration(timeNeeded);
+            time = StrategyHudBase.formatStrategyDuration(timeNeeded);
           }
         } else {
           rides = "";
@@ -572,7 +571,7 @@ public class StrategyHudRendererV2 {
         sb.append(" (");
         sb.append(progress);
         sb.append("% ");
-        sb.append(TimeFormatUtil.formatDuration(remainingSeconds));
+        sb.append(StrategyHudBase.formatStrategyDuration(remainingSeconds));
         sb.append(" left)");
       } else if (progress != null) {
         sb.append(" (").append(progress).append("%)");
@@ -584,14 +583,14 @@ public class StrategyHudRendererV2 {
           sb.append(" - ");
           sb.append(goal.getMaxRidesNeeded());
           sb.append(" rides (");
-          sb.append(TimeFormatUtil.formatDuration(goal.getMaxTimeNeeded()));
+          sb.append(StrategyHudBase.formatStrategyDuration(goal.getMaxTimeNeeded()));
           sb.append(") to reach ");
           sb.append(formatGoalNumber(goal.getMaxGoal()));
         } else {
           sb.append(" ");
           sb.append(goal.getNextGoalRidesNeeded());
           sb.append(" rides (");
-          sb.append(TimeFormatUtil.formatDuration(goal.getNextGoalTimeNeeded()));
+          sb.append(StrategyHudBase.formatStrategyDuration(goal.getNextGoalTimeNeeded()));
           sb.append(") to reach ");
           sb.append(formatGoalNumber(goal.getNextGoal()));
         }

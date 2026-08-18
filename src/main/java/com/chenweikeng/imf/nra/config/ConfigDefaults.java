@@ -26,6 +26,7 @@ public final class ConfigDefaults {
   public static final boolean HIBERNATION_WHEN_RIDING = true;
   public static final StrategyHudRendererVersion STRATEGY_HUD_RENDERER_VERSION =
       StrategyHudRendererVersion.V2;
+  public static final boolean STRATEGY_HUB_USE_TOTAL_HOURS = false;
   public static final Integer MIN_RIDE_TIME_MINUTES = 0;
 
   public static final int TRACKER_NORMAL_COLOR = 0xFFFFFFFF;

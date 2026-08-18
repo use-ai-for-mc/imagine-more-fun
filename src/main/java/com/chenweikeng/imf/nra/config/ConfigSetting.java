@@ -40,6 +40,7 @@ public class ConfigSetting {
   public boolean hibernationWhenRiding = ConfigDefaults.HIBERNATION_WHEN_RIDING;
   public StrategyHudRendererVersion strategyHudRendererVersion =
       ConfigDefaults.STRATEGY_HUD_RENDERER_VERSION;
+  public boolean strategyHubUseTotalHours = ConfigDefaults.STRATEGY_HUB_USE_TOTAL_HOURS;
   public int trackerNormalColor = ConfigDefaults.TRACKER_NORMAL_COLOR;
   public int trackerAutograbbingColor = ConfigDefaults.TRACKER_AUTOGRABBING_COLOR;
   public int trackerRidingColor = ConfigDefaults.TRACKER_RIDING_COLOR;
@@ -114,6 +115,7 @@ public class ConfigSetting {
     minimizeWindow = ConfigDefaults.MINIMIZE_WINDOW;
     hibernationWhenRiding = ConfigDefaults.HIBERNATION_WHEN_RIDING;
     strategyHudRendererVersion = ConfigDefaults.STRATEGY_HUD_RENDERER_VERSION;
+    strategyHubUseTotalHours = ConfigDefaults.STRATEGY_HUB_USE_TOTAL_HOURS;
     trackerNormalColor = ConfigDefaults.TRACKER_NORMAL_COLOR;
     trackerAutograbbingColor = ConfigDefaults.TRACKER_AUTOGRABBING_COLOR;
     trackerRidingColor = ConfigDefaults.TRACKER_RIDING_COLOR;
@@ -163,6 +165,7 @@ public class ConfigSetting {
     copy.minimizeWindow = this.minimizeWindow;
     copy.hibernationWhenRiding = this.hibernationWhenRiding;
     copy.strategyHudRendererVersion = this.strategyHudRendererVersion;
+    copy.strategyHubUseTotalHours = this.strategyHubUseTotalHours;
     copy.trackerNormalColor = this.trackerNormalColor;
     copy.trackerAutograbbingColor = this.trackerAutograbbingColor;
     copy.trackerRidingColor = this.trackerRidingColor;
@@ -217,6 +220,7 @@ public class ConfigSetting {
         && hibernationWhenRiding == that.hibernationWhenRiding
         && hideLovePotionMessages == that.hideLovePotionMessages
         && strategyHudRendererVersion == that.strategyHudRendererVersion
+        && strategyHubUseTotalHours == that.strategyHubUseTotalHours
         && trackerNormalColor == that.trackerNormalColor
         && trackerAutograbbingColor == that.trackerAutograbbingColor
         && trackerRidingColor == that.trackerRidingColor
@@ -270,6 +274,7 @@ public class ConfigSetting {
         hibernationWhenRiding,
         hideLovePotionMessages,
         strategyHudRendererVersion,
+        strategyHubUseTotalHours,
         trackerNormalColor,
         trackerAutograbbingColor,
         trackerRidingColor,

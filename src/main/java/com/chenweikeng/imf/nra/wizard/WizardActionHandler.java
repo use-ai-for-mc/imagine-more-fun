@@ -248,6 +248,11 @@ public class WizardActionHandler {
           // Invalid version
         }
       }
+      case "strategyHubUseTotalHours" -> {
+        ModConfig.currentSetting.strategyHubUseTotalHours = boolValue;
+        ModConfig.save();
+        needsRefresh = true;
+      }
       case "sortingRules" -> {
         try {
           ModConfig.currentSetting.sortingRules = SortingRules.valueOf(value);

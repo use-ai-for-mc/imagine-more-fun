@@ -45,6 +45,8 @@
   "config.not-riding-alert.strategyHudRendererVersion.v2": "V2",
   "config.not-riding-alert.rideDisplayCount": "Ride display count",
   "config.not-riding-alert.rideDisplayCount.tooltip": "Number of rides to show in the tracker (1-60)",
+  "config.not-riding-alert.strategyHubUseTotalHours": "Show Strategy Hub durations as total hours",
+  "config.not-riding-alert.strategyHubUseTotalHours.tooltip": "For durations of 24 hours or more, show total hours and minutes (for example, 51h 14m instead of 2d 3h) so minutes remain visible as rides are completed",
   "config.not-riding-alert.category.rideVisibility": "Ride Visibility",
   "config.not-riding-alert.rideDisplay.tooltip": "Toggle whether this ride appears in the tracker",
   "config.not-riding-alert.rideGoalOverride.tooltip": "Per-ride max goals that replace the system goal — type any value (e.g. 2500). Rides without an override use the system goal.",
