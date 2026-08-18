@@ -1,5 +1,9 @@
 # Daily Ride Plan — implementation roadmap
 
+> Archived roadmap. This records how the feature evolved and is not a current backlog or behavior
+> contract. Use `docs/features/DAILY_RIDE_PLAN.md` and the code under `nra/dailyplan/` for current
+> behavior.
+
 Living document. Tick stages off as they ship; revise scope based on in-game feedback.
 
 Design reference: `/Users/cusgadmin/Downloads/compass_artifact_wf-ccdf816b-1bc7-4a31-baab-3498979a227e_text_markdown.md` (not checked into the repo).

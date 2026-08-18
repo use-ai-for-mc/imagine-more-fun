@@ -1,5 +1,9 @@
 # Pin Enhancement
 
+> Observational research, not a product contract. Revalidate the schema against current live item
+> data before changing parsers. The programmatic-unboxing notes document possibilities only and do
+> not authorize adding automated gameplay behavior without an explicit user request.
+
 This document describes the data structures found in ImagineFun pin items and how our mod can leverage them for enhanced features.
 
 ## Opened Pin Packs

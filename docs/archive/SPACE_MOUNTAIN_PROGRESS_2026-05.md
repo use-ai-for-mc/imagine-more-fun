@@ -1,5 +1,9 @@
 # Space Mountain / Hyperspace Mountain client overrides
 
+> Archived May 2026 implementation journal. It intentionally preserves historical detail and may
+> mention removed tools or superseded behavior. Use `docs/features/SPACE_MOUNTAIN.md` for current
+> architecture.
+
 Client-side effects layered onto Hyperspace Mountain (and seasonally Space Mountain — the same physical building) on the ImagineFun server: a projected starfield, a launch-tunnel cylinder, ride audio, coaster-turn banking, dome block-overlay, and show-prop hiding. **The server is never modified** — everything is client-side rendering and client-side block-state replacement.
 
 > **Rewritten 2026-05-17, updated 2026-05-19.** This version reflects the current code. The STL subsystem, the freestanding hyperspace-streak renderer, the `/imf dumpchunks` slash-command, and the animation recorder were all **deleted** — see "Removed" at the bottom. The 2026-05-19 update finalized the disco-ball starfield (spin easing, watertight-shell mask) and the static star layer, re-baked the dome overlay, and stripped the in-mod bridge bakers (`SpaceMountainChunkDump`, `SpaceMountainBorderBake`).
@@ -37,7 +41,7 @@ While the gate is active the fullbright override is also suppressed — the dome
 | `SpaceMountainStarRenderer.java` | Static baked dome-wall starfield (~1000 stars) — a secondary layer rendered alongside the disco ball. |
 | `CoasterTrackData.java` | *(in `nra/coaster/`)* Shared parsed coaster path — loads `dome_track.bin` (x/y/z/yaw/pitch + per-sample bank `roll`) once for the track renderer; offers `nearestSample`. (Camera banking no longer reads it — see `CoasterTiltAmplifier`.) |
 | `SpaceMountainTrackRenderer.java` | Baked coaster-tube geometry (rails + spine + V-struts), banked into turns by the per-sample roll, drawn as near-invisible dark metal. |
-| `CoasterTiltAmplifier.java` | *(in `nra/coaster/`)* Global "Coaster Tilt" multiplier — scales the bank of SmoothCoasters' own camera pose instead of computing one from the baked track. `NraSmoothCoastersRotationMixin` intercepts `SmoothCoasters.setRotation`, hands the target pose here, and we scale its roll by `coasterTiltMultiplier` (0–2.0). Applies to every SC-tilted coaster; ImagineFun-gated (see `COASTER-BANKING-PROGRESS.md`). |
+| `CoasterTiltAmplifier.java` | *(in `nra/coaster/`)* Global "Coaster Tilt" multiplier — scales the bank of SmoothCoasters' own camera pose instead of computing one from the baked track. `NraSmoothCoastersRotationMixin` intercepts `SmoothCoasters.setRotation`, hands the target pose here, and we scale its roll by `coasterTiltMultiplier` (0–2.0). Applies to every SC-tilted coaster; ImagineFun-gated (see `COASTER_BANKING_EXPERIMENT.md`). |
 | `SpaceMountainEntityHider.java` | Whitelist of show-prop armor stands to hide; queried by `NraEntityRendererHideMixin`. |
 | `ImfRenderPipelines.java` | Custom render pipelines (`OPAQUE_SCREEN`, `ENTITY_THROUGH_WALLS`). |
 
