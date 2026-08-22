@@ -73,7 +73,7 @@ public final class ImfChat {
   public static void sendRaw(String message) {
     var player = Minecraft.getInstance().player;
     if (player != null) {
-      player.displayClientMessage(Component.literal(message), false);
+      player.sendSystemMessage(Component.literal(message));
     }
   }
 
@@ -81,7 +81,7 @@ public final class ImfChat {
   public static void sendActionBar(String message) {
     var player = Minecraft.getInstance().player;
     if (player != null) {
-      player.displayClientMessage(Component.literal(message), true);
+      player.sendOverlayMessage(Component.literal(message));
     }
   }
 

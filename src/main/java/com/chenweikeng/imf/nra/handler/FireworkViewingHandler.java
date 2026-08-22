@@ -62,9 +62,9 @@ public class FireworkViewingHandler {
       return;
     }
 
-    long time = client.level.getDayTime() % 24000L;
+    long time = ClientDayTime.get(client.level) % 24000L;
     if (time < NIGHT) {
-      client.level.getLevelData().setDayTime(NIGHT);
+      ClientDayTime.set(client.level, NIGHT);
     }
   }
 

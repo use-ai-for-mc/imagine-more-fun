@@ -1,7 +1,7 @@
 package com.chenweikeng.imf.nra.wizard.layout;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 public record SpacerBlock(int height) implements RenderBlock {
 
@@ -11,5 +11,5 @@ public record SpacerBlock(int height) implements RenderBlock {
   }
 
   @Override
-  public void render(GuiGraphics graphics, int x, int y, int width, Minecraft client) {}
+  public void render(GuiGraphicsExtractor graphics, int x, int y, int width, Minecraft client) {}
 }

@@ -29,7 +29,7 @@ public class PimClientPacketListenerMixin {
     // Check for Pin Hoarder auto-confirm
     PinHoarderAutoConfirm.onContainerContentReceived();
 
-    Screen screen = Minecraft.getInstance().screen;
+    Screen screen = Minecraft.getInstance().gui.screen();
     if (screen != null) {
       ScreenManager.ScreenType screenType = ScreenManager.detectScreenType(screen);
 
@@ -49,7 +49,7 @@ public class PimClientPacketListenerMixin {
       return;
     }
 
-    Screen screen = Minecraft.getInstance().screen;
+    Screen screen = Minecraft.getInstance().gui.screen();
     if (screen != null) {
       ScreenManager.ScreenType screenType = ScreenManager.detectScreenType(screen);
 

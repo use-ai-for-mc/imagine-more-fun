@@ -10,7 +10,7 @@ import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.ContainerObjectSelectionList;
 import net.minecraft.client.gui.components.EditBox;
@@ -153,20 +153,20 @@ public class RideValueOverridesScreen extends Screen {
   }
 
   @Override
-  public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
+  public void extractRenderState(
+      GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
     graphics.fill(0, 0, width, height, 0xCC000000);
 
     Component styledTitle = getTitle().copy().withStyle(ChatFormatting.BOLD, ChatFormatting.AQUA);
-    graphics.drawCenteredString(font, styledTitle, width / 2, 8, LABEL_COLOR);
+    graphics.centeredText(font, styledTitle, width / 2, 8, LABEL_COLOR);
 
     String hint = picking ? "Select a ride to add" : subtitle.get();
-    graphics.drawCenteredString(font, Component.literal(hint), width / 2, 24, HINT_COLOR);
+    graphics.centeredText(font, Component.literal(hint), width / 2, 24, HINT_COLOR);
 
-    super.render(graphics, mouseX, mouseY, delta);
+    super.extractRenderState(graphics, mouseX, mouseY, delta);
 
     if (!picking && values.isEmpty()) {
-      graphics.drawCenteredString(
-          font, Component.literal(emptyHint), width / 2, height / 2, HINT_COLOR);
+      graphics.centeredText(font, Component.literal(emptyHint), width / 2, height / 2, HINT_COLOR);
     }
   }
 
@@ -188,7 +188,7 @@ public class RideValueOverridesScreen extends Screen {
       }
     }
     if (minecraft != null) {
-      minecraft.setScreen(parent);
+      minecraft.setScreenAndShow(parent);
     }
   }
 
@@ -238,7 +238,6 @@ public class RideValueOverridesScreen extends Screen {
         this.ride = ride;
         valueBox =
             new EditBox(minecraft.font, 0, 0, VALUE_WIDTH, BOX_HEIGHT, Component.literal("Value"));
-        valueBox.setFilter(text -> text.matches("\\d*"));
         valueBox.setMaxLength(maxDigits);
         Integer current = values.get(ride.toMatchString());
         valueBox.setValue(current != null ? String.valueOf(current) : "");
@@ -277,19 +276,18 @@ public class RideValueOverridesScreen extends Screen {
       }
 
       @Override
-      public void renderContent(
-          GuiGraphics graphics, int mouseX, int mouseY, boolean hovered, float delta) {
+      public void extractContent(
+          GuiGraphicsExtractor graphics, int mouseX, int mouseY, boolean hovered, float delta) {
         int x = getContentX();
         int y = getContentY();
         int contentWidth = getContentWidth();
 
-        graphics.drawString(
-            minecraft.font, ride.getDisplayName(), x + 4, y + 8, LABEL_COLOR, false);
+        graphics.text(minecraft.font, ride.getDisplayName(), x + 4, y + 8, LABEL_COLOR, false);
 
         int controlsX = x + contentWidth - controlsWidth() - 4;
         valueBox.setX(controlsX);
         valueBox.setY(y + (ENTRY_HEIGHT - BOX_HEIGHT) / 2);
-        valueBox.render(graphics, mouseX, mouseY, delta);
+        valueBox.extractRenderState(graphics, mouseX, mouseY, delta);
 
         int buttonY = y + (ENTRY_HEIGHT - ButtonRenderer.BUTTON_HEIGHT) / 2;
         ButtonRenderer.renderButton(
@@ -341,8 +339,8 @@ public class RideValueOverridesScreen extends Screen {
       }
 
       @Override
-      public void renderContent(
-          GuiGraphics graphics, int mouseX, int mouseY, boolean hovered, float delta) {
+      public void extractContent(
+          GuiGraphicsExtractor graphics, int mouseX, int mouseY, boolean hovered, float delta) {
         if (hovered) {
           graphics.fill(
               OverrideListWidget.this.getX(),
@@ -351,7 +349,7 @@ public class RideValueOverridesScreen extends Screen {
               getY() + getHeight(),
               0x33FFFFFF);
         }
-        graphics.drawString(
+        graphics.text(
             minecraft.font,
             formatRideLabel(ride),
             getContentX() + 4,

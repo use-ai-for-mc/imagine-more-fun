@@ -39,7 +39,7 @@ public class Utils {
       if (stack.has(DataComponents.CONTAINER)) {
         ItemContainerContents container = stack.get(DataComponents.CONTAINER);
 
-        for (ItemStack inside : container.stream().toList()) {
+        for (ItemStack inside : container.allItemsCopyStream().toList()) {
           processItemStack(inside, mintPins);
         }
       }

@@ -187,8 +187,8 @@ When the inventory screen is open, use shift-click (QUICK_MOVE) on the slot:
 // containerId = 0 for player inventory
 // slotNum = the slot containing the pin pack
 // button = 0 (left click)
-// ClickType.QUICK_MOVE = shift+click
-mc.gameMode.handleInventoryMouseClick(0, slotNum, 0, ClickType.QUICK_MOVE, player);
+// ContainerInput.QUICK_MOVE = shift+click
+mc.gameMode.handleContainerInput(0, slotNum, 0, ContainerInput.QUICK_MOVE, player);
 ```
 
 This triggers the server's "Shift Click to unbox" behavior.

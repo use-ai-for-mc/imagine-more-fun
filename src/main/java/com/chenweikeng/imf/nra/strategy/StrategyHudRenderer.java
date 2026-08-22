@@ -2,7 +2,7 @@ package com.chenweikeng.imf.nra.strategy;
 
 import java.util.List;
 import net.minecraft.client.DeltaTracker;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 public interface StrategyHudRenderer {
   void update();
@@ -11,7 +11,7 @@ public interface StrategyHudRenderer {
 
   String getError();
 
-  void render(GuiGraphics context, DeltaTracker tickCounter);
+  void render(GuiGraphicsExtractor context, DeltaTracker tickCounter);
 
   List<RideGoal> getTopGoals();
 }

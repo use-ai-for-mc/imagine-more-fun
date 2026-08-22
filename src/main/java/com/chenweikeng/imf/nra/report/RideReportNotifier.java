@@ -65,8 +65,8 @@ public class RideReportNotifier {
       popupScheduled = false;
       client.execute(
           () -> {
-            if (client.screen == null) {
-              client.setScreen(new RideReportScreen(null, pendingReportDate));
+            if (client.gui.screen() == null) {
+              client.setScreenAndShow(new RideReportScreen(null, pendingReportDate));
             }
           });
       return;
@@ -98,7 +98,7 @@ public class RideReportNotifier {
                                 new HoverEvent.ShowText(
                                     Component.literal("View yesterday's ride report")))));
 
-    client.player.displayClientMessage(message, false);
+    client.player.sendSystemMessage(message);
   }
 
   public void markViewed() {

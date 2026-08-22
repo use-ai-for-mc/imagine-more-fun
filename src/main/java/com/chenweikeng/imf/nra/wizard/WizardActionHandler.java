@@ -43,7 +43,7 @@ public class WizardActionHandler {
     try {
       int pageIndex = Integer.parseInt(pageStr.trim());
       TutorialManager.getInstance().goToPage(pageIndex);
-      if (client.screen instanceof WizardScreen wizardScreen) {
+      if (client.gui.screen() instanceof WizardScreen wizardScreen) {
         wizardScreen.goToPage(pageIndex);
       }
     } catch (NumberFormatException e) {
@@ -332,7 +332,7 @@ public class WizardActionHandler {
   }
 
   public static void refreshCurrentPage(Minecraft client) {
-    if (client.screen instanceof WizardScreen ws) {
+    if (client.gui.screen() instanceof WizardScreen ws) {
       ws.goToPage(ws.getCurrentPageIndex());
     }
   }
@@ -345,7 +345,7 @@ public class WizardActionHandler {
 
   private static void handleFinish(Minecraft client) {
     TutorialManager.getInstance().finishTutorial();
-    client.setScreen(null);
+    client.setScreenAndShow(null);
   }
 
   private static boolean isFullbrightWhenRiding() {

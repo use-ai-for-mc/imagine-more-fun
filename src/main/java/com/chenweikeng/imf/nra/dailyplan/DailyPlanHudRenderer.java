@@ -27,7 +27,7 @@ import java.util.UUID;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.BossHealthOverlay;
 import net.minecraft.client.gui.components.LerpingBossEvent;
 
@@ -84,7 +84,7 @@ public final class DailyPlanHudRenderer {
     return plan != null && plan.layers != null && !plan.layers.isEmpty();
   }
 
-  public static void render(GuiGraphics context, DeltaTracker tickCounter) {
+  public static void render(GuiGraphicsExtractor context, DeltaTracker tickCounter) {
     if (ModConfig.currentSetting.rideHubMode != RideHubMode.RIDE_PLAN) {
       return;
     }
@@ -111,7 +111,7 @@ public final class DailyPlanHudRenderer {
       return;
     }
 
-    BossHealthOverlay bossOverlay = client.gui.getBossOverlay();
+    BossHealthOverlay bossOverlay = client.gui.hud.getBossOverlay();
     Map<UUID, LerpingBossEvent> bossEvents =
         ((NraBossHealthOverlayAccessor) bossOverlay).getEvents();
     if (bossEvents != null && !bossEvents.isEmpty()) {
@@ -126,7 +126,8 @@ public final class DailyPlanHudRenderer {
     renderPlan(context, client.font, client, plan);
   }
 
-  private static void renderPlan(GuiGraphics context, Font font, Minecraft client, DailyPlan plan) {
+  private static void renderPlan(
+      GuiGraphicsExtractor context, Font font, Minecraft client, DailyPlan plan) {
     int screenWidth = client.getWindow().getGuiScaledWidth();
 
     int activeLevel = activeLevel(plan);
@@ -193,12 +194,12 @@ public final class DailyPlanHudRenderer {
 
     int titleX = (screenWidth - titleWidth) / 2;
     int titleY = panelY + PANEL_TOP_PAD;
-    context.drawString(font, title, titleX, titleY, titleColor, false);
+    context.text(font, title, titleX, titleY, titleColor, false);
 
     int rowY = titleY + FONT_HEIGHT + 3;
     if (riding != null) {
       int ridingX = (screenWidth - ridingWidth) / 2;
-      context.drawString(font, riding.text, ridingX, rowY, riding.color, false);
+      context.text(font, riding.text, ridingX, rowY, riding.color, false);
       rowY += FONT_HEIGHT + 2;
     }
 
@@ -209,7 +210,7 @@ public final class DailyPlanHudRenderer {
     int x = chainStartX;
 
     if (hasLeftEllipsis) {
-      context.drawString(font, ELLIPSIS, x, connectorY - FONT_HEIGHT / 2, COLOR_DIM, false);
+      context.text(font, ELLIPSIS, x, connectorY - FONT_HEIGHT / 2, COLOR_DIM, false);
       x += ellipsisWidth;
       // Anything off-screen to the left is done (gating invariant), so the left-ellipsis
       // connector is always a done → whatever edge — always animate.
@@ -237,7 +238,7 @@ public final class DailyPlanHudRenderer {
               : COLOR_CONNECTOR;
       drawConnector(context, x, connectorY, x + CONNECTOR_WIDTH, lastConnColor, false);
       x += CONNECTOR_WIDTH;
-      context.drawString(font, ELLIPSIS, x, connectorY - FONT_HEIGHT / 2, COLOR_DIM, false);
+      context.text(font, ELLIPSIS, x, connectorY - FONT_HEIGHT / 2, COLOR_DIM, false);
     }
   }
 
@@ -376,7 +377,7 @@ public final class DailyPlanHudRenderer {
   }
 
   private static void drawLayerColumn(
-      GuiGraphics context,
+      GuiGraphicsExtractor context,
       Font font,
       LayerColumn column,
       int left,
@@ -385,7 +386,7 @@ public final class DailyPlanHudRenderer {
       int maxBadgeHeight) {
     if (column.badge != null) {
       int badgeX = left + (column.width - column.badgeWidth) / 2;
-      context.drawString(font, column.badge, badgeX, badgeRowY, column.badgeColor, false);
+      context.text(font, column.badge, badgeX, badgeRowY, column.badgeColor, false);
     }
 
     int y = firstNodeY;
@@ -396,34 +397,34 @@ public final class DailyPlanHudRenderer {
   }
 
   private static void drawNodeBox(
-      GuiGraphics context, Font font, NodeLayout layout, int left, int top) {
+      GuiGraphicsExtractor context, Font font, NodeLayout layout, int left, int top) {
     int right = left + layout.width;
     int bottom = top + NODE_HEIGHT;
 
     int borderColor = layout.blink ? blinkBorderColor() : layout.borderColor;
 
     context.fill(left, top, right, bottom, NODE_BG);
-    context.hLine(left, right - 1, top, borderColor);
-    context.hLine(left, right - 1, bottom - 1, borderColor);
-    context.vLine(left, top, bottom - 1, borderColor);
-    context.vLine(right - 1, top, bottom - 1, borderColor);
+    context.horizontalLine(left, right - 1, top, borderColor);
+    context.horizontalLine(left, right - 1, bottom - 1, borderColor);
+    context.verticalLine(left, top, bottom - 1, borderColor);
+    context.verticalLine(right - 1, top, bottom - 1, borderColor);
 
     int topRowStartX = left + (layout.width - layout.topRowWidth) / 2;
     int topRowY = top + NODE_V_PAD;
-    context.drawString(font, layout.glyph + " ", topRowStartX, topRowY, layout.glyphColor, false);
-    context.drawString(
+    context.text(font, layout.glyph + " ", topRowStartX, topRowY, layout.glyphColor, false);
+    context.text(
         font, layout.name, topRowStartX + layout.glyphWidth, topRowY, layout.nameColor, false);
 
     int botRowX = left + (layout.width - layout.botRowWidth) / 2;
     int botRowY = topRowY + FONT_HEIGHT + 1;
-    context.drawString(font, layout.prog, botRowX, botRowY, layout.progColor, false);
+    context.text(font, layout.prog, botRowX, botRowY, layout.progColor, false);
   }
 
   private static void drawConnector(
-      GuiGraphics context, int left, int centerY, int right, int color, boolean powered) {
+      GuiGraphicsExtractor context, int left, int centerY, int right, int color, boolean powered) {
     // Base trail
-    context.hLine(left, right - 1, centerY - 1, color);
-    context.hLine(left, right - 1, centerY, color);
+    context.horizontalLine(left, right - 1, centerY - 1, color);
+    context.horizontalLine(left, right - 1, centerY, color);
 
     if (!powered || right <= left) {
       return;
@@ -437,8 +438,8 @@ public final class DailyPlanHudRenderer {
     int sparkLeft = Math.max(left, sparkCenter - sparkHalf);
     int sparkRight = Math.min(right, sparkCenter + sparkHalf + 1);
     if (sparkLeft < sparkRight) {
-      context.hLine(sparkLeft, sparkRight - 1, centerY - 1, POWER_SPARK_COLOR);
-      context.hLine(sparkLeft, sparkRight - 1, centerY, POWER_SPARK_COLOR);
+      context.horizontalLine(sparkLeft, sparkRight - 1, centerY - 1, POWER_SPARK_COLOR);
+      context.horizontalLine(sparkLeft, sparkRight - 1, centerY, POWER_SPARK_COLOR);
     }
   }
 

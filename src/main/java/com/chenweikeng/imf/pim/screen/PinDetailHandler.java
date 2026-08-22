@@ -124,7 +124,7 @@ public class PinDetailHandler {
         String seriesName = entry.getKey();
         int count = entry.getValue();
         if (count > 0) {
-          player.displayClientMessage(
+          player.sendSystemMessage(
               Component.literal(
                   "§6✨ §e[IMF] §fThe pin detail information has been updated for §e"
                       + count
@@ -132,8 +132,7 @@ public class PinDetailHandler {
                       + (count == 1 ? "" : "s")
                       + " in §e"
                       + seriesName
-                      + "§f."),
-              false);
+                      + "§f."));
         }
       }
     }

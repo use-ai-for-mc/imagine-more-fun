@@ -1,7 +1,7 @@
 package com.chenweikeng.imf.nra.config.profile.ui;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 public final class ButtonRenderer {
   public static final int BUTTON_HEIGHT = 14;
@@ -38,7 +38,7 @@ public final class ButtonRenderer {
 
   public static void renderButton(
       Minecraft minecraft,
-      GuiGraphics graphics,
+      GuiGraphicsExtractor graphics,
       int mouseX,
       int mouseY,
       int buttonX,
@@ -71,7 +71,7 @@ public final class ButtonRenderer {
         BUTTON_BORDER_COLOR);
 
     int textWidth = minecraft.font.width(text);
-    graphics.drawString(
+    graphics.text(
         minecraft.font,
         text,
         buttonX + (width - textWidth) / 2,

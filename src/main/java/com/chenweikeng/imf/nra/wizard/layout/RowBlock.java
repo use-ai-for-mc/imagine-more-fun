@@ -2,7 +2,7 @@ package com.chenweikeng.imf.nra.wizard.layout;
 
 import java.util.List;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 public record RowBlock(List<RenderBlock> columns, VerticalAlignment verticalAlignment)
     implements RenderBlock {
@@ -29,7 +29,7 @@ public record RowBlock(List<RenderBlock> columns, VerticalAlignment verticalAlig
   }
 
   @Override
-  public void render(GuiGraphics graphics, int x, int y, int width, Minecraft client) {
+  public void render(GuiGraphicsExtractor graphics, int x, int y, int width, Minecraft client) {
     int columnWidth = calculateColumnWidth(width);
     int maxHeight = getHeight(width, client);
     int columnX = x;

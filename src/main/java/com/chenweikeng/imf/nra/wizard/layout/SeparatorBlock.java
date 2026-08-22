@@ -1,7 +1,7 @@
 package com.chenweikeng.imf.nra.wizard.layout;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 public record SeparatorBlock(int height) implements RenderBlock {
 
@@ -14,7 +14,7 @@ public record SeparatorBlock(int height) implements RenderBlock {
   }
 
   @Override
-  public void render(GuiGraphics graphics, int x, int y, int width, Minecraft client) {
+  public void render(GuiGraphicsExtractor graphics, int x, int y, int width, Minecraft client) {
     int lineY = y + height / 2;
     graphics.fill(x + LINE_PADDING, lineY, x + width - LINE_PADDING, lineY + 1, LINE_COLOR);
   }

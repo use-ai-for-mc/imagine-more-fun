@@ -9,18 +9,16 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Random;
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.LightTexture;
-import net.minecraft.client.renderer.MultiBufferSource.BufferSource;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.Direction;
 import net.minecraft.resources.Identifier;
+import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.world.phys.Vec3;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
@@ -77,7 +75,7 @@ public final class SpaceMountainStarRenderer {
   private SpaceMountainStarRenderer() {}
 
   public static void register() {
-    WorldRenderEvents.AFTER_ENTITIES.register(SpaceMountainStarRenderer::render);
+    LevelRenderEvents.COLLECT_SUBMITS.register(SpaceMountainStarRenderer::render);
   }
 
   public static void setEnabled(boolean enabled) {
@@ -177,7 +175,7 @@ public final class SpaceMountainStarRenderer {
     }
   }
 
-  private static void render(WorldRenderContext ctx) {
+  private static void render(LevelRenderContext ctx) {
     if (!ENABLED || starX.length == 0) return;
     Minecraft mc = Minecraft.getInstance();
     if (mc.player == null || mc.level == null) return;
@@ -188,21 +186,25 @@ public final class SpaceMountainStarRenderer {
     drawStars(ctx, mc);
   }
 
-  private static void drawStars(WorldRenderContext ctx, Minecraft mc) {
-    Camera camera = mc.gameRenderer.getMainCamera();
-    Vec3 cam = camera.position();
+  private static void drawStars(LevelRenderContext ctx, Minecraft mc) {
+    Vec3 cam = ctx.levelState().cameraRenderState.pos;
 
-    Quaternionf rot = camera.rotation();
+    Quaternionf rot = ctx.levelState().cameraRenderState.orientation;
     Vector3f right = rot.transform(new Vector3f(1f, 0f, 0f));
     Vector3f up = rot.transform(new Vector3f(0f, 1f, 0f));
 
-    PoseStack poseStack = ctx.matrices();
-    PoseStack.Pose pose = poseStack.last();
-    BufferSource bufferSource = mc.renderBuffers().bufferSource();
+    PoseStack poseStack = ctx.poseStack();
     RenderType renderType = RenderTypes.eyes(STAR_TEXTURE);
-    VertexConsumer vc = bufferSource.getBuffer(renderType);
+    ctx.submitNodeCollector()
+        .submitCustomGeometry(
+            poseStack,
+            renderType,
+            (pose, vertexConsumer) -> drawStarGeometry(vertexConsumer, pose, cam, right, up));
+  }
 
-    int light = LightTexture.FULL_BRIGHT;
+  private static void drawStarGeometry(
+      VertexConsumer vc, PoseStack.Pose pose, Vec3 cam, Vector3f right, Vector3f up) {
+    int light = LightCoordsUtil.FULL_BRIGHT;
     int overlay = OverlayTexture.NO_OVERLAY;
     float camX = (float) cam.x;
     float camY = (float) cam.y;
@@ -226,7 +228,6 @@ public final class SpaceMountainStarRenderer {
       addVertex(vc, pose, wx + rx - ux, wy + ry - uy, wz + rz - uz, 1f, 1f, light, overlay);
       addVertex(vc, pose, wx + rx + ux, wy + ry + uy, wz + rz + uz, 1f, 0f, light, overlay);
     }
-    bufferSource.endBatch(renderType);
   }
 
   private static void addVertex(

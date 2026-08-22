@@ -3,16 +3,14 @@ package com.chenweikeng.imf.nra.spacemountain;
 import com.chenweikeng.imf.nra.NotRidingAlertClient;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
-import net.minecraft.client.Camera;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.LightTexture;
-import net.minecraft.client.renderer.MultiBufferSource.BufferSource;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.Identifier;
+import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -104,7 +102,7 @@ public final class SpaceMountainTrackRenderer {
   private SpaceMountainTrackRenderer() {}
 
   public static void register() {
-    WorldRenderEvents.AFTER_ENTITIES.register(SpaceMountainTrackRenderer::render);
+    LevelRenderEvents.COLLECT_SUBMITS.register(SpaceMountainTrackRenderer::render);
   }
 
   public static void setEnabled(boolean enabled) {
@@ -308,7 +306,7 @@ public final class SpaceMountainTrackRenderer {
     }
   }
 
-  private static void render(WorldRenderContext ctx) {
+  private static void render(LevelRenderContext ctx) {
     if (!ENABLED) return;
     if (sampleCount < 2) return;
     Minecraft mc = Minecraft.getInstance();
@@ -318,21 +316,24 @@ public final class SpaceMountainTrackRenderer {
     drawTrack(ctx, mc);
   }
 
-  private static void drawTrack(WorldRenderContext ctx, Minecraft mc) {
-    Camera camera = mc.gameRenderer.getMainCamera();
-    Vec3 cam = camera.position();
+  private static void drawTrack(LevelRenderContext ctx, Minecraft mc) {
+    Vec3 cam = ctx.levelState().cameraRenderState.pos;
 
-    PoseStack poseStack = ctx.matrices();
-    PoseStack.Pose pose = poseStack.last();
-    BufferSource bufferSource = mc.renderBuffers().bufferSource();
+    PoseStack poseStack = ctx.poseStack();
     // Non-emissive translucent: respects the lightmap (low fixed light coord renders the track as
     // dim metal) AND the depth buffer (track is occluded by blocks in front of it).
     RenderType renderType = RenderTypes.entityTranslucent(TRACK_TEXTURE);
-    VertexConsumer vc = bufferSource.getBuffer(renderType);
+    ctx.submitNodeCollector()
+        .submitCustomGeometry(
+            poseStack,
+            renderType,
+            (pose, vertexConsumer) -> drawTrackGeometry(vertexConsumer, pose, cam));
+  }
 
+  private static void drawTrackGeometry(VertexConsumer vc, PoseStack.Pose pose, Vec3 cam) {
     // Low fixed lightmap coord: block-light=8, sky-light=0 → track reads as dim metal in any
     // environment. Bump TRACK_BLOCK_LIGHT toward 15 to brighten, drop to 1 for near-pitch-black.
-    int light = LightTexture.pack(TRACK_BLOCK_LIGHT, TRACK_SKY_LIGHT);
+    int light = LightCoordsUtil.pack(TRACK_BLOCK_LIGHT, TRACK_SKY_LIGHT);
     int overlay = OverlayTexture.NO_OVERLAY;
     float camX = (float) cam.x;
     float camY = (float) cam.y;
@@ -380,8 +381,6 @@ public final class SpaceMountainTrackRenderer {
           COLOR_G,
           COLOR_B);
     }
-
-    bufferSource.endBatch(renderType);
   }
 
   /**

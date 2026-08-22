@@ -33,6 +33,6 @@ public class MilestoneHandler {
                 + " rides completed today! §eTotal ride time: "
                 + timeStr);
 
-    client.player.displayClientMessage(message, false);
+    client.player.sendSystemMessage(message);
   }
 }

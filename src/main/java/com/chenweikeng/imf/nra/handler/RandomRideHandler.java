@@ -49,7 +49,7 @@ public final class RandomRideHandler {
                 Component.literal(
                         " (" + chosen.getCurrentCount() + "/" + chosen.getNextGoal() + ")")
                     .withStyle(ChatFormatting.GRAY));
-    client.player.displayClientMessage(msg, false);
+    client.player.sendSystemMessage(msg);
 
     client.player.connection.sendCommand("w " + shortName);
     return true;

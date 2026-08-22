@@ -176,7 +176,7 @@ public final class SpaceMountainBlockOverride {
       // Per-section setSectionDirty isn't reliable when chunks were already meshed before
       // activation (observed on Hyperspace Mountain — the seal applied to the block data but the
       // walls kept rendering see-through). A full re-mesh forces the sealed blocks to repaint.
-      mc.levelRenderer.allChanged();
+      mc.levelExtractor.allChanged();
       NotRidingAlertClient.LOGGER.info(
           "[SpaceMountainBlockOverride] active → sealed loaded chunks ({} cells)",
           originalStates.size());
@@ -191,7 +191,7 @@ public final class SpaceMountainBlockOverride {
         desealAll(mc);
         // Cached section meshes don't repaint from a bare setBlockState — force a full re-mesh so
         // the rider sees the restored geometry, not the stale sealed look.
-        mc.levelRenderer.allChanged();
+        mc.levelExtractor.allChanged();
         NotRidingAlertClient.LOGGER.info(
             "[SpaceMountainBlockOverride] inactive → restored {} cells", restored);
       }
@@ -226,7 +226,7 @@ public final class SpaceMountainBlockOverride {
     ensureOverlayIndex(mc);
     if (overlayByChunk == null) return;
     List<Map.Entry<BlockPos, BlockState>> entries =
-        overlayByChunk.get(chunkKey(chunk.getPos().x, chunk.getPos().z));
+        overlayByChunk.get(chunkKey(chunk.getPos().x(), chunk.getPos().z()));
     if (entries == null || entries.isEmpty()) return;
 
     Set<Long> dirtySections = new HashSet<>();
@@ -242,7 +242,7 @@ public final class SpaceMountainBlockOverride {
 
     if (mc.levelRenderer != null) {
       for (long key : dirtySections) {
-        mc.levelRenderer.setSectionDirty(SectionPos.x(key), SectionPos.y(key), SectionPos.z(key));
+        mc.levelExtractor.setSectionDirty(SectionPos.x(key), SectionPos.y(key), SectionPos.z(key));
       }
     }
   }
@@ -274,7 +274,7 @@ public final class SpaceMountainBlockOverride {
     originalStates.putIfAbsent(posKey, before);
     chunk.setBlockState(posKey, target, 0);
     if (mc.levelRenderer != null) {
-      mc.levelRenderer.setSectionDirty(pos.getX() >> 4, pos.getY() >> 4, pos.getZ() >> 4);
+      mc.levelExtractor.setSectionDirty(pos.getX() >> 4, pos.getY() >> 4, pos.getZ() >> 4);
     }
   }
 
@@ -299,7 +299,7 @@ public final class SpaceMountainBlockOverride {
     }
     if (mc.levelRenderer != null) {
       for (long key : dirtySections) {
-        mc.levelRenderer.setSectionDirty(SectionPos.x(key), SectionPos.y(key), SectionPos.z(key));
+        mc.levelExtractor.setSectionDirty(SectionPos.x(key), SectionPos.y(key), SectionPos.z(key));
       }
     }
     originalStates.clear();

@@ -8,7 +8,7 @@ import com.chenweikeng.imf.nra.ride.RideName;
 import com.chenweikeng.imf.nra.util.TimeFormatUtil;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 public class SessionStatsHudRenderer {
   private static int debugThrottle = 0;
@@ -16,7 +16,7 @@ public class SessionStatsHudRenderer {
   private static final int LINE_HEIGHT = 10;
   private static final int TEXT_COLOR = 0xFFFFFFFF;
 
-  public static void render(GuiGraphics context, DeltaTracker tickCounter) {
+  public static void render(GuiGraphicsExtractor context, DeltaTracker tickCounter) {
     if (!ServerState.isImagineFunServer()) {
       return;
     }
@@ -104,10 +104,10 @@ public class SessionStatsHudRenderer {
     int textX = boxX + PADDING;
     int textY = boxY + PADDING;
 
-    context.drawString(client.font, statsLine, textX, textY, TEXT_COLOR, true);
+    context.text(client.font, statsLine, textX, textY, TEXT_COLOR, true);
 
     if (streakLine != null) {
-      context.drawString(client.font, streakLine, textX, textY + LINE_HEIGHT, TEXT_COLOR, true);
+      context.text(client.font, streakLine, textX, textY + LINE_HEIGHT, TEXT_COLOR, true);
     }
   }
 }

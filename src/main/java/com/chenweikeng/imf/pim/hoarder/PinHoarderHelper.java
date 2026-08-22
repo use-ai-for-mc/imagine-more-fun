@@ -97,7 +97,7 @@ public final class PinHoarderHelper {
     if (hasUsefulPinPacksInMainInventory(inventory)) {
       // Open the inventory screen
       PimClient.LOGGER.debug("[PinHoarder] Found useful packs in inventory, opening inventory");
-      mc.setScreen(new InventoryScreen(player));
+      mc.setScreenAndShow(new InventoryScreen(player));
     } else {
       PimClient.LOGGER.debug("[PinHoarder] No useful packs found");
     }

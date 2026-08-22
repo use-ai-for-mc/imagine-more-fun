@@ -6,12 +6,12 @@ import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.CustomData;
@@ -52,7 +52,7 @@ public final class PinPackOverlayRenderer {
 
   /** Called from the InventoryScreen render TAIL hook. */
   public static void renderIfVisible(
-      GuiGraphics guiGraphics,
+      GuiGraphicsExtractor guiGraphics,
       Screen screen,
       int containerLeft,
       int containerTop,
@@ -98,7 +98,7 @@ public final class PinPackOverlayRenderer {
     }
 
     Minecraft mc = Minecraft.getInstance();
-    if (mc.player == null || !(mc.screen instanceof InventoryScreen)) {
+    if (mc.player == null || !(mc.gui.screen() instanceof InventoryScreen)) {
       stopAutoOpen();
       return;
     }
@@ -116,8 +116,8 @@ public final class PinPackOverlayRenderer {
 
     // Open the next pack
     int slotNum = slotsToOpen.remove(0);
-    mc.gameMode.handleInventoryMouseClick(
-        mc.player.containerMenu.containerId, slotNum, 0, ClickType.QUICK_MOVE, mc.player);
+    mc.gameMode.handleContainerInput(
+        mc.player.containerMenu.containerId, slotNum, 0, ContainerInput.QUICK_MOVE, mc.player);
     openedCount++;
 
     // Track pin box opening for daily report
@@ -177,7 +177,7 @@ public final class PinPackOverlayRenderer {
   }
 
   private static void render(
-      GuiGraphics guiGraphics,
+      GuiGraphicsExtractor guiGraphics,
       Font font,
       int screenWidth,
       int screenHeight,
@@ -241,18 +241,18 @@ public final class PinPackOverlayRenderer {
     int textY = y + PADDING;
 
     // Header
-    guiGraphics.drawString(font, lines.get(0), textX, textY, HEADER_COLOR, false);
+    guiGraphics.text(font, lines.get(0), textX, textY, HEADER_COLOR, false);
     textY += LINE_HEIGHT;
 
     // Blank line
     textY += LINE_HEIGHT;
 
     // Unopened count
-    guiGraphics.drawString(font, lines.get(2), textX, textY, UNOPENED_COLOR, false);
+    guiGraphics.text(font, lines.get(2), textX, textY, UNOPENED_COLOR, false);
     textY += LINE_HEIGHT;
 
     // Opened count
-    guiGraphics.drawString(font, lines.get(3), textX, textY, OPENED_COLOR, false);
+    guiGraphics.text(font, lines.get(3), textX, textY, OPENED_COLOR, false);
     textY += LINE_HEIGHT;
 
     // Button
@@ -274,7 +274,7 @@ public final class PinPackOverlayRenderer {
       boolean hover =
           mouseX >= buttonX1 && mouseX < buttonX2 && mouseY >= buttonY1 && mouseY < buttonY2;
 
-      guiGraphics.drawString(
+      guiGraphics.text(
           font, buttonText, textX, textY, hover ? BUTTON_HOVER_COLOR : BUTTON_COLOR, false);
       textY += LINE_HEIGHT;
     } else {
@@ -283,7 +283,7 @@ public final class PinPackOverlayRenderer {
 
     // Progress
     if (progressText != null) {
-      guiGraphics.drawString(font, progressText, textX, textY, PROGRESS_COLOR, false);
+      guiGraphics.text(font, progressText, textX, textY, PROGRESS_COLOR, false);
     }
   }
 

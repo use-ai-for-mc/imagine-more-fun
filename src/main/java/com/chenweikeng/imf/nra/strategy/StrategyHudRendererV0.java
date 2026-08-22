@@ -12,7 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 /**
  * Strategy HUD v0 — top-left anchored, single/two-column toggle at 8+ goals.
@@ -51,7 +51,7 @@ public class StrategyHudRendererV0 {
 
   // ---- render ----
 
-  public static void render(GuiGraphics context, DeltaTracker tickCounter) {
+  public static void render(GuiGraphicsExtractor context, DeltaTracker tickCounter) {
     if (!NotRidingAlertClient.isImagineFunServer()) {
       return;
     }
@@ -138,7 +138,7 @@ public class StrategyHudRendererV0 {
     int y = yStart;
 
     if (hasError) {
-      context.drawString(client.font, "ERROR: " + currentError, xLeft, y, errorColor, false);
+      context.text(client.font, "ERROR: " + currentError, xLeft, y, errorColor, false);
       y += lineHeight;
     }
 
@@ -202,7 +202,7 @@ public class StrategyHudRendererV0 {
   // ---- V0-specific helpers ----
 
   private static void renderColumn(
-      GuiGraphics context,
+      GuiGraphicsExtractor context,
       Minecraft client,
       List<RideGoal> goals,
       RideName currentRide,
@@ -226,12 +226,12 @@ public class StrategyHudRendererV0 {
       int color =
           StrategyHudBase.getColorForStatus(
               fr.getStatus(), colorNormal, colorRiding, colorAutograbbing, colorClosest);
-      context.drawString(client.font, text, x, y + (i * lineHeight), color, false);
+      context.text(client.font, text, x, y + (i * lineHeight), color, false);
     }
   }
 
   private static void renderColumnRight(
-      GuiGraphics context,
+      GuiGraphicsExtractor context,
       Minecraft client,
       List<RideGoal> goals,
       RideName currentRide,
@@ -256,12 +256,12 @@ public class StrategyHudRendererV0 {
           StrategyHudBase.getColorForStatus(
               fr.getStatus(), colorNormal, colorRiding, colorAutograbbing, colorClosest);
       int textWidth = client.font.width(text);
-      context.drawString(client.font, text, xRight - textWidth, y + (i * lineHeight), color, false);
+      context.text(client.font, text, xRight - textWidth, y + (i * lineHeight), color, false);
     }
   }
 
   private static void renderExtraRide(
-      GuiGraphics context,
+      GuiGraphicsExtractor context,
       Minecraft client,
       RideName ride,
       RideName currentRide,
@@ -290,7 +290,7 @@ public class StrategyHudRendererV0 {
     int color =
         StrategyHudBase.getColorForStatus(
             fr.getStatus(), colorNormal, colorRiding, colorAutograbbing, colorClosest);
-    context.drawString(client.font, text, x, y, color, false);
+    context.text(client.font, text, x, y, color, false);
   }
 
   // ---- V0-specific layout (single/two-column toggle) ----

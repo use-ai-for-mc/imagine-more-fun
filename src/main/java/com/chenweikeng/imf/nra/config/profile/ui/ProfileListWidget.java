@@ -6,7 +6,7 @@ import com.chenweikeng.imf.nra.config.profile.StoredProfile;
 import java.util.List;
 import java.util.function.Consumer;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.ObjectSelectionList;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
@@ -114,8 +114,8 @@ public class ProfileListWidget extends ObjectSelectionList<ProfileListWidget.Ent
     }
 
     @Override
-    public void renderContent(
-        GuiGraphics graphics, int mouseX, int mouseY, boolean hovered, float delta) {
+    public void extractContent(
+        GuiGraphicsExtractor graphics, int mouseX, int mouseY, boolean hovered, float delta) {
       boolean isSelected = getSelected() == this;
       boolean isCurrent = ProfileManager.isCurrentProfile(profile);
       boolean isBuiltIn = isBuiltInProfile();
@@ -145,30 +145,29 @@ public class ProfileListWidget extends ObjectSelectionList<ProfileListWidget.Ent
 
       String indicator = isCurrent ? "\u25CF" : "\u25CB";
       int indicatorColor = isCurrent ? BADGE_ACTIVE_COLOR : 0xFF666666;
-      graphics.drawString(minecraft.font, indicator, textX, textY, indicatorColor, false);
+      graphics.text(minecraft.font, indicator, textX, textY, indicatorColor, false);
 
       textX += 14;
 
-      graphics.drawString(minecraft.font, profile.name, textX, textY, NAME_COLOR, false);
+      graphics.text(minecraft.font, profile.name, textX, textY, NAME_COLOR, false);
 
       int badgeX = textX + minecraft.font.width(profile.name) + 8;
 
       if (isCurrent) {
         String currentBadge = "(Current Setting)";
-        graphics.drawString(minecraft.font, currentBadge, badgeX, textY, BADGE_ACTIVE_COLOR, false);
+        graphics.text(minecraft.font, currentBadge, badgeX, textY, BADGE_ACTIVE_COLOR, false);
         badgeX += minecraft.font.width(currentBadge) + 8;
       }
 
       if (isBuiltIn) {
         String builtinBadge = "(builtin)";
-        graphics.drawString(minecraft.font, builtinBadge, badgeX, textY, BUILTIN_TAG_COLOR, false);
+        graphics.text(minecraft.font, builtinBadge, badgeX, textY, BUILTIN_TAG_COLOR, false);
       }
 
       String description =
           profile.description != null && !profile.description.isEmpty() ? profile.description : "";
       if (!description.isEmpty()) {
-        graphics.drawString(
-            minecraft.font, description, textX, textY + 12, DESCRIPTION_COLOR, false);
+        graphics.text(minecraft.font, description, textX, textY + 12, DESCRIPTION_COLOR, false);
       }
 
       int totalButtonsWidth = BUTTON_WIDTH * 4 + BUTTON_SPACING * 3;

@@ -2,7 +2,7 @@ package com.chenweikeng.imf.nra.wizard.layout;
 
 import java.util.List;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.FormattedCharSequence;
@@ -24,7 +24,7 @@ public record FloatImageBlock(
   }
 
   @Override
-  public void render(GuiGraphics graphics, int x, int y, int width, Minecraft client) {
+  public void render(GuiGraphicsExtractor graphics, int x, int y, int width, Minecraft client) {
     int imgWidth = (int) (width * widthPercent);
     int imgHeight = 100;
     int textWidth = width - imgWidth - GAP;
@@ -36,7 +36,7 @@ public record FloatImageBlock(
     List<FormattedCharSequence> lines = client.font.split(text, textWidth);
     int lineY = y;
     for (FormattedCharSequence line : lines) {
-      graphics.drawString(client.font, line, textX, lineY, TEXT_COLOR, false);
+      graphics.text(client.font, line, textX, lineY, TEXT_COLOR, false);
       lineY += LINE_HEIGHT;
     }
   }

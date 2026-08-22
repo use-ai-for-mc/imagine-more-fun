@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.function.Consumer;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.ObjectSelectionList;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
@@ -57,8 +57,8 @@ public class RideReportListWidget extends ObjectSelectionList<RideReportListWidg
     }
 
     @Override
-    public void renderContent(
-        GuiGraphics graphics, int mouseX, int mouseY, boolean hovered, float delta) {
+    public void extractContent(
+        GuiGraphicsExtractor graphics, int mouseX, int mouseY, boolean hovered, float delta) {
       boolean isSelected = getSelected() == this;
 
       int x = getContentX();
@@ -115,10 +115,10 @@ public class RideReportListWidget extends ObjectSelectionList<RideReportListWidg
                   .append(Component.literal(formatDateFriendly(date)).withColor(DATE_COLOR));
         }
       }
-      graphics.drawString(minecraft.font, dateComp, textX, textY, DATE_COLOR, false);
+      graphics.text(minecraft.font, dateComp, textX, textY, DATE_COLOR, false);
 
       // Second line: summary
-      graphics.drawString(
+      graphics.text(
           minecraft.font,
           Component.literal(summary).withColor(SUMMARY_COLOR),
           textX,

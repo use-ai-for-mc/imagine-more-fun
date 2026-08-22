@@ -4,7 +4,7 @@ import com.chenweikeng.imf.nra.config.ClothConfigScreen;
 import com.chenweikeng.imf.nra.config.profile.HistoryEntry;
 import com.chenweikeng.imf.nra.config.profile.HistoryManager;
 import net.minecraft.ChatFormatting;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -52,7 +52,8 @@ public class HistoryScreen extends Screen {
 
   private void onView(HistoryEntry entry) {
     if (entry == null || entry.data == null) return;
-    minecraft.setScreen((Screen) ClothConfigScreen.createScreen(this, entry.data.copy(), () -> {}));
+    minecraft.setScreenAndShow(
+        (Screen) ClothConfigScreen.createScreen(this, entry.data.copy(), () -> {}));
   }
 
   private void onApply(HistoryEntry entry) {
@@ -66,20 +67,21 @@ public class HistoryScreen extends Screen {
   }
 
   @Override
-  public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
+  public void extractRenderState(
+      GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
     renderDarkBackground(graphics);
 
     Component title =
         Component.literal("Profile History").withStyle(ChatFormatting.BOLD, ChatFormatting.AQUA);
-    graphics.drawCenteredString(font, title, width / 2, PADDING, LABEL_COLOR);
+    graphics.centeredText(font, title, width / 2, PADDING, LABEL_COLOR);
 
     int footerY = height - FOOTER_HEIGHT;
     graphics.fill(0, footerY, width, height, 0xDD000000);
 
-    super.render(graphics, mouseX, mouseY, delta);
+    super.extractRenderState(graphics, mouseX, mouseY, delta);
   }
 
-  private void renderDarkBackground(GuiGraphics graphics) {
+  private void renderDarkBackground(GuiGraphicsExtractor graphics) {
     graphics.fill(0, 0, this.width, this.height, 0xCC000000);
   }
 
@@ -91,7 +93,7 @@ public class HistoryScreen extends Screen {
   @Override
   public void onClose() {
     if (minecraft != null) {
-      minecraft.setScreen(parent);
+      minecraft.setScreenAndShow(parent);
     }
   }
 }

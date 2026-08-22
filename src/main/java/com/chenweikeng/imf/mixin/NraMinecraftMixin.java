@@ -1,6 +1,5 @@
 package com.chenweikeng.imf.mixin;
 
-import com.chenweikeng.imf.nra.GameState;
 import com.chenweikeng.imf.nra.ServerState;
 import com.chenweikeng.imf.nra.report.ui.RideReportScreen;
 import net.minecraft.client.Minecraft;
@@ -11,14 +10,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(Minecraft.class)
 public class NraMinecraftMixin {
-  @Inject(method = "setWindowActive", at = @At("HEAD"), cancellable = true)
-  private void imf$onSetWindowActive(boolean bl, CallbackInfo ci) {
-    GameState state = GameState.getInstance();
-    if (!bl && (state.isAutomaticallyReleasedCursor() || state.isWithinWindowRestoreGrace())) {
-      ci.cancel();
-    }
-  }
-
   /**
    * On ImagineFun, override the Advancements key to open the Ride Report instead. The vanilla
    * Advancements screen is meaningless on this server, so we intercept before handleKeybinds()
@@ -30,11 +21,11 @@ public class NraMinecraftMixin {
       return;
     }
     Minecraft client = (Minecraft) (Object) this;
-    if (client.player == null || client.screen != null) {
+    if (client.player == null || client.gui.screen() != null) {
       return;
     }
     while (client.options.keyAdvancements.consumeClick()) {
-      client.setScreen(RideReportScreen.createLive(null));
+      client.setScreenAndShow(RideReportScreen.createLive(null));
     }
   }
 }

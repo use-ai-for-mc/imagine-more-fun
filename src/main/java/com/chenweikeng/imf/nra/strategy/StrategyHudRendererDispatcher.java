@@ -12,7 +12,7 @@ import java.util.List;
 import java.util.Map;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 public class StrategyHudRendererDispatcher {
   private static final Map<StrategyHudRendererVersion, StrategyHudRenderer> RENDERERS =
@@ -38,7 +38,7 @@ public class StrategyHudRendererDispatcher {
           }
 
           @Override
-          public void render(GuiGraphics context, DeltaTracker tickCounter) {
+          public void render(GuiGraphicsExtractor context, DeltaTracker tickCounter) {
             StrategyHudRendererV0.render(context, tickCounter);
           }
 
@@ -67,7 +67,7 @@ public class StrategyHudRendererDispatcher {
           }
 
           @Override
-          public void render(GuiGraphics context, DeltaTracker tickCounter) {
+          public void render(GuiGraphicsExtractor context, DeltaTracker tickCounter) {
             StrategyHudRendererV1.render(context, tickCounter);
           }
 
@@ -96,7 +96,7 @@ public class StrategyHudRendererDispatcher {
           }
 
           @Override
-          public void render(GuiGraphics context, DeltaTracker tickCounter) {
+          public void render(GuiGraphicsExtractor context, DeltaTracker tickCounter) {
             StrategyHudRendererV2.render(context, tickCounter);
           }
 
@@ -123,7 +123,7 @@ public class StrategyHudRendererDispatcher {
     return getCurrent().getError();
   }
 
-  public static void render(GuiGraphics context, DeltaTracker tickCounter) {
+  public static void render(GuiGraphicsExtractor context, DeltaTracker tickCounter) {
     if (DailyPlanHudRenderer.isActive()) {
       return;
     }

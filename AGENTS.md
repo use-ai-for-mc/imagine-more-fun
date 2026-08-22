@@ -41,7 +41,7 @@ may still hold the prior JAR inode open. See
 
 ## Architecture at a glance
 
-ImagineMoreFun is a client-side Fabric 1.21.11 mod for `*.imaginefun.net`. `ImfClient` is the single
+ImagineMoreFun is a client-side Fabric 26.2 mod for `*.imaginefun.net`. `ImfClient` is the single
 Fabric entrypoint. It runs storage migration, registers Space Mountain helpers, initializes NRA,
 PIM, and SkinCache, then initializes Canoe Helper.
 
@@ -79,5 +79,6 @@ as implementation instructions.
 - Cloth Config: required configuration UI.
 - ModMenu: optional, compile-only integration.
 - Monkeycraft API: optional, compile-only; calls must remain guarded by `MonkeycraftCompat`.
+- SmoothCoasters: optional runtime integration through the `@Pseudo` camera-tilt mixin.
 - Native WebView/status helpers: built from `native/` and embedded under
   `src/main/resources/native/` during release builds.

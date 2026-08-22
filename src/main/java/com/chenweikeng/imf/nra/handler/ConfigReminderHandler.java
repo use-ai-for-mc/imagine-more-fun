@@ -56,7 +56,7 @@ public class ConfigReminderHandler {
                                 .withClickEvent(new ClickEvent.RunCommand("imf setup"))))
             .append(Component.literal("§f to open the setup wizard."));
 
-    client.player.displayClientMessage(message, false);
+    client.player.sendSystemMessage(message);
   }
 
   public void reset() {

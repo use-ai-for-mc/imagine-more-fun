@@ -10,8 +10,8 @@ Every feature only activates while you are connected to an `*.imaginefun.net` se
 
 ## Requirements
 
-- Minecraft **1.21.11** with the **Fabric** loader
-- Java 21
+- Minecraft **26.2** with the **Fabric** loader
+- Java 25
 
 ## Features
 

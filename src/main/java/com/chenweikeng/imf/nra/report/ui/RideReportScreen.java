@@ -13,12 +13,15 @@ import java.util.Locale;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.Screenshot;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.model.Model;
 import net.minecraft.client.model.geom.EntityModelSet;
 import net.minecraft.client.model.geom.ModelLayers;
+import net.minecraft.client.model.geom.ModelPart;
 import net.minecraft.client.model.player.PlayerModel;
+import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.util.Mth;
@@ -71,6 +74,9 @@ public class RideReportScreen extends Screen {
   private PlayerModel wideModel;
   private PlayerModel slimModel;
   private PlayerModel npcModel;
+  private Model.Simple wideRenderModel;
+  private Model.Simple slimRenderModel;
+  private Model.Simple npcRenderModel;
   private Button prevButton;
   private Button nextButton;
   private int screenshotCountdown = 0;
@@ -108,11 +114,17 @@ public class RideReportScreen extends Screen {
     RideReportNotifier.getInstance().markViewed();
     // Clear existing toasts (e.g. "Chat messages can't be verified") so they don't clutter
     // the report. Rendering is also suppressed while this screen is active via ToastManagerMixin.
-    Minecraft.getInstance().getToastManager().clear();
+    Minecraft.getInstance().gui.toastManager().clear();
     EntityModelSet models = Minecraft.getInstance().getEntityModels();
-    wideModel = new PlayerModel(models.bakeLayer(ModelLayers.PLAYER), false);
-    slimModel = new PlayerModel(models.bakeLayer(ModelLayers.PLAYER_SLIM), true);
-    npcModel = new PlayerModel(models.bakeLayer(ModelLayers.PLAYER), false);
+    ModelPart wideRoot = models.bakeLayer(ModelLayers.PLAYER);
+    ModelPart slimRoot = models.bakeLayer(ModelLayers.PLAYER_SLIM);
+    ModelPart npcRoot = models.bakeLayer(ModelLayers.PLAYER);
+    wideModel = new PlayerModel(wideRoot, false);
+    slimModel = new PlayerModel(slimRoot, true);
+    npcModel = new PlayerModel(npcRoot, false);
+    wideRenderModel = new Model.Simple(wideRoot, RenderTypes::entityTranslucent);
+    slimRenderModel = new Model.Simple(slimRoot, RenderTypes::entityTranslucent);
+    npcRenderModel = new Model.Simple(npcRoot, RenderTypes::entityTranslucent);
 
     panelW = (int) (width * 0.7);
     panelH = (int) (height * 0.8);
@@ -233,7 +245,8 @@ public class RideReportScreen extends Screen {
   }
 
   @Override
-  public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
+  public void extractRenderState(
+      GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
     // Dark translucent full-screen backdrop
     graphics.fill(0, 0, width, height, 0xAA000000);
 
@@ -247,13 +260,13 @@ public class RideReportScreen extends Screen {
     if (report == null) {
       String msg =
           liveMode ? "No rides yet today - go ride something!" : "No report data for " + date;
-      graphics.drawCenteredString(
+      graphics.centeredText(
           font,
           Component.literal(msg).withStyle(ChatFormatting.RED),
           width / 2,
           height / 2,
           TEXT_COLOR);
-      super.render(graphics, mouseX, mouseY, delta);
+      super.extractRenderState(graphics, mouseX, mouseY, delta);
       return;
     }
 
@@ -282,11 +295,11 @@ public class RideReportScreen extends Screen {
                 Component.literal(dateDisplay)
                     .withStyle(ChatFormatting.BOLD)
                     .withColor(HEADER_COLOR));
-    graphics.drawCenteredString(font, titleComp, width / 2, y, TEXT_COLOR);
+    graphics.centeredText(font, titleComp, width / 2, y, TEXT_COLOR);
     y += LINE_HEIGHT + 2;
 
     // Fun title
-    graphics.drawCenteredString(
+    graphics.centeredText(
         font,
         Component.literal("~ " + report.title + " ~").withColor(report.grade.color),
         width / 2,
@@ -299,7 +312,7 @@ public class RideReportScreen extends Screen {
     String onlineStr = TimeFormatUtil.formatDuration(report.totalOnlineSeconds);
     String completedVerb = report.isLive ? "You've ridden " : "You completed ";
     String rideSuffix = report.isLive ? " rides so far" : " rides";
-    graphics.drawCenteredString(
+    graphics.centeredText(
         font,
         Component.empty()
             .append(Component.literal(completedVerb).withColor(TEXT_COLOR))
@@ -315,7 +328,7 @@ public class RideReportScreen extends Screen {
         TEXT_COLOR);
     y += LINE_HEIGHT;
 
-    graphics.drawCenteredString(
+    graphics.centeredText(
         font,
         Component.empty()
             .append(Component.literal("Online for ").withColor(DIM_COLOR))
@@ -331,7 +344,7 @@ public class RideReportScreen extends Screen {
       String compLabel = wasYesterday ? "yesterday" : "last ride day";
       int diff = report.totalRides - report.previousDayRides;
       if (diff > 0) {
-        graphics.drawCenteredString(
+        graphics.centeredText(
             font,
             Component.literal(diff + " more rides than " + compLabel + "!")
                 .withColor(MILESTONE_COLOR),
@@ -339,7 +352,7 @@ public class RideReportScreen extends Screen {
             y,
             TEXT_COLOR);
       } else if (diff < 0) {
-        graphics.drawCenteredString(
+        graphics.centeredText(
             font,
             Component.literal(Math.abs(diff) + " fewer rides than " + compLabel)
                 .withColor(DIM_COLOR),
@@ -347,7 +360,7 @@ public class RideReportScreen extends Screen {
             y,
             TEXT_COLOR);
       } else {
-        graphics.drawCenteredString(
+        graphics.centeredText(
             font,
             Component.literal("Same as " + compLabel + " - consistency!").withColor(ACCENT_COLOR),
             width / 2,
@@ -360,7 +373,7 @@ public class RideReportScreen extends Screen {
 
     // First day notice
     if (report.isFirstDay) {
-      graphics.drawCenteredString(
+      graphics.centeredText(
           font,
           Component.literal("Day 1 - Baseline Recorded!")
               .withStyle(ChatFormatting.BOLD)
@@ -369,14 +382,14 @@ public class RideReportScreen extends Screen {
           y,
           TEXT_COLOR);
       y += LINE_HEIGHT + 2;
-      graphics.drawCenteredString(
+      graphics.centeredText(
           font,
           Component.literal("This is your first tracked day.").withColor(DIM_COLOR),
           width / 2,
           y,
           TEXT_COLOR);
       y += LINE_HEIGHT;
-      graphics.drawCenteredString(
+      graphics.centeredText(
           font,
           Component.literal("Per-ride breakdowns start from tomorrow!").withColor(DIM_COLOR),
           width / 2,
@@ -389,7 +402,7 @@ public class RideReportScreen extends Screen {
 
     // Fun stats section
     if (report.mvpRide != null) {
-      graphics.drawString(
+      graphics.text(
           font,
           Component.empty()
               .append(Component.literal("MVP Ride: ").withColor(MVP_COLOR))
@@ -404,7 +417,7 @@ public class RideReportScreen extends Screen {
     }
 
     if (report.speedDemonRide != null) {
-      graphics.drawString(
+      graphics.text(
           font,
           Component.empty()
               .append(Component.literal("Speed Demon: ").withColor(0xFFFF5555))
@@ -417,7 +430,7 @@ public class RideReportScreen extends Screen {
     }
 
     if (!report.newMilestones.isEmpty()) {
-      graphics.drawString(
+      graphics.text(
           font,
           Component.literal("New Heights Reached!").withColor(MILESTONE_COLOR),
           contentX,
@@ -426,7 +439,7 @@ public class RideReportScreen extends Screen {
           false);
       y += LINE_HEIGHT;
       for (DailyReport.MilestoneReached m : report.newMilestones) {
-        graphics.drawString(
+        graphics.text(
             font,
             Component.empty()
                 .append(Component.literal("  ").withColor(TEXT_COLOR))
@@ -452,7 +465,7 @@ public class RideReportScreen extends Screen {
     }
 
     // Ride breakdown header
-    graphics.drawString(
+    graphics.text(
         font,
         Component.literal("Ride Breakdown").withStyle(ChatFormatting.BOLD).withColor(ACCENT_COLOR),
         contentX,
@@ -467,13 +480,13 @@ public class RideReportScreen extends Screen {
     int totalColX = contentX + contentWidth - 85;
     int timeColX = contentX + contentWidth - 40;
 
-    graphics.drawString(
+    graphics.text(
         font, Component.literal("Ride").withColor(DIM_COLOR), nameColX, y, TEXT_COLOR, false);
-    graphics.drawString(
+    graphics.text(
         font, Component.literal("+").withColor(DIM_COLOR), countColX, y, TEXT_COLOR, false);
-    graphics.drawString(
+    graphics.text(
         font, Component.literal("Total").withColor(DIM_COLOR), totalColX, y, TEXT_COLOR, false);
-    graphics.drawString(
+    graphics.text(
         font, Component.literal("Time").withColor(DIM_COLOR), timeColX, y, TEXT_COLOR, false);
     y += LINE_HEIGHT;
 
@@ -484,23 +497,23 @@ public class RideReportScreen extends Screen {
       if (font.width(rideName) > countColX - nameColX - 8) {
         rideName = rd.ride.getShortName();
       }
-      graphics.drawString(
+      graphics.text(
           font, Component.literal(rideName).withColor(rowColor), nameColX, y, TEXT_COLOR, false);
-      graphics.drawString(
+      graphics.text(
           font,
           Component.literal("+" + rd.countIncrease).withColor(MILESTONE_COLOR),
           countColX,
           y,
           TEXT_COLOR,
           false);
-      graphics.drawString(
+      graphics.text(
           font,
           Component.literal(String.valueOf(rd.newTotal)).withColor(DIM_COLOR),
           totalColX,
           y,
           TEXT_COLOR,
           false);
-      graphics.drawString(
+      graphics.text(
           font,
           Component.literal(TimeFormatUtil.formatDuration(rd.timeContributedSeconds))
               .withColor(DIM_COLOR),
@@ -512,7 +525,7 @@ public class RideReportScreen extends Screen {
     }
 
     if (report.rideDeltas.isEmpty()) {
-      graphics.drawCenteredString(
+      graphics.centeredText(
           font,
           Component.literal("No ride data recorded").withColor(DIM_COLOR),
           width / 2,
@@ -527,7 +540,7 @@ public class RideReportScreen extends Screen {
       graphics.fill(contentX, y, contentX + contentWidth, y + 1, SEPARATOR_COLOR);
       y += 6;
 
-      graphics.drawString(
+      graphics.text(
           font,
           Component.literal("Pin Activity").withStyle(ChatFormatting.BOLD).withColor(0xFFFF69B4),
           contentX,
@@ -537,7 +550,7 @@ public class RideReportScreen extends Screen {
       y += LINE_HEIGHT + 2;
 
       if (report.pinHoarderTrades > 0) {
-        graphics.drawString(
+        graphics.text(
             font,
             Component.empty()
                 .append(Component.literal("Pin Hoarder Trades: ").withColor(DIM_COLOR))
@@ -552,7 +565,7 @@ public class RideReportScreen extends Screen {
       }
 
       if (report.pinBoxesOpened > 0) {
-        graphics.drawString(
+        graphics.text(
             font,
             Component.empty()
                 .append(Component.literal("Pin Packs Opened: ").withColor(DIM_COLOR))
@@ -567,7 +580,7 @@ public class RideReportScreen extends Screen {
       }
 
       if (report.newMintPinsAdded > 0) {
-        graphics.drawString(
+        graphics.text(
             font,
             Component.empty()
                 .append(Component.literal("New Mints Added: ").withColor(DIM_COLOR))
@@ -589,7 +602,7 @@ public class RideReportScreen extends Screen {
       graphics.fill(contentX, y, contentX + contentWidth, y + 1, SEPARATOR_COLOR);
       y += 6;
 
-      graphics.drawString(
+      graphics.text(
           font,
           Component.literal("Food Consumed").withStyle(ChatFormatting.BOLD).withColor(0xFF8BC34A),
           contentX,
@@ -601,7 +614,7 @@ public class RideReportScreen extends Screen {
       for (java.util.Map.Entry<String, Integer> entry : report.foodConsumed.entrySet()) {
         String itemName = entry.getKey();
         int count = entry.getValue();
-        graphics.drawString(
+        graphics.text(
             font,
             Component.empty()
                 .append(Component.literal("  " + itemName + ": ").withColor(DIM_COLOR))
@@ -648,13 +661,24 @@ public class RideReportScreen extends Screen {
     float npcRotY = (float) Math.atan((double) (mouseX - npcCenterX) / 40.0) * 20.0F;
     float npcRotX = (float) Math.atan((double) (npcCenterY - mouseY) / 40.0) * 20.0F;
     applyWalkAnimation(npcModel, walkTime);
-    graphics.submitSkinRenderState(
-        npcModel, npcSkin, modelScale, npcRotX, npcRotY, MODEL_PIVOT_Y, npcX0, npcY0, npcX1, npcY1);
+    graphics.skin(
+        npcRenderModel,
+        npcSkin,
+        modelScale,
+        npcRotX,
+        npcRotY,
+        MODEL_PIVOT_Y,
+        npcX0,
+        npcY0,
+        npcX1,
+        npcY1);
 
     // Player model (right) - extends beyond right panel edge
     if (client.player != null) {
       PlayerSkin playerSkin = client.player.getSkin();
       PlayerModel playerModel = playerSkin.model() == PlayerModelType.SLIM ? slimModel : wideModel;
+      Model.Simple playerRenderModel =
+          playerSkin.model() == PlayerModelType.SLIM ? slimRenderModel : wideRenderModel;
       int playerX1 = panelX + panelW + MODEL_OVERFLOW;
       int playerX0 = playerX1 - MODEL_WIDTH;
       int playerY0 = panelY;
@@ -664,8 +688,8 @@ public class RideReportScreen extends Screen {
       float playerRotY = (float) Math.atan((double) (mouseX - playerCenterX) / 40.0) * 20.0F;
       float playerRotX = (float) Math.atan((double) (playerCenterY - mouseY) / 40.0) * 20.0F;
       applyWalkAnimation(playerModel, walkTime);
-      graphics.submitSkinRenderState(
-          playerModel,
+      graphics.skin(
+          playerRenderModel,
           playerSkin.body().texturePath(),
           modelScale,
           playerRotX,
@@ -679,11 +703,11 @@ public class RideReportScreen extends Screen {
 
     // Scroll indicators
     if (scrollOffset > 0) {
-      graphics.drawCenteredString(
+      graphics.centeredText(
           font, Component.literal("^").withColor(DIM_COLOR), width / 2, contentTop, TEXT_COLOR);
     }
     if (scrollOffset < maxScroll) {
-      graphics.drawCenteredString(
+      graphics.centeredText(
           font,
           Component.literal("v").withColor(DIM_COLOR),
           width / 2,
@@ -691,7 +715,7 @@ public class RideReportScreen extends Screen {
           TEXT_COLOR);
     }
 
-    super.render(graphics, mouseX, mouseY, delta);
+    super.extractRenderState(graphics, mouseX, mouseY, delta);
 
     // Deferred screenshot capture for Discord sharing.
     // We can't capture here because GUI draws are still batched in guiRenderState and haven't
@@ -723,7 +747,7 @@ public class RideReportScreen extends Screen {
     Minecraft client = Minecraft.getInstance();
     // Don't capture if the game is shutting down — async GPU callback would crash on destroyed
     // native resources
-    if (client.getWindow() == null || !(client.screen instanceof RideReportScreen)) {
+    if (client.getWindow() == null || !(client.gui.screen() instanceof RideReportScreen)) {
       return;
     }
     int cropX = captCropX;
@@ -732,7 +756,7 @@ public class RideReportScreen extends Screen {
     int cropH = captCropH;
 
     Screenshot.takeScreenshot(
-        client.getMainRenderTarget(),
+        client.gameRenderer.mainRenderTarget(),
         image -> {
           try {
             java.awt.image.BufferedImage cropped =
@@ -744,12 +768,11 @@ public class RideReportScreen extends Screen {
             client.execute(
                 () -> {
                   if (client.player != null) {
-                    client.player.displayClientMessage(
+                    client.player.sendSystemMessage(
                         Component.literal(
                             copied
                                 ? "§6✨ §e[IMF] §a✓ Report copied! Paste in Discord to share."
-                                : "§6✨ §e[IMF] §c⚠ Failed to copy to clipboard."),
-                        false);
+                                : "§6✨ §e[IMF] §c⚠ Failed to copy to clipboard."));
                   }
                 });
           } catch (Exception e) {
@@ -795,7 +818,7 @@ public class RideReportScreen extends Screen {
     pendingCapture = false;
     screenshotCountdown = 0;
     if (minecraft != null) {
-      minecraft.setScreen(parent);
+      minecraft.setScreenAndShow(parent);
     }
   }
 

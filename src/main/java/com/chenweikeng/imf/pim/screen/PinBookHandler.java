@@ -124,22 +124,20 @@ public class PinBookHandler {
     var player = Minecraft.getInstance().player;
     if (player != null) {
       if (!pendingMissingSeries.isEmpty()) {
-        player.displayClientMessage(
+        player.sendSystemMessage(
             Component.literal(
                 "§c⚠ §e[IMF] §fSome required pin series information is missing. Please open"
-                    + " §e/pinrarity §fto update the pin series information."),
-            false);
+                    + " §e/pinrarity §fto update the pin series information."));
       }
 
       if (!pendingNewSeries.isEmpty()) {
-        player.displayClientMessage(
+        player.sendSystemMessage(
             Component.literal(
                 "§6✨ §e[IMF] §fFound §e"
                     + pendingNewSeries.size()
                     + "§f new pin pack"
                     + (pendingNewSeries.size() == 1 ? "" : "s")
-                    + " in your pin book."),
-            false);
+                    + " in your pin book."));
       }
     }
 

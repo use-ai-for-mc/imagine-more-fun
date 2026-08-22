@@ -61,7 +61,7 @@ public class CursorManager {
 
     if (timing == CursorReleaseTiming.ON_ZONE_ENTRY && autograbRide != null && !isPassenger) {
       if (autograbRide != previousAutograbRide) {
-        client.setScreen(null);
+        client.setScreenAndShow(null);
         if (client.mouseHandler.isMouseGrabbed()) {
           client.mouseHandler.releaseMouse();
           state.setAutomaticallyReleasedCursor(true);
@@ -105,7 +105,7 @@ public class CursorManager {
 
     if (shouldGrabOnThisTick) {
       state.setAutomaticallyReleasedCursor(false);
-      if (client.screen == null) {
+      if (client.gui.screen() == null) {
         client.mouseHandler.grabMouse();
       }
     }
@@ -119,7 +119,7 @@ public class CursorManager {
 
     if ((isCurrentlyRiding || client.player.isPassenger())
         && client.mouseHandler.isRightPressed()
-        && client.screen == null) {
+        && client.gui.screen() == null) {
       client.mouseHandler.releaseMouse();
     }
   }
@@ -289,7 +289,7 @@ public class CursorManager {
     lastCanoeMessageTick = state.getAbsoluteTickCounter();
     Component message =
         Component.literal("§6✨ §e[IMF] §fPlease use §e§lLEFT click§r§f to ride canoes.");
-    client.player.displayClientMessage(message, false);
+    client.player.sendSystemMessage(message);
   }
 
   private void sendDynamicFpsMessageIfNeeded(Minecraft client) {
@@ -302,7 +302,7 @@ public class CursorManager {
       return;
     }
     lastDynamicFpsMessageTick = state.getAbsoluteTickCounter();
-    client.player.displayClientMessage(DYNAMIC_FPS_COMPATIBILITY_MESSAGE, false);
+    client.player.sendSystemMessage(DYNAMIC_FPS_COMPATIBILITY_MESSAGE);
   }
 
   public void reset() {

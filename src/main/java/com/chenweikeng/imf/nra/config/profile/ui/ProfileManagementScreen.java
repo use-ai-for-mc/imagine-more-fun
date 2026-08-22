@@ -12,7 +12,7 @@ import com.chenweikeng.imf.nra.ride.RideName;
 import com.chenweikeng.imf.nra.util.TimeFormatUtil;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.ConfirmScreen;
 import net.minecraft.client.gui.screens.Screen;
@@ -153,7 +153,7 @@ public class ProfileManagementScreen extends Screen {
   }
 
   private void onSaveCurrentClicked(Button button) {
-    minecraft.setScreen(ProfileEditScreen.createNew(this, this::onProfileSaved));
+    minecraft.setScreenAndShow(ProfileEditScreen.createNew(this, this::onProfileSaved));
   }
 
   private void openSaveCurrent() {
@@ -169,7 +169,8 @@ public class ProfileManagementScreen extends Screen {
 
   private void onProfileRename(StoredProfile profile) {
     if (profile == null) return;
-    minecraft.setScreen(ProfileEditScreen.createRename(this, profile, this::onProfileRenamed));
+    minecraft.setScreenAndShow(
+        ProfileEditScreen.createRename(this, profile, this::onProfileRenamed));
   }
 
   private void onProfileRenamed(StoredProfile profile) {
@@ -182,7 +183,7 @@ public class ProfileManagementScreen extends Screen {
   private void onProfileEdit(StoredProfile profile) {
     if (profile == null) return;
 
-    minecraft.setScreen(
+    minecraft.setScreenAndShow(
         (Screen)
             ClothConfigScreen.createScreen(
                 this,
@@ -197,7 +198,7 @@ public class ProfileManagementScreen extends Screen {
   private void onProfileDeleteRequest(StoredProfile profile) {
     if (profile == null) return;
     pendingDeleteProfile = profile;
-    minecraft.setScreen(
+    minecraft.setScreenAndShow(
         new ConfirmScreen(
             this::onDeleteConfirmed,
             Component.literal("Delete profile?"),
@@ -212,7 +213,7 @@ public class ProfileManagementScreen extends Screen {
       ProfileManager.deleteProfile(pendingDeleteProfile.id);
     }
     pendingDeleteProfile = null;
-    minecraft.setScreen(this);
+    minecraft.setScreenAndShow(this);
   }
 
   private void onResetClicked(Button button) {
@@ -322,11 +323,11 @@ public class ProfileManagementScreen extends Screen {
   }
 
   private void onHistoryClicked(Button button) {
-    minecraft.setScreen(new HistoryScreen(this));
+    minecraft.setScreenAndShow(new HistoryScreen(this));
   }
 
   private void onReportsClicked(Button button) {
-    minecraft.setScreen(new RideReportListScreen(this));
+    minecraft.setScreenAndShow(new RideReportListScreen(this));
   }
 
   private void onCloseClicked(Button button) {
@@ -334,7 +335,7 @@ public class ProfileManagementScreen extends Screen {
   }
 
   private void onSettingsClicked(Button button) {
-    minecraft.setScreen((Screen) ClothConfigScreen.createScreen(this));
+    minecraft.setScreenAndShow((Screen) ClothConfigScreen.createScreen(this));
   }
 
   private void openSettings() {
@@ -342,13 +343,14 @@ public class ProfileManagementScreen extends Screen {
   }
 
   @Override
-  public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
+  public void extractRenderState(
+      GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
     renderDarkBackground(graphics);
 
     // Draw title
     Component title =
         Component.literal("ImagineMoreFun").withStyle(ChatFormatting.BOLD, ChatFormatting.AQUA);
-    graphics.drawCenteredString(font, title, width / 2, 8, LABEL_COLOR);
+    graphics.centeredText(font, title, width / 2, 8, LABEL_COLOR);
 
     // Draw progress bars below title, all in same row divided by 3
     int progressBarY = 30;
@@ -357,18 +359,17 @@ public class ProfileManagementScreen extends Screen {
     // 1k progress bar (left section)
     ProgressData progress1k = calculateProgress(1000);
     Component bar1k = createProgressBar("1k", progress1k);
-    graphics.drawCenteredString(font, bar1k, sectionWidth / 2, progressBarY, LABEL_COLOR);
+    graphics.centeredText(font, bar1k, sectionWidth / 2, progressBarY, LABEL_COLOR);
 
     // 5k progress bar (middle section)
     ProgressData progress5k = calculateProgress(5000);
     Component bar5k = createProgressBar("5k", progress5k);
-    graphics.drawCenteredString(font, bar5k, (int) (sectionWidth * 1.5), progressBarY, LABEL_COLOR);
+    graphics.centeredText(font, bar5k, (int) (sectionWidth * 1.5), progressBarY, LABEL_COLOR);
 
     // 10k progress bar (right section)
     ProgressData progress10k = calculateProgress(10000);
     Component bar10k = createProgressBar("10k", progress10k);
-    graphics.drawCenteredString(
-        font, bar10k, (int) (sectionWidth * 2.5), progressBarY, LABEL_COLOR);
+    graphics.centeredText(font, bar10k, (int) (sectionWidth * 2.5), progressBarY, LABEL_COLOR);
 
     if (currentSettingsEntry != null) {
       currentSettingsEntry.render(graphics, mouseX, mouseY);
@@ -380,12 +381,12 @@ public class ProfileManagementScreen extends Screen {
     // Render status message above footer
     if (statusMessage != null && System.currentTimeMillis() < statusMessageExpiry) {
       int statusColor = statusSuccess ? 0xFF55FF55 : 0xFFFF5555;
-      graphics.drawCenteredString(font, statusMessage, width / 2, footerY - 12, statusColor);
+      graphics.centeredText(font, statusMessage, width / 2, footerY - 12, statusColor);
     } else if (statusMessage != null) {
       statusMessage = null;
     }
 
-    super.render(graphics, mouseX, mouseY, delta);
+    super.extractRenderState(graphics, mouseX, mouseY, delta);
   }
 
   private Component createProgressBar(String label, ProgressData data) {
@@ -405,7 +406,7 @@ public class ProfileManagementScreen extends Screen {
     return progressBar;
   }
 
-  private void renderDarkBackground(GuiGraphics graphics) {
+  private void renderDarkBackground(GuiGraphicsExtractor graphics) {
     graphics.fill(0, 0, this.width, this.height, 0xCC000000);
   }
 
@@ -465,7 +466,7 @@ public class ProfileManagementScreen extends Screen {
   @Override
   public void onClose() {
     if (minecraft != null) {
-      minecraft.setScreen(parent);
+      minecraft.setScreenAndShow(parent);
     }
   }
 }

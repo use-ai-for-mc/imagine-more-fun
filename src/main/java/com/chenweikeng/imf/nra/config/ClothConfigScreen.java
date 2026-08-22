@@ -112,8 +112,8 @@ public class ClothConfigScreen {
               return Component.literal(count == 0 ? "Manage..." : "Manage... (" + count + " set)");
             },
             () ->
-                client.setScreen(
-                    RideValueOverridesScreen.advanceNotice(client.screen, profile, onSave)),
+                client.setScreenAndShow(
+                    RideValueOverridesScreen.advanceNotice(client.gui.screen(), profile, onSave)),
             () ->
                 Optional.of(
                     new Component[] {
@@ -502,7 +502,8 @@ public class ClothConfigScreen {
               return Component.literal(count == 0 ? "Manage..." : "Manage... (" + count + " set)");
             },
             () ->
-                client.setScreen(RideValueOverridesScreen.maxGoals(client.screen, profile, onSave)),
+                client.setScreenAndShow(
+                    RideValueOverridesScreen.maxGoals(client.gui.screen(), profile, onSave)),
             () ->
                 Optional.of(
                     new Component[] {

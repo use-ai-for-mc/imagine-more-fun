@@ -5,7 +5,7 @@ import java.util.Optional;
 import java.util.function.Supplier;
 import me.shedaniel.clothconfig2.gui.entries.TooltipListEntry;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.events.GuiEventListener;
 import net.minecraft.client.gui.narration.NarratableEntry;
@@ -54,8 +54,8 @@ public class ScreenOpenButtonEntry extends TooltipListEntry<Object> {
   public void save() {}
 
   @Override
-  public void render(
-      GuiGraphics graphics,
+  public void extractRenderState(
+      GuiGraphicsExtractor graphics,
       int index,
       int y,
       int x,
@@ -65,14 +65,15 @@ public class ScreenOpenButtonEntry extends TooltipListEntry<Object> {
       int mouseY,
       boolean isHovered,
       float delta) {
-    super.render(graphics, index, y, x, entryWidth, entryHeight, mouseX, mouseY, isHovered, delta);
+    super.extractRenderState(
+        graphics, index, y, x, entryWidth, entryHeight, mouseX, mouseY, isHovered, delta);
     Minecraft minecraft = Minecraft.getInstance();
-    graphics.drawString(
+    graphics.text(
         minecraft.font, getDisplayedFieldName(), x, y + 6, getPreferredTextColor(), false);
     button.setMessage(buttonLabel.get());
     button.setX(x + entryWidth - BUTTON_WIDTH);
     button.setY(y);
-    button.render(graphics, mouseX, mouseY, delta);
+    button.extractRenderState(graphics, mouseX, mouseY, delta);
   }
 
   @Override

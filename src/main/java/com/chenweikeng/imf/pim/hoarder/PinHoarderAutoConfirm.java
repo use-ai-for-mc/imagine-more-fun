@@ -6,7 +6,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.world.inventory.AbstractContainerMenu;
-import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.item.ItemStack;
 
 /**
@@ -35,7 +35,7 @@ public final class PinHoarderAutoConfirm {
    */
   public static void onContainerContentReceived() {
     Minecraft mc = Minecraft.getInstance();
-    Screen screen = mc.screen;
+    Screen screen = mc.gui.screen();
 
     if (!(screen instanceof AbstractContainerScreen<?>)) {
       return;
@@ -75,7 +75,7 @@ public final class PinHoarderAutoConfirm {
 
   private static void performAutoConfirm() {
     Minecraft mc = Minecraft.getInstance();
-    Screen screen = mc.screen;
+    Screen screen = mc.gui.screen();
 
     if (!(screen instanceof AbstractContainerScreen<?> containerScreen)) {
       PimClient.LOGGER.debug("[PinHoarderAutoConfirm] Screen changed, aborting");
@@ -114,11 +114,11 @@ public final class PinHoarderAutoConfirm {
     PimClient.LOGGER.debug("[PinHoarderAutoConfirm] Clicking Confirm button");
 
     // Simulate left click on the Confirm slot
-    mc.gameMode.handleInventoryMouseClick(
-        menu.containerId, CONFIRM_SLOT, 0, ClickType.PICKUP, player);
+    mc.gameMode.handleContainerInput(
+        menu.containerId, CONFIRM_SLOT, 0, ContainerInput.PICKUP, player);
 
     // Close the screen immediately
-    mc.setScreen(null);
+    mc.setScreenAndShow(null);
   }
 
   private static boolean isNearPinHoarder() {

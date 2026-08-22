@@ -73,7 +73,7 @@ public class ReminderHandler {
     Component message =
         Component.literal("MISSING AUDIO BOOST").withStyle(ChatFormatting.RED, ChatFormatting.BOLD);
 
-    client.player.displayClientMessage(message, true);
+    client.player.sendOverlayMessage(message);
   }
 
   public void reset() {
