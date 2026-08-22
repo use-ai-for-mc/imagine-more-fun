@@ -3,6 +3,7 @@ package com.chenweikeng.imf.nra.wizard.pages;
 import com.chenweikeng.imf.nra.config.ModConfig;
 import com.chenweikeng.imf.nra.ride.RideCountManager;
 import com.chenweikeng.imf.nra.ride.RideName;
+import com.chenweikeng.imf.nra.ride.RideStatsSourceCoordinator;
 import com.chenweikeng.imf.nra.wizard.WizardPage;
 import com.chenweikeng.imf.nra.wizard.layout.RenderBlock;
 import java.util.ArrayList;
@@ -136,16 +137,27 @@ public class Page5RideSelection extends WizardPage {
 
     if (!readyToGoNext()) {
       blocks.add(spacer(25));
-      Component text =
-          Component.literal("Some ride counts are not loaded yet (with ")
-              .withStyle(ChatFormatting.BOLD, ChatFormatting.DARK_RED)
-              .append(Component.literal("[⚠]").withStyle(ChatFormatting.YELLOW))
-              .append(Component.literal(").\nPlease open "))
-              .withStyle(ChatFormatting.BOLD, ChatFormatting.DARK_RED)
-              .append(link("/ridestats", "command:ridestats", ChatFormatting.YELLOW))
-              .append(
-                  " and go through Page 1/2 of Disneyland, Page 1 of Disney California Adventure, and Page 1 of Retro.")
-              .withStyle(ChatFormatting.BOLD, ChatFormatting.DARK_RED);
+      Component text;
+      if (RideStatsSourceCoordinator.isApiPreferred()) {
+        text =
+            Component.literal(
+                    "Waiting for ride counts from the ImagineFun server API. Cached counts remain available.\nIf synchronization continues to fail, ")
+                .withStyle(ChatFormatting.BOLD, ChatFormatting.DARK_RED)
+                .append(link("/ridestats", "command:ridestats", ChatFormatting.YELLOW))
+                .append(" remains available as a fallback.")
+                .withStyle(ChatFormatting.BOLD, ChatFormatting.DARK_RED);
+      } else {
+        text =
+            Component.literal("Some ride counts are not loaded yet (with ")
+                .withStyle(ChatFormatting.BOLD, ChatFormatting.DARK_RED)
+                .append(Component.literal("[⚠]").withStyle(ChatFormatting.YELLOW))
+                .append(Component.literal(").\nPlease open "))
+                .withStyle(ChatFormatting.BOLD, ChatFormatting.DARK_RED)
+                .append(link("/ridestats", "command:ridestats", ChatFormatting.YELLOW))
+                .append(
+                    " and go through Page 1/2 of Disneyland, Page 1 of Disney California Adventure, and Page 1 of Retro.")
+                .withStyle(ChatFormatting.BOLD, ChatFormatting.DARK_RED);
+      }
 
       blocks.add(text(text));
     }

@@ -33,6 +33,7 @@ import com.chenweikeng.imf.nra.ride.ClosestRideHolder;
 import com.chenweikeng.imf.nra.ride.CurrentRideHolder;
 import com.chenweikeng.imf.nra.ride.RideCountManager;
 import com.chenweikeng.imf.nra.ride.RideName;
+import com.chenweikeng.imf.nra.ride.RideStatsSourceCoordinator;
 import com.chenweikeng.imf.nra.session.SessionStatsHudRenderer;
 import com.chenweikeng.imf.nra.session.SessionTracker;
 import com.chenweikeng.imf.nra.showtime.ShowtimeCountdownController;
@@ -40,6 +41,7 @@ import com.chenweikeng.imf.nra.showtime.ShowtimeCountdownHudRenderer;
 import com.chenweikeng.imf.nra.status.StatusBarController;
 import com.chenweikeng.imf.nra.strategy.StrategyHudRendererDispatcher;
 import com.chenweikeng.imf.nra.tracker.FoodConsumptionTracker;
+import com.chenweikeng.imf.nra.tracker.OtherPlayerStatsTracker;
 import com.chenweikeng.imf.nra.tracker.PlayerMovementTracker;
 import com.chenweikeng.imf.nra.tracker.RideStateTracker;
 import com.chenweikeng.imf.nra.tracker.SuppressionRegionTracker;
@@ -89,6 +91,7 @@ public class NotRidingAlertClient implements ClientModInitializer {
     ProfileManager.load();
     HistoryManager.load();
     DailyRideSnapshot.getInstance();
+    RideStatsSourceCoordinator.initialize();
     LOGGER.info("Not Riding Alert client initialized");
     AutograbRegionRenderer.register();
 
@@ -97,6 +100,7 @@ public class NotRidingAlertClient implements ClientModInitializer {
           ServerState.onJoin(client);
           client.execute(RidePlanNudge::showMessageIfPending);
           if (ServerState.isImagineFunServer()) {
+            RideStatsSourceCoordinator.onJoin(client);
             MonkeycraftCompat.init();
             SessionTracker.getInstance().onSessionStart();
             OpenAudioMcService audioService = OpenAudioMcService.getInstance();
@@ -117,6 +121,7 @@ public class NotRidingAlertClient implements ClientModInitializer {
 
     ClientPlayConnectionEvents.DISCONNECT.register(
         (handler, client) -> {
+          RideStatsSourceCoordinator.onDisconnect();
           SessionTracker.getInstance().onSessionEnd();
           OpenAudioMcService.getInstance().onLeaveServer();
           StatusBarController.getInstance().onDisconnect();
@@ -191,6 +196,8 @@ public class NotRidingAlertClient implements ClientModInitializer {
       gameState.setRiding(false);
       return;
     }
+
+    RideStatsSourceCoordinator.tick(client);
 
     boolean wasPassenger = cursorManager.wasPassenger();
     boolean isPassenger = gameState.isValidPassenger(client.player);
@@ -276,6 +283,7 @@ public class NotRidingAlertClient implements ClientModInitializer {
     advanceNoticeHandler.reset();
     SystemAttentionHandler.getInstance().reset();
     RideReportNotifier.getInstance().reset();
+    OtherPlayerStatsTracker.getInstance().reset();
     AutograbHolder.resetLocationCache();
 
     // UI / cursor

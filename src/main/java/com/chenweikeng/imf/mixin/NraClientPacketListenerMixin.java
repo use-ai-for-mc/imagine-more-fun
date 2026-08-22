@@ -3,6 +3,7 @@ package com.chenweikeng.imf.mixin;
 import com.chenweikeng.imf.nra.NotRidingAlertClient;
 import com.chenweikeng.imf.nra.ride.RideCountManager;
 import com.chenweikeng.imf.nra.ride.RideName;
+import com.chenweikeng.imf.nra.ride.RideStatsSourceCoordinator;
 import com.chenweikeng.imf.nra.strategy.StrategyHudRendererDispatcher;
 import com.chenweikeng.imf.nra.tracker.OtherPlayerStatsTracker;
 import java.util.List;
@@ -33,6 +34,9 @@ public class NraClientPacketListenerMixin {
       return;
     }
     if (!OtherPlayerStatsTracker.getInstance().isRideStatsActive()) {
+      return;
+    }
+    if (!RideStatsSourceCoordinator.shouldCaptureLegacyRideStats()) {
       return;
     }
     var player = Minecraft.getInstance().player;
@@ -110,6 +114,9 @@ public class NraClientPacketListenerMixin {
       return;
     }
     if (!OtherPlayerStatsTracker.getInstance().isRideStatsActive()) {
+      return;
+    }
+    if (!RideStatsSourceCoordinator.shouldCaptureLegacyRideStats()) {
       return;
     }
     var player = Minecraft.getInstance().player;
