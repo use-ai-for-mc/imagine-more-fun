@@ -35,8 +35,8 @@ Deploy only when the user explicitly asks:
 
 The script rebuilds the macOS and Windows native helpers, runs checks, verifies the JAR, clears
 cached helper binaries, removes superseded mod JARs, and atomically swaps the current JAR into the
-PrismLauncher `ImagineFun` instance. Never replace the deployed JAR with plain `cp`; a running JVM
-may still hold the prior JAR inode open. See
+matching PrismLauncher instance (the local default is `26.2`). Never replace the deployed JAR with
+plain `cp`; a running JVM may still hold the prior JAR inode open. See
 [`docs/operations/RELEASE_AND_DEPLOY.md`](docs/operations/RELEASE_AND_DEPLOY.md).
 
 ## Architecture at a glance
