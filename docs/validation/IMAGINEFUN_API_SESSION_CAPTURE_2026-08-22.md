@@ -99,3 +99,41 @@ all 57 currently recognized lifetime ride counts without opening the rides menu,
 snapshot contains each corresponding entry. It does not restore weekly/yearly durations, raw
 recent-ride history, historical unknown rides, daily-plan baselines, or dated report snapshots
 because those are not part of `nra-rides.json`.
+
+## Empty-file rehydration experiment
+
+After adding the three recurring seasonal mappings, the deployed build was restarted with
+`nra-rides.json` moved to a recoverable backup. The title-screen baseline confirmed that the file
+was absent, the in-memory manager contained zero rides, and all representative counts were zero.
+
+The paused four-row observer capture remains outside the repository at:
+
+`/Users/cusgadmin/Library/Application Support/PrismLauncher/instances/ImagineFun/.minecraft/config/imaginemorefun/api-observations/ride-rehydrate-1787378252853.ndjson`
+
+Its SHA-256 is `5ac65b0842a3f77bd11ce385f31018ecd59b37d531253d1cdacf02f8af4a862f`.
+
+| State change | Epoch (ms) | Result |
+| --- | ---: | --- |
+| Observer installed at title | 1787378253222 | 0 rides; file absent |
+| Player entered the world | 1787379349092 | 0 rides; API inactive |
+| API and server sessions active | 1787379349435 | 0 rides; file absent |
+| API snapshot applied and saved | 1787379350514 | 57 rides; file present |
+
+The API became active 343 ms after the first in-world observation. The complete 57-ride snapshot
+was applied and written 1079 ms after API activation, or 1422 ms after the first in-world
+observation. The mod log independently reported that 57 recognized counts changed.
+
+The pre-experiment file contained 55 rides. Comparing every shared entry with the regenerated
+57-entry file found no removed rides and no changed shared values. The server restored Hyperspace
+Mountain at 1479 and supplied the two seasonal entries that the old mapping had omitted:
+
+| Newly reconstructed seasonal ride | Count |
+| --- | ---: |
+| Haunted Mansion Holiday | 158 |
+| Guardians of the Galaxy: Monsters After Dark | 36 |
+
+This validates the onboarding goal for ride counts: with ImagineFunUtils 0.0.8 and a healthy API
+session, a new local state reconstructs all 57 recognized lifetime counts without opening the
+rides menu. The original 55-entry file remains available under the local `experiment-backups`
+directory, but it is no longer needed for normal operation because the regenerated file is a
+strict server-backed superset.
