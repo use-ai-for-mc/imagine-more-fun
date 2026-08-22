@@ -38,6 +38,9 @@ redirect for the retired Red Car Trolley page, not engineering documentation.
 
 - [`validation/IMAGINEFUN_RIDE_IDS_2026-07.md`](validation/IMAGINEFUN_RIDE_IDS_2026-07.md):
   ImagineFunUtils 0.0.8 ride lifecycle observations.
+- [`validation/IMAGINEFUN_API_SESSION_CAPTURE_2026-08-22.md`](validation/IMAGINEFUN_API_SESSION_CAPTURE_2026-08-22.md):
+  API-session timing, authenticated stats, Splash Mountain duration, and fresh-install ingestion
+  behavior.
 - [`validation/RCT_GOOD_CAR_CAPTURE_2026-08-20.md`](validation/RCT_GOOD_CAR_CAPTURE_2026-08-20.md):
   good Red Car Trolley lifecycle, route, stops, and cycle calibration.
 - [`validation/RCT_BAD_CAR_CAPTURE_2026-08-21.md`](validation/RCT_BAD_CAR_CAPTURE_2026-08-21.md):
