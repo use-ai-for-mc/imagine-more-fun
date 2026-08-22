@@ -37,6 +37,7 @@
 		"skincache": "*"
 	},
 	"suggests": {
-		"monkeycraft": "*"
+		"monkeycraft": "*",
+		"imaginefunutils": ">=0.0.8"
 	}
 }

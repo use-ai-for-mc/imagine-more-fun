@@ -31,6 +31,14 @@ Important lifecycle owner: `NotRidingAlertClient` registers connection, tick, HU
 command, and shutdown callbacks. Disconnect cleanup belongs there or in the subsystem method it
 calls; do not add a second uncoordinated lifecycle owner.
 
+`RideStatsSourceCoordinator` owns lifetime ride-count ingestion. ImagineFunUtils 0.0.8 is optional:
+when present, the coordinator reflectively loads the isolated `ImagineFunUtilsRideDataSource` and
+prefers `getSessionRides()` snapshots; when absent or incompatible, the original `/ridestats`
+container parser remains active. A transient API failure keeps the last known counts and leaves the
+legacy parser available until the current connection receives a successful API snapshot. Stable
+server ride IDs map through `RideName.fromApiId()`; display names and IMF short names are not API
+identifiers.
+
 Food consumption is internal report data. `FoodConsumptionTracker` recognizes `FOOD_TYPE`, confirms
 a stack decrease, and records through `SessionTracker`; the intended user surface is the daily
 summary/report, not per-item chat messages or routine INFO logging.
@@ -84,13 +92,19 @@ the tutorial version only when a materially changed setup flow requires users to
 All mixins live in `com.chenweikeng.imf.mixin.*` and are registered in `imf.mixins.json`. Prefixes
 indicate the original owner (`Nra`, `Pim`, `SkinCache`, `Canoe`, `Imf`) but registration is shared.
 
-ModMenu and Monkeycraft are optional. Monkeycraft calls must stay behind
-`MonkeycraftCompat.isAvailable()`. Mixins targeting optional classes must remain soft/guarded.
+ModMenu, Monkeycraft, and ImagineFunUtils are optional. Monkeycraft calls must stay behind
+`MonkeycraftCompat.isAvailable()`. ImagineFunUtils types must remain isolated in its compatibility
+class, which is loaded only after Fabric Loader confirms the mod is installed. Mixins targeting
+optional classes must remain soft/guarded.
 
 ## Concurrency boundaries
 
 Most gameplay and rendering state belongs to the Minecraft client thread. Native audio work is the
 main exception:
+
+- ImagineFun API HTTP futures run on ImagineFunUtils worker threads. Completion, retry state, and
+  `RideCountManager` mutations must return to the Minecraft client thread, and a connection
+  generation must reject responses from an older server session.
 
 - `OpenAudioMcService` uses a holder singleton and synchronizes publication/snapshot of the current
   `WebViewBridge`.

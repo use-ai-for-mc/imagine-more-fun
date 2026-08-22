@@ -51,6 +51,30 @@ public class RideCountManager {
     return increased;
   }
 
+  /**
+   * Applies lifetime counts returned by the ImagineFun server API.
+   *
+   * <p>Lifetime ride counts should be monotonic. Keeping the larger value also prevents a delayed
+   * API snapshot from temporarily undoing an optimistic chat-based completion update.
+   */
+  public int applyServerRideCounts(Map<RideName, Integer> serverCounts) {
+    int changed = 0;
+    for (Map.Entry<RideName, Integer> entry : serverCounts.entrySet()) {
+      RideName ride = entry.getKey();
+      int count = entry.getValue();
+      if (ride == RideName.UNKNOWN || count < 0) {
+        continue;
+      }
+
+      int previous = getRideCount(ride);
+      if (!hasRideCount(ride) || count > previous) {
+        rideCounts.put(ride, count);
+        changed++;
+      }
+    }
+    return changed;
+  }
+
   /** Imports a ride count, only updating if the imported value is higher than the current. */
   public void importRideCount(RideName ride, int count) {
     if (ride == RideName.UNKNOWN) return;

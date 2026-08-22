@@ -44,6 +44,11 @@ dependencies {
 		transitive = false
 	}
 
+	// Optional server API provider. Runtime use is isolated behind a guarded compatibility bridge.
+	modCompileOnly("com.github.imaginefun:imaginefun-utils:f80df0042d") {
+		transitive = false
+	}
+
 	// Emoji detection library — used by NRA for chat formatting
 	implementation "com.vdurmont:emoji-java:5.1.1"
 	include "com.vdurmont:emoji-java:5.1.1"

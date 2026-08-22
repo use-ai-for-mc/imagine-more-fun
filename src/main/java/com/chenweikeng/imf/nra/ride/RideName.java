@@ -4,6 +4,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 public enum RideName {
@@ -115,11 +116,75 @@ public enum RideName {
   private final int rideTime; // Ride time in seconds
   private final String land; // Land name, or null if unknown/none
   private static final Map<String, RideName> BY_MATCH_NAME = new HashMap<>();
+  private static final Map<String, RideName> BY_API_ID = new HashMap<>();
+  private static final Map<RideName, String> API_ID_BY_RIDE = new HashMap<>();
 
   static {
     for (RideName ride : values()) {
       BY_MATCH_NAME.put(ride.matchName, ride);
     }
+
+    registerApiId("alice", ALICE_IN_WONDERLAND);
+    registerApiId("astroorbiter", ASTRO_ORBITOR);
+    registerApiId("autopia", AUTOPIA);
+    registerApiId("btm", BIG_THUNDER_MOUNTAIN_RAILROAD);
+    registerApiId("buzz", BUZZ_LIGHTYEAR_ASTRO_BLASTERS);
+    registerApiId("casey", CASEY_JR_CIRCUS_TRAIN);
+    registerApiId("gadgets", CHIP_N_DALES_GADGET_COASTER);
+    registerApiId("canoe", DAVY_CROCKETTS_EXPLORER_CANOES);
+    registerApiId("monorail", DISNEYLAND_MONORAIL);
+    registerApiId("dlrr", DISNEYLAND_RAILROAD);
+    registerApiId("dumbo", DUMBO_THE_FLYING_ELEPHANT);
+    registerApiId("tikiroom", ENCHANTED_TIKI_ROOM);
+    registerApiId("nemo", FINDING_NEMO_SUBMARINE_VOYAGE);
+    registerApiId("lincoln", GREAT_MOMENTS_WITH_MR_LINCOLN);
+    registerApiId("hm", HAUNTED_MANSION);
+    registerApiId("indy", INDIANA_JONES_ADVENTURE);
+    registerApiId("jc", JUNGLE_CRUISE);
+    registerApiId("kingarthur", KING_ARTHUR_CARROUSEL);
+    registerApiId("teacups", MAD_TEA_PARTY);
+    registerApiId("mainstreetcar", MAIN_STREET_CARRIAGES);
+    registerApiId("matterhorn", MATTERHORN_BOBSLEDS);
+    registerApiId("tram", MICKEY_AND_FRIENDS_PARKING_TRAM);
+    registerApiId("toads", MR_TOADS_WILD_RIDE);
+    registerApiId("peoplemover", PEOPLEMOVER);
+    registerApiId("peterpan", PETER_PANS_FLIGHT);
+    registerApiId("pdj", PINOCCHIOS_DARING_JOURNEY);
+    registerApiId("pirates", PIRATES_OF_THE_CARIBBEAN);
+    registerApiId("rogerrabbit", ROGER_RABBITS_CAR_TOON_SPIN);
+    registerApiId("swew", SNOW_WHITES_ENCHANTED_WISH);
+    registerApiId("space", SPACE_MOUNTAIN);
+    registerApiId("splash", SPLASH_MOUNTAIN);
+    registerApiId("rotr", STAR_WARS_RISE_OF_THE_RESISTANCE);
+    registerApiId("storybook", STORYBOOK_LAND_CANAL_BOATS);
+    registerApiId("pooh", THE_MANY_ADVENTURES_OF_WINNIE_THE_POOH);
+    registerApiId("tomsawyerraft", TOM_SAWYER_ISLAND_RAFTS);
+
+    registerApiId("goldenzephyr", GOLDEN_ZEPHYR);
+    registerApiId("goofy", GOOFYS_SKY_SCHOOL);
+    registerApiId("grr", GRIZZLY_RIVER_RUN);
+    registerApiId("guardians", GUARDIANS_OF_THE_GALAXY_MISSION_BREAKOUT);
+    registerApiId("incredi", INCREDICOASTER);
+    registerApiId("eww", INSIDE_OUT_EMOTIONAL_WHIRLWIND);
+    registerApiId("jcc", JESSIES_CRITTER_CAROUSEL);
+    registerApiId("jj", JUMPIN_JELLYFISH);
+    registerApiId("llr", LUIGIS_ROLICKIN_ROADSTERS);
+    registerApiId("mjj", MATERS_JUNKYARD_JAMBOREE);
+    registerApiId("monstersinc", MONSTERS_INC_MIKE_AND_SULLEY_TO_THE_RESCUE);
+    registerApiId("palaround", PIXAR_PAL_AROUND);
+    registerApiId("racers", RADIATOR_SPRINGS_RACERS);
+    registerApiId("redcartrolley", RED_CAR_TROLLEY);
+    registerApiId("symphonyswings", SILLY_SYMPHONY_SWINGS);
+    registerApiId("ariel", THE_LITTLE_MERMAID_ARIELS_UNDERSEA_ADVENTURE);
+
+    registerApiId("ff", FLIKS_FLYERS);
+    registerApiId("heimlich", HEIMLICHS_CHEW_CHEW_TRAIN);
+    registerApiId("tot", THE_TWILIGHT_ZONE_TOWER_OF_TERROR);
+  }
+
+  private static void registerApiId(String apiId, RideName ride) {
+    BY_API_ID.put(apiId, ride);
+    API_ID_BY_RIDE.put(ride, apiId);
   }
 
   RideName(String matchName, String shortName, int rideTime, String land) {
@@ -158,6 +223,19 @@ public enum RideName {
    */
   public static RideName fromMatchString(String matchName) {
     return BY_MATCH_NAME.getOrDefault(matchName, UNKNOWN);
+  }
+
+  /** Maps a stable ImagineFun server API ride ID to a known ride. */
+  public static RideName fromApiId(String apiId) {
+    if (apiId == null) {
+      return UNKNOWN;
+    }
+    return BY_API_ID.getOrDefault(apiId.trim().toLowerCase(Locale.ROOT), UNKNOWN);
+  }
+
+  /** Returns the stable ImagineFun server API ID, or {@code null} for unmapped rides. */
+  public String getApiId() {
+    return API_ID_BY_RIDE.get(this);
   }
 
   /** Returns all rides (excluding UNKNOWN) sorted alphabetically by display name. */

@@ -2,6 +2,7 @@ package com.chenweikeng.imf.mixin;
 
 import com.chenweikeng.imf.nra.NotRidingAlertClient;
 import com.chenweikeng.imf.nra.handler.RandomRideHandler;
+import com.chenweikeng.imf.nra.ride.RideStatsSourceCoordinator;
 import com.chenweikeng.imf.nra.tracker.OtherPlayerStatsTracker;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import org.spongepowered.asm.mixin.Mixin;
@@ -20,7 +21,9 @@ public class NraClientPacketListenerCommandMixin {
 
     String trimmed = command.trim();
     if (trimmed.equalsIgnoreCase("ridestats")) {
-      OtherPlayerStatsTracker.getInstance().setRideStatsActive(true);
+      if (RideStatsSourceCoordinator.shouldCaptureLegacyRideStats()) {
+        OtherPlayerStatsTracker.getInstance().setRideStatsActive(true);
+      }
       return;
     }
     if (trimmed.equalsIgnoreCase("randomride") && RandomRideHandler.tryIntercept()) {
