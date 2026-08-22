@@ -1,14 +1,13 @@
 package com.chenweikeng.imf.nra.ride;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 
 class RideNameApiIdTest {
-  private static final Set<String> CURRENT_SCORED_API_IDS =
+  private static final Set<String> KNOWN_API_IDS =
       Set.of(
           "alice",
           "astroorbiter",
@@ -63,30 +62,35 @@ class RideNameApiIdTest {
           "ariel",
           "ff",
           "heimlich",
-          "tot");
+          "tot",
+          "hmh",
+          "gotgmad",
+          "hyperspace");
 
   @Test
-  void mapsEveryValidatedCurrentScoredRideIdExactlyOnce() {
+  void mapsEveryKnownRideIdExactlyOnce() {
     Set<String> mappedIds =
         RideName.sortedByDisplayName().stream()
             .map(RideName::getApiId)
             .filter(id -> id != null)
             .collect(Collectors.toSet());
 
-    assertEquals(CURRENT_SCORED_API_IDS, mappedIds);
-    assertEquals(54, mappedIds.size());
-    for (String apiId : CURRENT_SCORED_API_IDS) {
+    assertEquals(KNOWN_API_IDS, mappedIds);
+    assertEquals(57, mappedIds.size());
+    for (String apiId : KNOWN_API_IDS) {
       RideName ride = RideName.fromApiId(apiId);
       assertEquals(apiId, ride.getApiId());
     }
   }
 
   @Test
-  void keepsUnknownAndSeasonalIdsUnmapped() {
+  void keepsUnknownIdsUnmappedAndMapsRecurringSeasonalIds() {
     assertEquals(RideName.UNKNOWN, RideName.fromApiId(null));
     assertEquals(RideName.UNKNOWN, RideName.fromApiId("polar-express"));
     assertEquals(RideName.RED_CAR_TROLLEY, RideName.fromApiId(" RedCarTrolley "));
-    assertNull(RideName.HAUNTED_MANSION_HOLIDAY.getApiId());
-    assertNull(RideName.HYPERSPACE_MOUNTAIN.getApiId());
+    assertEquals(RideName.HAUNTED_MANSION_HOLIDAY, RideName.fromApiId("hmh"));
+    assertEquals(
+        RideName.GUARDIANS_OF_THE_GALAXY_MONSTERS_AFTER_DARK, RideName.fromApiId("gotgmad"));
+    assertEquals(RideName.HYPERSPACE_MOUNTAIN, RideName.fromApiId("hyperspace"));
   }
 }

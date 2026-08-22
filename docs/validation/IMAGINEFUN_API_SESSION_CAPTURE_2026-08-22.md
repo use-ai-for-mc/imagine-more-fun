@@ -79,7 +79,9 @@ by the player to be an intentionally started new ride, not a duplicate callback.
 the active Minecraft player and applies recognized overall counts to `RideCountManager` on the
 Minecraft client thread.
 
-- `nra-rides.json` stores only recognized lifetime counts.
+- `nra-rides.json` stores only recognized lifetime counts. This includes the 54
+  lifecycle-validated current rides plus the three user-confirmed recurring seasonal ID mappings;
+  historical one-off and otherwise unknown IDs remain excluded.
 - A successful snapshot normally runs immediately after `SESSION_UPDATED`; the join fallback
   begins after 3 seconds if that event is not observed.
 - Successful snapshots refresh every 60 seconds and 1.5 seconds after a ride-end event.
@@ -93,6 +95,7 @@ Minecraft client thread.
   `/ridestats` parser remains available.
 
 This means a fresh install with ImagineFunUtils 0.0.8 and a healthy API session should reconstruct
-all currently recognized lifetime ride counts without opening the rides menu. It does not restore
-weekly/yearly durations, raw recent-ride history, historical unknown rides, daily-plan baselines, or
-dated report snapshots because those are not part of `nra-rides.json`.
+all 57 currently recognized lifetime ride counts without opening the rides menu, provided the API
+snapshot contains each corresponding entry. It does not restore weekly/yearly durations, raw
+recent-ride history, historical unknown rides, daily-plan baselines, or dated report snapshots
+because those are not part of `nra-rides.json`.

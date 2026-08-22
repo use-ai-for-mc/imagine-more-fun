@@ -145,6 +145,11 @@ reference route. See [`CANOE_CAPTURE_2026-08-21.md`](CANOE_CAPTURE_2026-08-21.md
 - `gotgmad` — Guardians of the Galaxy: Monsters After Dark
 - `hyperspace` — Hyperspace Mountain
 
+The player confirmed these three stable ID/name relationships on 2026-08-22. IMF maps them for
+lifetime-count restoration even while the variants are unavailable. Their mapping is confirmed,
+but their start/end lifecycle, duration, recent-entry, and count/time deltas remain pending the next
+seasonal run and are not included in the 54 fully validated lifecycles above.
+
 ## Known fireworks show IDs (8)
 
 These ID/name mappings were supplied on 2026-08-18. Minecraft color and style codes were removed.

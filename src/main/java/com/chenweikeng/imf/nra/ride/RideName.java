@@ -180,6 +180,10 @@ public enum RideName {
     registerApiId("ff", FLIKS_FLYERS);
     registerApiId("heimlich", HEIMLICHS_CHEW_CHEW_TRAIN);
     registerApiId("tot", THE_TWILIGHT_ZONE_TOWER_OF_TERROR);
+
+    registerApiId("hmh", HAUNTED_MANSION_HOLIDAY);
+    registerApiId("gotgmad", GUARDIANS_OF_THE_GALAXY_MONSTERS_AFTER_DARK);
+    registerApiId("hyperspace", HYPERSPACE_MOUNTAIN);
   }
 
   private static void registerApiId(String apiId, RideName ride) {
