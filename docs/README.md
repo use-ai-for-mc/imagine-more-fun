@@ -38,6 +38,12 @@ redirect for the retired Red Car Trolley page, not engineering documentation.
 
 - [`validation/IMAGINEFUN_RIDE_IDS_2026-07.md`](validation/IMAGINEFUN_RIDE_IDS_2026-07.md):
   ImagineFunUtils 0.0.8 ride lifecycle observations.
+- [`validation/RCT_GOOD_CAR_CAPTURE_2026-08-20.md`](validation/RCT_GOOD_CAR_CAPTURE_2026-08-20.md):
+  good Red Car Trolley lifecycle, route, stops, and cycle calibration.
+- [`validation/RCT_BAD_CAR_CAPTURE_2026-08-21.md`](validation/RCT_BAD_CAR_CAPTURE_2026-08-21.md):
+  defective Red Car Trolley terminal behavior and missed outbound scoring.
+- [`validation/CANOE_CAPTURE_2026-08-21.md`](validation/CANOE_CAPTURE_2026-08-21.md):
+  Davy Crockett's Explorer Canoes API lifecycle and composite-entity route capture.
 - [`validation/OPENAUDIO_LEGACY_GUARDED_2026-08-08.md`](validation/OPENAUDIO_LEGACY_GUARDED_2026-08-08.md):
   isolated and deployed-artifact evidence for one OpenAudioMC guard build.
 
