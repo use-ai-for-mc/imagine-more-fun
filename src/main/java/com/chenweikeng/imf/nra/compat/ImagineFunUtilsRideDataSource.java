@@ -11,11 +11,14 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.loader.api.FabricLoader;
 import net.imaginefun.api.ImagineFunApi;
 import net.imaginefun.api.ImagineFunClientEvents;
 import net.imaginefun.api.model.RideStats;
 import net.imaginefun.api.model.SessionPlayer;
 import net.imaginefun.api.model.SessionRides;
+import net.imaginefun.networking.HandshakePayload;
 import net.imaginefun.session.ApiSession;
 import net.minecraft.client.Minecraft;
 
@@ -27,6 +30,7 @@ public final class ImagineFunUtilsRideDataSource implements RideStatsSourceCoord
   private static final long[] RETRY_DELAYS_MS = {2_000L, 5_000L, 10_000L, 30_000L, 60_000L};
 
   private final Set<String> loggedUnknownRideIds = new HashSet<>();
+  private final HandshakeRetrySchedule handshakeRetries = new HandshakeRetrySchedule();
 
   private long generation;
   private long nextAttemptAtMs = Long.MAX_VALUE;
@@ -57,16 +61,19 @@ public final class ImagineFunUtilsRideDataSource implements RideStatsSourceCoord
     generation++;
     requestInFlight = false;
     consecutiveFailures = 0;
+    handshakeRetries.stop();
     nextAttemptAtMs = System.currentTimeMillis();
   }
 
   @Override
   public void onJoin(Minecraft client) {
+    long nowMs = System.currentTimeMillis();
     generation++;
     connected = true;
     requestInFlight = false;
     consecutiveFailures = 0;
-    nextAttemptAtMs = System.currentTimeMillis() + FIRST_JOIN_ATTEMPT_DELAY_MS;
+    handshakeRetries.onJoin(nowMs);
+    nextAttemptAtMs = nowMs + FIRST_JOIN_ATTEMPT_DELAY_MS;
   }
 
   @Override
@@ -75,19 +82,55 @@ public final class ImagineFunUtilsRideDataSource implements RideStatsSourceCoord
     connected = false;
     requestInFlight = false;
     consecutiveFailures = 0;
+    handshakeRetries.stop();
     nextAttemptAtMs = Long.MAX_VALUE;
   }
 
   @Override
   public void tick(Minecraft client) {
+    long nowMs = System.currentTimeMillis();
+    if (connected
+        && client.player != null
+        && handshakeRetries.shouldRetry(nowMs, ApiSession.isActive())) {
+      retryHandshake(nowMs);
+    }
+    if (connected && handshakeRetries.shouldReportExhausted(nowMs, ApiSession.isActive())) {
+      NotRidingAlertClient.LOGGER.warn(
+          "ImagineFunUtils API session is still inactive after 3 handshake retries; "
+              + "cached counts and legacy /ridestats fallback remain available");
+    }
+
     if (!connected
         || requestInFlight
         || client.player == null
-        || System.currentTimeMillis() < nextAttemptAtMs
+        || nowMs < nextAttemptAtMs
         || !ApiSession.isActive()) {
       return;
     }
     requestSnapshot(client);
+  }
+
+  private void retryHandshake(long nowMs) {
+    int retryNumber = handshakeRetries.markRetrySent(nowMs);
+    String utilsVersion =
+        FabricLoader.getInstance()
+            .getModContainer("imaginefunutils")
+            .map(mod -> mod.getMetadata().getVersion().getFriendlyString())
+            .orElse("unknown");
+
+    try {
+      ClientPlayNetworking.send(new HandshakePayload(utilsVersion));
+      NotRidingAlertClient.LOGGER.info(
+          "ImagineFunUtils API session is still inactive; sent handshake retry {}/{}",
+          retryNumber,
+          HandshakeRetrySchedule.MAX_RETRIES);
+    } catch (RuntimeException error) {
+      NotRidingAlertClient.LOGGER.warn(
+          "ImagineFunUtils handshake retry {}/{} could not be sent: {}",
+          retryNumber,
+          HandshakeRetrySchedule.MAX_RETRIES,
+          error.getMessage());
+    }
   }
 
   private void scheduleRefresh(long attemptAtMs) {

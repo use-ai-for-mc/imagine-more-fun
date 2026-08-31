@@ -39,6 +39,11 @@ legacy parser available until the current connection receives a successful API s
 server ride IDs map through `RideName.fromApiId()`; display names and IMF short names are not API
 identifiers.
 
+If the initial ImagineFunUtils handshake does not establish an API session, the isolated bridge
+re-sends that handshake after 5, 15, and 35 seconds from joining, then stops. A session update
+cancels pending retries immediately; cached counts and the legacy parser remain available if all
+three recovery attempts fail.
+
 Food consumption is internal report data. `FoodConsumptionTracker` recognizes `FOOD_TYPE`, confirms
 a stack decrease, and records through `SessionTracker`; the intended user surface is the daily
 summary/report, not per-item chat messages or routine INFO logging.
@@ -51,9 +56,9 @@ client commands. See [`features/PIM.md`](features/PIM.md).
 
 ### SkinCache
 
-`com.chenweikeng.imf.skincache.*` owns texture/profile caches and a separate
-`<gameDir>/skincache/skincache.log`. `TextureCache.init()` initializes paths and indexes before
-performing cleanup. Do not reintroduce cleanup from `SkinManager` construction.
+`com.chenweikeng.imf.skincache.*` owns texture/profile caches under `<gameDir>/skincache/`.
+`TextureCache.init()` initializes paths and indexes before performing cleanup. Do not reintroduce
+cleanup from `SkinManager` construction.
 
 ## Server gates
 

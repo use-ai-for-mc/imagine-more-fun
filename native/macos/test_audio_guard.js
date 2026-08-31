@@ -276,12 +276,6 @@ async function main() {
     "legacy-minimum must not install deep media lifecycle or relay hooks",
   );
   assert.match(legacyMinimumHealth, /mode: 'legacy-minimum'/);
-  assert.match(
-    helperSource,
-    /if audioDiagnosticsEnabled \{\s*config\.userContentController\.addUserScript\(audioDiagnostics\)/,
-    "temporary diagnostics must be opt-in",
-  );
-
   window.__nra_preferred_volume = 0;
   window.__nra_master_volume_percent = 0;
   window.__nra_volume_gate_active = true;
@@ -589,22 +583,11 @@ async function main() {
   assertDisposed(shutdownMedia, "session shutdown");
   assert.equal(context.closed, true, "session shutdown closes AudioContext instances");
 
-  // Debug-only listeners are still required to unregister when the flag is enabled.
-  eval(injectedScript("audioDiagnostics"));
-  const diagnosticMedia = new HTMLMediaElement("AUDIO");
-  diagnosticMedia.src = "https://media.invalid/debug.ogg";
-  owner(diagnosticMedia);
-  await diagnosticMedia.play();
-  assert.ok(diagnosticMedia.listenerCount() >= 7, "debug listeners installed only in debug test");
-  diagnosticMedia.dispatchEvent("ended");
-  await flushLifecycle();
-  assertDisposed(diagnosticMedia, "debug listener teardown");
-
   const finalHealth = window.__nra_media_health();
   assert.equal(finalHealth.live, 0);
   assert.equal(finalHealth.created, finalHealth.disposed);
   console.log(
-    `audio lifecycle tests passed (paths=13 stress=5000 created=${finalHealth.created} disposed=${finalHealth.disposed} live=${finalHealth.live})`,
+    `audio lifecycle tests passed (paths=12 stress=5000 created=${finalHealth.created} disposed=${finalHealth.disposed} live=${finalHealth.live})`,
   );
   process.exit(0);
 }

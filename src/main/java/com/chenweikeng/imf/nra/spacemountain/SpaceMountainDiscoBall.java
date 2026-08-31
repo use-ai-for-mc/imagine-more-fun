@@ -1,6 +1,5 @@
 package com.chenweikeng.imf.nra.spacemountain;
 
-import com.chenweikeng.imf.ImfFileIO;
 import com.chenweikeng.imf.nra.NotRidingAlertClient;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -40,10 +39,8 @@ import org.joml.Vector3f;
  * Emulates disco-ball star projectors. Each ball is a point that emits {@link #BEAMS_PER_BALL}
  * beams spread over a {@code 2 x CONE_HALF_ANGLE_DEG} cone; every beam raycasts outward and the
  * nearest world block it hits ({@link net.minecraft.world.level.Level#clip}) gets a star dot.
- * Spinning a ball sweeps its beams, so the dots drag across the surfaces.
- *
- * <p>Experimental: balls are registered at runtime over the debug bridge — stand where the ball
- * goes, face the aim, and {@code addBall} with your position + yaw/pitch.
+ * Spinning a ball sweeps its beams, so the dots drag across the surfaces. Projector definitions are
+ * loaded from the user override or the bundled release data.
  */
 public final class SpaceMountainDiscoBall {
   private static final int BEAMS_PER_BALL = 800;
@@ -58,7 +55,7 @@ public final class SpaceMountainDiscoBall {
   private static final Identifier DOT_TEXTURE =
       Identifier.fromNamespaceAndPath("imaginemorefun", "textures/particle/star.png");
 
-  // Balls persist here — saved on every change, loaded at startup.
+  // Optional user override for the bundled projector definitions.
   private static final Path PERSIST_PATH =
       FabricLoader.getInstance()
           .getConfigDir()
@@ -111,13 +108,6 @@ public final class SpaceMountainDiscoBall {
   }
 
   private static final CopyOnWriteArrayList<Ball> balls = new CopyOnWriteArrayList<>();
-  private static volatile boolean ENABLED = true;
-
-  // Dev-only single-player preview. When true the disco ball also renders in single-player, where
-  // SpaceMountainOverride.isActive() is always false — lets the effect be built and tuned against
-  // the SP simulator world. Bridge-only and not persisted, so an end-user's single-player world is
-  // never affected and it can never leak onto a real server.
-  private static volatile boolean spDevPreview = false;
 
   private static long lastNanos;
 
@@ -144,124 +134,13 @@ public final class SpaceMountainDiscoBall {
     WorldRenderEvents.AFTER_ENTITIES.register(SpaceMountainDiscoBall::render);
   }
 
-  // --- Bridge API -----------------------------------------------------------
-
-  /** Register a projector at (x,y,z) aimed along (yaw,pitch). Returns the new ball count. */
-  public static int addBall(double x, double y, double z, double yaw, double pitch) {
-    Ball b = new Ball();
-    b.x = x;
-    b.y = y;
-    b.z = z;
-    b.aimYaw = yaw;
-    b.aimPitch = pitch;
-    balls.add(b);
-    NotRidingAlertClient.LOGGER.debug(
-        "[SpaceMountainDiscoBall] added ball {} at ({}, {}, {}) aim=({}, {})",
-        balls.size() - 1,
-        x,
-        y,
-        z,
-        yaw,
-        pitch);
-    save();
-    return balls.size();
-  }
-
-  public static void clearBalls() {
-    balls.clear();
-    NotRidingAlertClient.LOGGER.debug("[SpaceMountainDiscoBall] cleared all balls");
-    save();
-  }
-
-  /** Set spin rate (deg/sec) for ball {@code index}, or for all balls when index &lt; 0. */
-  public static void setSpin(int index, double degPerSec) {
-    if (index < 0) {
-      for (Ball b : balls) b.spinRate = degPerSec;
-    } else if (index < balls.size()) {
-      balls.get(index).spinRate = degPerSec;
-    }
-    NotRidingAlertClient.LOGGER.debug(
-        "[SpaceMountainDiscoBall] setSpin index={} rate={}", index, degPerSec);
-    save();
-  }
-
-  /**
-   * Enable/disable auto-spin: every {@link #AUTO_SPIN_INTERVAL_SEC} seconds the spin hands off to a
-   * random ball — never the one that just had it. Spin eases in and out (see {@link
-   * #SPIN_ACCEL_DEG_PER_SEC2}), so a hand-off briefly overlaps as the outgoing ball decelerates and
-   * the incoming one accelerates.
-   */
-  public static void setAutoSpin(boolean enabled, double degPerSec) {
-    autoSpinEnabled = enabled;
-    autoSpinRate = degPerSec;
-    autoSpinCurrent = -1;
-    autoSpinTimer = 0.0;
-    if (!enabled) {
-      for (Ball b : balls) b.spinRate = 0.0;
-    }
-    NotRidingAlertClient.LOGGER.debug(
-        "[SpaceMountainDiscoBall] setAutoSpin enabled={} rate={}", enabled, degPerSec);
-    save();
-  }
-
-  /**
-   * Cap how many star dots may land within {@code closeRadius} blocks of the ball — the closest
-   * beams beyond {@code maxDots} are dropped, clearing the cluster right at the ball. {@code
-   * maxDots < 0} removes the cap. {@code index < 0} applies to all balls.
-   */
-  public static void setCloseLimit(int index, double closeRadius, int maxDots) {
-    if (index < 0) {
-      for (Ball b : balls) {
-        b.closeRadius = closeRadius;
-        b.maxCloseDots = maxDots;
-        b.dirty = true;
-      }
-    } else if (index < balls.size()) {
-      Ball b = balls.get(index);
-      b.closeRadius = closeRadius;
-      b.maxCloseDots = maxDots;
-      b.dirty = true;
-    }
-    NotRidingAlertClient.LOGGER.debug(
-        "[SpaceMountainDiscoBall] setCloseLimit index={} closeRadius={} maxDots={}",
-        index,
-        closeRadius,
-        maxDots);
-    save();
-  }
-
-  /** Force every ball to re-project on the next frame (e.g. after the world changed). */
-  public static void reproject() {
-    for (Ball b : balls) b.dirty = true;
-  }
-
-  public static void setEnabled(boolean enabled) {
-    ENABLED = enabled;
-    NotRidingAlertClient.LOGGER.debug("[SpaceMountainDiscoBall] enabled={}", enabled);
-  }
-
-  /**
-   * Dev-only single-player preview. When enabled, the disco ball renders in single-player even
-   * though {@link SpaceMountainOverride#isActive()} is false there — for building and tuning the
-   * effect against the SP simulator world. Not persisted; defaults off so end-user single-player
-   * worlds are unaffected and a real server only ever shows the gated effect.
-   */
-  public static void setSpDevPreview(boolean enabled) {
-    spDevPreview = enabled;
-    NotRidingAlertClient.LOGGER.debug("[SpaceMountainDiscoBall] spDevPreview={}", enabled);
-  }
-
-  public static boolean isEnabled() {
-    return ENABLED;
-  }
-
   // --- Persistence ----------------------------------------------------------
 
   /**
    * Load balls — from the config-dir {@link #PERSIST_PATH} if present, else the JAR-bundled default
    * so the effect ships with the mod. Replaces any currently registered.
    */
-  public static void load() {
+  private static void load() {
     balls.clear();
     String json = readConfigOrBundled(PERSIST_PATH, "/imaginemorefun/disco_balls.json");
     if (json == null) return;
@@ -293,35 +172,11 @@ public final class SpaceMountainDiscoBall {
     }
   }
 
-  /** Write the current balls to {@link #PERSIST_PATH}; called after every change. */
-  private static void save() {
-    JsonArray arr = new JsonArray();
-    for (Ball b : balls) {
-      JsonObject o = new JsonObject();
-      o.addProperty("x", b.x);
-      o.addProperty("y", b.y);
-      o.addProperty("z", b.z);
-      o.addProperty("aimYaw", b.aimYaw);
-      o.addProperty("aimPitch", b.aimPitch);
-      o.addProperty("spinDeg", b.spinDeg);
-      o.addProperty("spinRate", b.spinRate);
-      o.addProperty("closeRadius", b.closeRadius);
-      o.addProperty("maxCloseDots", b.maxCloseDots);
-      arr.add(o);
-    }
-    JsonObject root = new JsonObject();
-    root.add("balls", arr);
-    root.addProperty("autoSpinEnabled", autoSpinEnabled);
-    root.addProperty("autoSpinRate", autoSpinRate);
-    ImfFileIO.writeStringAtomic(
-        PERSIST_PATH, root.toString(), NotRidingAlertClient.LOGGER, "Space Mountain disco balls");
-  }
-
   /**
    * Load the prismarine-cover exclusion cells — from the config-dir {@link #EXCLUSION_PATH} if
    * present, else the JAR-bundled default.
    */
-  public static void loadExclusion() {
+  private static void loadExclusion() {
     exclusionCells.clear();
     String json = readConfigOrBundled(EXCLUSION_PATH, "/imaginemorefun/disco_exclusion.json");
     if (json == null) return;
@@ -371,7 +226,7 @@ public final class SpaceMountainDiscoBall {
    * local re-bake), else the JAR-bundled default. Used as a hard mask on the projection: a
    * beam-cast star only survives if its hit block is one of these cells.
    */
-  public static void loadBorders() {
+  private static void loadBorders() {
     watertightWallCells.clear();
     Path cfg =
         FabricLoader.getInstance()
@@ -551,18 +406,12 @@ public final class SpaceMountainDiscoBall {
   }
 
   private static void render(WorldRenderContext ctx) {
-    if (!ENABLED || balls.isEmpty()) return;
+    if (balls.isEmpty()) return;
     Minecraft mc = Minecraft.getInstance();
     if (mc.player == null || mc.level == null) return;
-    // Production gate: route through the shared master switch like every other Space Mountain
-    // overlay — BAKING_MODE off, the "Space Mountain Enhancements" toggle on, connected to
-    // ImagineFun, and actively riding Space/Hyperspace Mountain. Without this the bundled default
-    // disco balls would render everywhere the moment the jar is installed.
-    // Dev exception: spDevPreview also renders in single-player (where isActive() is false) so the
-    // effect can be tuned against the SP simulator world — see setSpDevPreview.
-    boolean active = SpaceMountainOverride.isActive();
-    boolean devPreview = mc.hasSingleplayerServer() && spDevPreview;
-    if (!active && !devPreview) {
+    // Route through the shared product gate so bundled projectors only render on the supported
+    // server while the rider is on Space/Hyperspace Mountain with enhancements enabled.
+    if (!SpaceMountainOverride.isActive()) {
       activeSinceNanos = 0L;
       return;
     }
@@ -571,13 +420,9 @@ public final class SpaceMountainDiscoBall {
 
     // Hold the projection back for PROJECTION_DELAY_NANOS after the gate flips active, so
     // SpaceMountainBlockOverride has sealed the dome first (block replacement applies on the same
-    // activation tick). Dev preview skips the delay — no block replacement runs in single-player.
-    if (active && !devPreview) {
-      if (activeSinceNanos == 0L) activeSinceNanos = now;
-      if (now - activeSinceNanos < PROJECTION_DELAY_NANOS) return;
-    } else {
-      activeSinceNanos = 0L;
-    }
+    // activation tick).
+    if (activeSinceNanos == 0L) activeSinceNanos = now;
+    if (now - activeSinceNanos < PROJECTION_DELAY_NANOS) return;
 
     double dt = lastNanos == 0L ? 0.0 : Math.min((now - lastNanos) / 1.0e9, 0.1);
     lastNanos = now;

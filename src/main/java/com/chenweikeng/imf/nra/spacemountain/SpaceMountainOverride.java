@@ -11,18 +11,9 @@ import com.chenweikeng.imf.nra.ride.RideName;
  * stale value just delays the override flipping by one frame and is harmless.
  */
 public final class SpaceMountainOverride {
-  /**
-   * TEMPORARY kill switch. When {@code true}, {@link #isActive()} always returns false — every
-   * Space Mountain overlay (block seal, star renderer, track renderer, hyperspace streaks, entity
-   * light tweak, item-frame hider) falls through to vanilla. Set this for a clean live-server
-   * baseline dump, then restore to {@code false} before normal play.
-   */
-  private static final boolean BAKING_MODE = false;
-
   private SpaceMountainOverride() {}
 
   public static boolean isActive() {
-    if (BAKING_MODE) return false;
     // Master config toggle (Modifications tab → Space Mountain group). Every Space Mountain
     // feature routes through isActive(), so this one check gates all of them.
     if (!ModConfig.currentSetting.spaceMountainEnhancements) return false;

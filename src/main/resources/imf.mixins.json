@@ -42,7 +42,6 @@
 		"PimScreenAccessor",
 		"SkinCacheClientChunkCacheMixin",
 		"SkinCacheCustomHeadLayerMixin",
-		"SkinCacheMinecraftMixin",
 		"SkinCacheSkinManagerMixin",
 		"SkinCacheSkinTextureDownloaderMixin",
 		"SkinCacheSkullBlockRendererMixin"
