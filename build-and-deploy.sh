@@ -4,7 +4,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="${SCRIPT_DIR}"
-DEFAULT_GAME_DIR="/Users/cusgadmin/Library/Application Support/PrismLauncher/instances/26.2/minecraft"
+DEFAULT_GAME_DIR="/Users/cusgadmin/Library/Application Support/PrismLauncher/instances/ImagineFun Add-Ons/minecraft"
 TARGET_GAME_DIR="${IMF_PRISM_GAME_DIR:-${DEFAULT_GAME_DIR}}"
 TARGET_GAME_DIR="${TARGET_GAME_DIR%/}"
 TARGET_DIR="${TARGET_GAME_DIR}/mods"

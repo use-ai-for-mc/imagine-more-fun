@@ -29,8 +29,9 @@ Only deploy after explicit user authorization:
 ./build-and-deploy.sh
 ```
 
-The local default is the dedicated PrismLauncher `26.2` instance. To select another compatible
-instance, pass its game directory explicitly through the environment:
+The local default is the dedicated PrismLauncher `ImagineFun Add-Ons` instance, currently pinned to
+Minecraft 26.2. To select another compatible instance, pass its game directory explicitly through
+the environment:
 
 ```bash
 IMF_PRISM_GAME_DIR="/absolute/path/to/instance/minecraft" ./build-and-deploy.sh
@@ -53,7 +54,7 @@ The script:
 The default target instance is:
 
 ```text
-/Users/cusgadmin/Library/Application Support/PrismLauncher/instances/26.2/minecraft/
+/Users/cusgadmin/Library/Application Support/PrismLauncher/instances/ImagineFun Add-Ons/minecraft/
 ```
 
 Never use plain `cp` over the active JAR. The atomic same-directory rename preserves the old inode
@@ -66,10 +67,10 @@ At minimum, compare the source and target hashes and verify the target archive:
 ```bash
 shasum -a 256 \
   build/libs/imaginemorefun-<mod_version>.jar \
-  "/Users/cusgadmin/Library/Application Support/PrismLauncher/instances/26.2/minecraft/mods/imaginemorefun-<mod_version>.jar"
+  "/Users/cusgadmin/Library/Application Support/PrismLauncher/instances/ImagineFun Add-Ons/minecraft/mods/imaginemorefun-<mod_version>.jar"
 
 unzip -tq \
-  "/Users/cusgadmin/Library/Application Support/PrismLauncher/instances/26.2/minecraft/mods/imaginemorefun-<mod_version>.jar"
+  "/Users/cusgadmin/Library/Application Support/PrismLauncher/instances/ImagineFun Add-Ons/minecraft/mods/imaginemorefun-<mod_version>.jar"
 ```
 
 A matching hash proves deployment of the file, not runtime loading. If Minecraft was running during
