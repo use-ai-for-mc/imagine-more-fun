@@ -11,6 +11,7 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientChunkCache;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.SectionPos;
+import net.minecraft.world.item.DyeColor;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
@@ -33,7 +34,7 @@ import net.minecraft.world.level.chunk.LevelChunk;
  * seal intentionally applies to the Hyperspace overlay as well.
  */
 public final class SpaceMountainEntryTunnelSeal {
-  private static final BlockState COVER = Blocks.BLACK_CONCRETE.defaultBlockState();
+  private static final BlockState COVER = Blocks.CONCRETE.pick(DyeColor.BLACK).defaultBlockState();
 
   // Entry-mouth cells — the Z=147 cross-section, hand-marked in the SP world. A near-solid 6x6
   // wall, X -260..-255 x Y 66..71, minus the six cells the markers skipped (most of the bottom
@@ -131,14 +132,14 @@ public final class SpaceMountainEntryTunnelSeal {
     if (dirty.isEmpty()) return; // nothing changed this tick
 
     for (long key : dirty) {
-      mc.levelRenderer.setSectionDirty(SectionPos.x(key), SectionPos.y(key), SectionPos.z(key));
+      mc.levelExtractor.setSectionDirty(SectionPos.x(key), SectionPos.y(key), SectionPos.z(key));
     }
     if (!sealed) {
       // First application: the entry-tunnel chunk was meshed as the rider launched past it, and a
       // bare setSectionDirty isn't reliable then (see SpaceMountainBlockOverride) — force a full
       // re-mesh once so the cover actually shows.
       sealed = true;
-      mc.levelRenderer.allChanged();
+      mc.levelExtractor.allChanged();
       NotRidingAlertClient.LOGGER.info(
           "[SpaceMountainEntryTunnelSeal] entry tunnel sealed ({} cells)", originalStates.size());
     }
@@ -159,7 +160,7 @@ public final class SpaceMountainEntryTunnelSeal {
     int restored = originalStates.size();
     originalStates.clear();
     sealed = false;
-    mc.levelRenderer.allChanged();
+    mc.levelExtractor.allChanged();
     NotRidingAlertClient.LOGGER.info(
         "[SpaceMountainEntryTunnelSeal] entry tunnel restored ({} cells)", restored);
   }

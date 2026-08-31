@@ -36,10 +36,10 @@ public class DayTimeHandler {
       return;
     }
 
-    long time = level.getDayTime() % 24000L;
+    long time = ClientDayTime.get(level) % 24000L;
 
     if (time >= SUNSET_START) {
-      level.getLevelData().setDayTime(NOON);
+      ClientDayTime.set(level, NOON);
     }
   }
 }

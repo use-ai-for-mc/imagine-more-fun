@@ -7,11 +7,9 @@ import com.chenweikeng.imf.nra.ride.AutograbHolder;
 import com.chenweikeng.imf.nra.ride.AutograbHolder.Point;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
-import net.minecraft.client.Camera;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.MultiBufferSource.BufferSource;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.world.phys.Vec3;
 
@@ -19,7 +17,7 @@ public class AutograbRegionRenderer {
   private static final double RENDER_DISTANCE = 50.0;
 
   public static void register() {
-    WorldRenderEvents.AFTER_ENTITIES.register(
+    LevelRenderEvents.COLLECT_SUBMITS.register(
         context -> {
           if (!NotRidingAlertClient.isImagineFunServer()) {
             return;
@@ -28,7 +26,7 @@ public class AutograbRegionRenderer {
         });
   }
 
-  public static void render(WorldRenderContext context) {
+  public static void render(LevelRenderContext context) {
     if (!ModConfig.currentSetting.showAutograbRegions) {
       return;
     }
@@ -42,11 +40,8 @@ public class AutograbRegionRenderer {
       return;
     }
 
-    PoseStack poseStack = context.matrices();
-    Camera camera = mc.gameRenderer.getMainCamera();
-    Vec3 cam = camera.position();
-
-    BufferSource bufferSource = mc.renderBuffers().bufferSource();
+    PoseStack poseStack = context.poseStack();
+    Vec3 cam = context.levelState().cameraRenderState.pos;
 
     for (AutograbHolder.AutograbRegion region : AutograbHolder.regions()) {
       if (!region.filter().test(mc)) {
@@ -58,19 +53,20 @@ public class AutograbRegionRenderer {
       double distance = Math.sqrt(dx * dx + dz * dz);
 
       if (distance <= RENDER_DISTANCE) {
-        VertexConsumer buffer = bufferSource.getBuffer(RenderTypes.debugTriangleFan());
-        drawRegion(buffer, poseStack, cam, region);
-        bufferSource.endBatch(RenderTypes.debugTriangleFan());
+        context
+            .submitNodeCollector()
+            .submitCustomGeometry(
+                poseStack,
+                RenderTypes.debugTriangleFan(),
+                (pose, buffer) -> drawRegion(buffer, pose, cam, region));
       }
     }
   }
 
   private static void drawRegion(
-      VertexConsumer buffer, PoseStack poseStack, Vec3 cam, AutograbHolder.AutograbRegion region) {
+      VertexConsumer buffer, PoseStack.Pose pose, Vec3 cam, AutograbHolder.AutograbRegion region) {
     Point[] points = region.points();
     double y = region.y();
-    PoseStack.Pose pose = poseStack.last();
-
     if (points.length < 2) {
       return;
     }

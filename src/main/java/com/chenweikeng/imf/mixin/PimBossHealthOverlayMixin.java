@@ -4,7 +4,7 @@ import com.chenweikeng.imf.pim.PimClient;
 import com.chenweikeng.imf.pim.tracker.BossBarTracker;
 import java.util.Map;
 import java.util.UUID;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.BossHealthOverlay;
 import net.minecraft.client.gui.components.LerpingBossEvent;
 import net.minecraft.network.chat.Component;
@@ -51,8 +51,8 @@ public class PimBossHealthOverlayMixin {
             false);
   }
 
-  @Inject(method = "render", at = @At("HEAD"))
-  private void imf$render(GuiGraphics guiGraphics, CallbackInfo ci) {
+  @Inject(method = "extractRenderState", at = @At("HEAD"))
+  private void imf$render(GuiGraphicsExtractor guiGraphics, CallbackInfo ci) {
     if (!PimClient.isImagineFunServer()) {
       return;
     }

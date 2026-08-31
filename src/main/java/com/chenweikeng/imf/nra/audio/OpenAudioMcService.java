@@ -1429,6 +1429,6 @@ public class OpenAudioMcService {
           Component.literal("\u00A7b\u00A7n" + url)
               .withStyle(style -> style.withClickEvent(new ClickEvent.OpenUrl(URI.create(url)))));
     }
-    client.execute(() -> client.gui.getChat().addMessage(text));
+    client.execute(() -> client.gui.chatListener().handleSystemMessage(text, false));
   }
 }

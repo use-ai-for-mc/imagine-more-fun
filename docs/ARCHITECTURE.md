@@ -5,7 +5,7 @@ code that alters initialization, module ownership, storage, event lifecycles, or
 
 ## Runtime and entrypoint
 
-- Client-side Fabric mod for Minecraft 1.21.11 and Java 21.
+- Client-side Fabric mod for Minecraft 26.2 and Java 25.
 - Mod ID and archive base name: `imaginemorefun`.
 - Single Fabric client entrypoint: `com.chenweikeng.imf.ImfClient`.
 - `ImfClient.onInitializeClient()` runs in this order:
@@ -31,7 +31,11 @@ Important lifecycle owner: `NotRidingAlertClient` registers connection, tick, HU
 command, and shutdown callbacks. Disconnect cleanup belongs there or in the subsystem method it
 calls; do not add a second uncoordinated lifecycle owner.
 
-`RideStatsSourceCoordinator` owns lifetime ride-count ingestion. ImagineFunUtils 0.0.8 is optional:
+`ImagineFunWindowIconHandler` applies the ImagineFun logo to the macOS Dock or Windows taskbar on
+an ImagineFun connection and restores the version-appropriate Minecraft icon on disconnect. It is
+host-gated independently of NRA's `globalEnable` setting.
+
+`RideStatsSourceCoordinator` owns lifetime ride-count ingestion. ImagineFunUtils 0.0.9 is optional:
 when present, the coordinator reflectively loads the isolated `ImagineFunUtilsRideDataSource` and
 prefers `getSessionRides()` snapshots; when absent or incompatible, the original `/ridestats`
 container parser remains active. A transient API failure keeps the last known counts and leaves the
@@ -47,6 +51,11 @@ three recovery attempts fail.
 Food consumption is internal report data. `FoodConsumptionTracker` recognizes `FOOD_TYPE`, confirms
 a stack decrease, and records through `SessionTracker`; the intended user surface is the daily
 summary/report, not per-item chat messages or routine INFO logging.
+
+Automatic cursor release suppresses only Minecraft's `pauseIfInactive()` behavior while riding or
+during the short restore grace period. It must not suppress `Window.onFocus(false)`: Minecraft
+26.2's `TextInputManager` uses the real window-focus flag to stop changing the system IME after the
+user switches to another application.
 
 ### PIM
 
@@ -97,10 +106,11 @@ the tutorial version only when a materially changed setup flow requires users to
 All mixins live in `com.chenweikeng.imf.mixin.*` and are registered in `imf.mixins.json`. Prefixes
 indicate the original owner (`Nra`, `Pim`, `SkinCache`, `Canoe`, `Imf`) but registration is shared.
 
-ModMenu, Monkeycraft, and ImagineFunUtils are optional. Monkeycraft calls must stay behind
-`MonkeycraftCompat.isAvailable()`. ImagineFunUtils types must remain isolated in its compatibility
-class, which is loaded only after Fabric Loader confirms the mod is installed. Mixins targeting
-optional classes must remain soft/guarded.
+ModMenu, Monkeycraft, ImagineFunUtils, and SmoothCoasters are optional. Monkeycraft calls must stay
+behind `MonkeycraftCompat.isAvailable()`. ImagineFunUtils types must remain isolated in its
+compatibility class, which is loaded only after Fabric Loader confirms the mod is installed. Mixins
+targeting optional classes must remain soft/guarded; the SmoothCoasters integration uses a
+`@Pseudo` string-target mixin so installations without it can still start.
 
 ## Concurrency boundaries
 

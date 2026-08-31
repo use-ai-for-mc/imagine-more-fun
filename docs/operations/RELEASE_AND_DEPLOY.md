@@ -29,6 +29,18 @@ Only deploy after explicit user authorization:
 ./build-and-deploy.sh
 ```
 
+The local default is the dedicated PrismLauncher `ImagineFun Add-Ons` instance, currently pinned to
+Minecraft 26.2. To select another compatible instance, pass its game directory explicitly through
+the environment:
+
+```bash
+IMF_PRISM_GAME_DIR="/absolute/path/to/instance/minecraft" ./build-and-deploy.sh
+```
+
+Before building or changing any files in the target instance, the script reads `mmc-pack.json` and
+refuses to continue unless that instance's Minecraft version matches `minecraft_version` in this
+repository.
+
 The script:
 
 1. Rebuilds macOS Swift helpers.
@@ -39,10 +51,10 @@ The script:
 6. Copies to a `.new` file in the target directory, verifies the ZIP, and atomically renames it over
    the versioned target JAR.
 
-The target instance is:
+The default target instance is:
 
 ```text
-/Users/cusgadmin/Library/Application Support/PrismLauncher/instances/ImagineFun/.minecraft/
+/Users/cusgadmin/Library/Application Support/PrismLauncher/instances/ImagineFun Add-Ons/minecraft/
 ```
 
 Never use plain `cp` over the active JAR. The atomic same-directory rename preserves the old inode
@@ -55,10 +67,10 @@ At minimum, compare the source and target hashes and verify the target archive:
 ```bash
 shasum -a 256 \
   build/libs/imaginemorefun-<mod_version>.jar \
-  "/Users/cusgadmin/Library/Application Support/PrismLauncher/instances/ImagineFun/.minecraft/mods/imaginemorefun-<mod_version>.jar"
+  "/Users/cusgadmin/Library/Application Support/PrismLauncher/instances/ImagineFun Add-Ons/minecraft/mods/imaginemorefun-<mod_version>.jar"
 
 unzip -tq \
-  "/Users/cusgadmin/Library/Application Support/PrismLauncher/instances/ImagineFun/.minecraft/mods/imaginemorefun-<mod_version>.jar"
+  "/Users/cusgadmin/Library/Application Support/PrismLauncher/instances/ImagineFun Add-Ons/minecraft/mods/imaginemorefun-<mod_version>.jar"
 ```
 
 A matching hash proves deployment of the file, not runtime loading. If Minecraft was running during

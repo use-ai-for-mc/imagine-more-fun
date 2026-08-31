@@ -15,18 +15,16 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.CopyOnWriteArrayList;
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
 import net.fabricmc.loader.api.FabricLoader;
-import net.minecraft.client.Camera;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.LightTexture;
-import net.minecraft.client.renderer.MultiBufferSource.BufferSource;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.core.BlockPos;
 import net.minecraft.resources.Identifier;
+import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.util.Mth;
 import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.phys.BlockHitResult;
@@ -131,7 +129,7 @@ public final class SpaceMountainDiscoBall {
     load();
     loadExclusion();
     loadBorders();
-    WorldRenderEvents.AFTER_ENTITIES.register(SpaceMountainDiscoBall::render);
+    LevelRenderEvents.COLLECT_SUBMITS.register(SpaceMountainDiscoBall::render);
   }
 
   // --- Persistence ----------------------------------------------------------
@@ -405,7 +403,7 @@ public final class SpaceMountainDiscoBall {
     NotRidingAlertClient.LOGGER.debug("[SpaceMountainDiscoBall] auto-spin -> ball {}", next);
   }
 
-  private static void render(WorldRenderContext ctx) {
+  private static void render(LevelRenderContext ctx) {
     if (balls.isEmpty()) return;
     Minecraft mc = Minecraft.getInstance();
     if (mc.player == null || mc.level == null) return;
@@ -458,18 +456,24 @@ public final class SpaceMountainDiscoBall {
     drawDots(ctx, mc);
   }
 
-  private static void drawDots(WorldRenderContext ctx, Minecraft mc) {
-    Camera camera = mc.gameRenderer.getMainCamera();
-    Vec3 cam = camera.position();
-    Quaternionf rot = camera.rotation();
+  private static void drawDots(LevelRenderContext ctx, Minecraft mc) {
+    Vec3 cam = ctx.levelState().cameraRenderState.pos;
+    Quaternionf rot = ctx.levelState().cameraRenderState.orientation;
     Vector3f right = rot.transform(new Vector3f(1f, 0f, 0f));
     Vector3f up = rot.transform(new Vector3f(0f, 1f, 0f));
 
-    PoseStack.Pose pose = ctx.matrices().last();
-    BufferSource buffers = mc.renderBuffers().bufferSource();
+    PoseStack poseStack = ctx.poseStack();
     RenderType rt = RenderTypes.eyes(DOT_TEXTURE);
-    VertexConsumer vc = buffers.getBuffer(rt);
-    int light = LightTexture.FULL_BRIGHT;
+    ctx.submitNodeCollector()
+        .submitCustomGeometry(
+            poseStack,
+            rt,
+            (pose, vertexConsumer) -> drawDotGeometry(vertexConsumer, pose, cam, right, up));
+  }
+
+  private static void drawDotGeometry(
+      VertexConsumer vc, PoseStack.Pose pose, Vec3 cam, Vector3f right, Vector3f up) {
+    int light = LightCoordsUtil.FULL_BRIGHT;
     int overlay = OverlayTexture.NO_OVERLAY;
     float camX = (float) cam.x, camY = (float) cam.y, camZ = (float) cam.z;
 
@@ -491,7 +495,6 @@ public final class SpaceMountainDiscoBall {
             overlay);
       }
     }
-    buffers.endBatch(rt);
   }
 
   private static void quad(

@@ -4,7 +4,33 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="${SCRIPT_DIR}"
-TARGET_DIR="/Users/cusgadmin/Library/Application Support/PrismLauncher/instances/ImagineFun/.minecraft/mods/"
+DEFAULT_GAME_DIR="/Users/cusgadmin/Library/Application Support/PrismLauncher/instances/ImagineFun Add-Ons/minecraft"
+TARGET_GAME_DIR="${IMF_PRISM_GAME_DIR:-${DEFAULT_GAME_DIR}}"
+TARGET_GAME_DIR="${TARGET_GAME_DIR%/}"
+TARGET_DIR="${TARGET_GAME_DIR}/mods"
+
+MINECRAFT_VERSION=$(grep '^minecraft_version=' "${PROJECT_DIR}/gradle.properties" | cut -d= -f2 | tr -d '[:space:]')
+if [ -z "${MINECRAFT_VERSION}" ]; then
+    echo "Error: could not read minecraft_version from ${PROJECT_DIR}/gradle.properties"
+    exit 1
+fi
+
+INSTANCE_DIR=$(dirname "${TARGET_GAME_DIR}")
+MMC_PACK="${INSTANCE_DIR}/mmc-pack.json"
+if [ ! -d "${TARGET_GAME_DIR}" ] || [ ! -f "${MMC_PACK}" ]; then
+    echo "Error: target is not a PrismLauncher game directory: ${TARGET_GAME_DIR}"
+    echo "Set IMF_PRISM_GAME_DIR to the intended instance's minecraft/.minecraft directory."
+    exit 1
+fi
+
+TARGET_MINECRAFT_VERSION=$(
+    python3 -c 'import json,sys; data=json.load(open(sys.argv[1])); print(next((c.get("version", "") for c in data.get("components", []) if c.get("uid") == "net.minecraft"), ""))' "${MMC_PACK}"
+)
+if [ "${TARGET_MINECRAFT_VERSION}" != "${MINECRAFT_VERSION}" ]; then
+    echo "Error: target instance uses Minecraft ${TARGET_MINECRAFT_VERSION:-unknown}, but this build targets ${MINECRAFT_VERSION}."
+    echo "Target: ${TARGET_GAME_DIR}"
+    exit 1
+fi
 
 # Derive the jar name from gradle.properties so a mod_version bump
 # doesn't silently leave us deploying a stale jar.
@@ -17,16 +43,10 @@ JAR_NAME="imaginemorefun-${MOD_VERSION}.jar"
 SOURCE_JAR="${PROJECT_DIR}/build/libs/${JAR_NAME}"
 TARGET_JAR="${TARGET_DIR}/${JAR_NAME}"
 
-# After first run, ImfMigration moves the native helpers here.
-# PrismLauncher (current launcher) and ModrinthApp (older launcher) use
-# different game-dir roots; clear both so a rebuilt helper is re-extracted from
-# the JAR on next launch regardless of which one the user runs.
-PRISM_NATIVE_CACHE_DIR="/Users/cusgadmin/Library/Application Support/PrismLauncher/instances/ImagineFun/.minecraft/config/imaginemorefun/native"
-NATIVE_CACHE_DIR="/Users/cusgadmin/Library/Application Support/ModrinthApp/profiles/ImagineFun/config/imaginemorefun/native"
-# Legacy NRA location — ImfMigration.runOnce() will have moved anything useful
-# away from here on first launch, but we clear it too in case a prior run left
-# cached binaries behind.
-LEGACY_NATIVE_CACHE_DIR="/Users/cusgadmin/Library/Application Support/ModrinthApp/profiles/ImagineFun/config/not-riding-alert/native"
+# After first run, ImfMigration moves the native helpers into the selected game
+# directory. Clear only that instance's cache so deployment to the 26.2 test
+# instance cannot disturb a running or retained older instance.
+TARGET_NATIVE_CACHE_DIR="${TARGET_GAME_DIR}/config/imaginemorefun/native"
 
 # Rebuild native helper binaries (must happen before gradlew build so the JAR includes them).
 # macOS helpers are built with swiftc; the two Windows helpers are dotnet cross-compiles,
@@ -95,12 +115,10 @@ if [ ! -f "${SOURCE_JAR}" ]; then
 fi
 
 # Clear cached native binaries so the updated ones from the JAR get extracted on next launch.
-for dir in "${PRISM_NATIVE_CACHE_DIR}" "${NATIVE_CACHE_DIR}" "${LEGACY_NATIVE_CACHE_DIR}"; do
-    if [ -d "${dir}" ]; then
-        echo "Clearing cached native binaries: ${dir}"
-        rm -rf "${dir}"
-    fi
-done
+if [ -d "${TARGET_NATIVE_CACHE_DIR}" ]; then
+    echo "Clearing cached native binaries: ${TARGET_NATIVE_CACHE_DIR}"
+    rm -rf "${TARGET_NATIVE_CACHE_DIR}"
+fi
 
 echo "Creating target directory if it doesn't exist..."
 mkdir -p "${TARGET_DIR}"

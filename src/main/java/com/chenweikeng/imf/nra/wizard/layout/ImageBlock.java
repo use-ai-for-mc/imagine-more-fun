@@ -1,7 +1,7 @@
 package com.chenweikeng.imf.nra.wizard.layout;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.resources.Identifier;
 
 public record ImageBlock(Identifier texture, int imgWidth, int imgHeight) implements RenderBlock {
@@ -14,7 +14,7 @@ public record ImageBlock(Identifier texture, int imgWidth, int imgHeight) implem
   }
 
   @Override
-  public void render(GuiGraphics graphics, int x, int y, int width, Minecraft client) {
+  public void render(GuiGraphicsExtractor graphics, int x, int y, int width, Minecraft client) {
     float scale = (float) calculateScaleFactor(width);
     int scaledWidth = (int) (imgWidth * scale);
     int scaledHeight = (int) (imgHeight * scale);

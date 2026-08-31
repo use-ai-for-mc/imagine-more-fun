@@ -88,7 +88,7 @@ public class PinRarityHandler {
 
     var player = Minecraft.getInstance().player;
     if (player != null) {
-      player.displayClientMessage(
+      player.sendSystemMessage(
           Component.literal(
               "§6✨ §e[IMF] §fThe pin rarity information has been updated for §e"
                   + pendingUpdatedCount
@@ -100,8 +100,7 @@ public class PinRarityHandler {
                   + seriesMap.size()
                   + "§f pin pack"
                   + (seriesMap.size() == 1 ? "" : "s")
-                  + " on record."),
-          false);
+                  + " on record."));
     }
 
     save();

@@ -2,7 +2,7 @@ package com.chenweikeng.imf.mixin;
 
 import com.chenweikeng.imf.alphatable.AlphaTableRenderer;
 import com.chenweikeng.imf.pim.pinpack.PinPackOverlayRenderer;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -28,9 +28,13 @@ public class ImfAlphaTableContainerScreenMixin {
   @Shadow protected int imageWidth;
   @Shadow protected int imageHeight;
 
-  @Inject(at = @At("TAIL"), method = "render")
+  @Inject(at = @At("TAIL"), method = "extractRenderState")
   public void imf$renderAlphaTable(
-      GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+      GuiGraphicsExtractor guiGraphics,
+      int mouseX,
+      int mouseY,
+      float partialTick,
+      CallbackInfo ci) {
     AlphaTableRenderer.renderIfVisible(
         guiGraphics,
         (Screen) (Object) this,

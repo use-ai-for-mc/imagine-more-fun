@@ -1,7 +1,7 @@
 package com.chenweikeng.imf.nra.wizard.layout;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 public sealed interface RenderBlock
     permits TextBlock,
@@ -17,5 +17,5 @@ public sealed interface RenderBlock
 
   int getHeight(int containerWidth, Minecraft client);
 
-  void render(GuiGraphics graphics, int x, int y, int width, Minecraft client);
+  void render(GuiGraphicsExtractor graphics, int x, int y, int width, Minecraft client);
 }

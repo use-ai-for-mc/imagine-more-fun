@@ -5,16 +5,14 @@ import com.chenweikeng.imf.nra.ride.CurrentRideHolder;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import java.util.Random;
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderContext;
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
-import net.minecraft.client.Camera;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
+import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.renderer.LightTexture;
-import net.minecraft.client.renderer.MultiBufferSource.BufferSource;
 import net.minecraft.client.renderer.rendertype.RenderType;
 import net.minecraft.client.renderer.rendertype.RenderTypes;
 import net.minecraft.client.renderer.texture.OverlayTexture;
 import net.minecraft.resources.Identifier;
+import net.minecraft.util.LightCoordsUtil;
 import net.minecraft.world.phys.Vec3;
 
 /**
@@ -208,7 +206,7 @@ public final class SpaceMountainTunnelRenderer {
   private SpaceMountainTunnelRenderer() {}
 
   public static void register() {
-    WorldRenderEvents.AFTER_ENTITIES.register(SpaceMountainTunnelRenderer::render);
+    LevelRenderEvents.COLLECT_SUBMITS.register(SpaceMountainTunnelRenderer::render);
   }
 
   /**
@@ -311,20 +309,16 @@ public final class SpaceMountainTunnelRenderer {
     return (float) (d / FADE_AXIAL);
   }
 
-  private static void render(WorldRenderContext ctx) {
+  private static void render(LevelRenderContext ctx) {
     Minecraft mc = Minecraft.getInstance();
     if (!shouldRender(mc)) return;
 
-    Camera camera = mc.gameRenderer.getMainCamera();
-    Vec3 cam = camera.position();
+    Vec3 cam = ctx.levelState().cameraRenderState.pos;
 
-    PoseStack poseStack = ctx.matrices();
-    PoseStack.Pose pose = poseStack.last();
-    BufferSource bufferSource = mc.renderBuffers().bufferSource();
+    PoseStack poseStack = ctx.poseStack();
     RenderType renderType = ImfRenderPipelines.opaqueScreen(SCREEN_TEXTURE);
-    VertexConsumer vc = bufferSource.getBuffer(renderType);
 
-    int light = LightTexture.FULL_BRIGHT;
+    int light = LightCoordsUtil.FULL_BRIGHT;
     int overlay = OverlayTexture.NO_OVERLAY;
     float camX = (float) cam.x;
     float camY = (float) cam.y;
@@ -348,61 +342,78 @@ public final class SpaceMountainTunnelRenderer {
     cylinderColorG = COLOR_G + (RED_BG_G - COLOR_G) * redA;
     cylinderColorB = COLOR_B + (RED_BG_B - COLOR_B) * redA;
 
-    for (int ring = 0; ring < AXIAL_RINGS; ring++) {
-      double s0 = AXIS_LENGTH * ring / AXIAL_RINGS;
-      double s1 = AXIS_LENGTH * (ring + 1) / AXIAL_RINGS;
-      Vec3 c0 = START.add(AXIS.scale(s0));
-      Vec3 c1 = START.add(AXIS.scale(s1));
-      float v0 = (float) (s0 / UV_BLOCKS_PER_TILE) + vScroll;
-      float v1 = (float) (s1 / UV_BLOCKS_PER_TILE) + vScroll;
-      float a0 = fadeAlpha(s0);
-      float a1 = fadeAlpha(s1);
-      if (a0 <= 0f && a1 <= 0f) continue;
+    ctx.submitNodeCollector()
+        .submitCustomGeometry(
+            poseStack,
+            renderType,
+            (pose, vc) -> {
+              for (int ring = 0; ring < AXIAL_RINGS; ring++) {
+                double s0 = AXIS_LENGTH * ring / AXIAL_RINGS;
+                double s1 = AXIS_LENGTH * (ring + 1) / AXIAL_RINGS;
+                Vec3 c0 = START.add(AXIS.scale(s0));
+                Vec3 c1 = START.add(AXIS.scale(s1));
+                float v0 = (float) (s0 / UV_BLOCKS_PER_TILE) + vScroll;
+                float v1 = (float) (s1 / UV_BLOCKS_PER_TILE) + vScroll;
+                float a0 = fadeAlpha(s0);
+                float a1 = fadeAlpha(s1);
+                if (a0 <= 0f && a1 <= 0f) continue;
 
-      for (int seg = 0; seg < AZIMUTH_SEGMENTS; seg++) {
-        int segNext = (seg + 1) % AZIMUTH_SEGMENTS;
-        double oxA = RADIUS * (COS[seg] * U_VEC.x + SIN[seg] * V_VEC.x);
-        double oyA = RADIUS * (COS[seg] * U_VEC.y + SIN[seg] * V_VEC.y);
-        double ozA = RADIUS * (COS[seg] * U_VEC.z + SIN[seg] * V_VEC.z);
-        double oxB = RADIUS * (COS[segNext] * U_VEC.x + SIN[segNext] * V_VEC.x);
-        double oyB = RADIUS * (COS[segNext] * U_VEC.y + SIN[segNext] * V_VEC.y);
-        double ozB = RADIUS * (COS[segNext] * U_VEC.z + SIN[segNext] * V_VEC.z);
+                for (int seg = 0; seg < AZIMUTH_SEGMENTS; seg++) {
+                  int segNext = (seg + 1) % AZIMUTH_SEGMENTS;
+                  double oxA = RADIUS * (COS[seg] * U_VEC.x + SIN[seg] * V_VEC.x);
+                  double oyA = RADIUS * (COS[seg] * U_VEC.y + SIN[seg] * V_VEC.y);
+                  double ozA = RADIUS * (COS[seg] * U_VEC.z + SIN[seg] * V_VEC.z);
+                  double oxB = RADIUS * (COS[segNext] * U_VEC.x + SIN[segNext] * V_VEC.x);
+                  double oyB = RADIUS * (COS[segNext] * U_VEC.y + SIN[segNext] * V_VEC.y);
+                  double ozB = RADIUS * (COS[segNext] * U_VEC.z + SIN[segNext] * V_VEC.z);
 
-        float u0 = (float) (seg / (double) AZIMUTH_SEGMENTS * UV_AZIMUTH_REPEAT);
-        float u1 = (float) ((seg + 1) / (double) AZIMUTH_SEGMENTS * UV_AZIMUTH_REPEAT);
+                  float u0 = (float) (seg / (double) AZIMUTH_SEGMENTS * UV_AZIMUTH_REPEAT);
+                  float u1 = (float) ((seg + 1) / (double) AZIMUTH_SEGMENTS * UV_AZIMUTH_REPEAT);
 
-        float xa0 = (float) (c0.x + oxA - camX);
-        float ya0 = (float) (c0.y + oyA - camY);
-        float za0 = (float) (c0.z + ozA - camZ);
-        float xb0 = (float) (c0.x + oxB - camX);
-        float yb0 = (float) (c0.y + oyB - camY);
-        float zb0 = (float) (c0.z + ozB - camZ);
-        float xa1 = (float) (c1.x + oxA - camX);
-        float ya1 = (float) (c1.y + oyA - camY);
-        float za1 = (float) (c1.z + ozA - camZ);
-        float xb1 = (float) (c1.x + oxB - camX);
-        float yb1 = (float) (c1.y + oyB - camY);
-        float zb1 = (float) (c1.z + ozB - camZ);
+                  float xa0 = (float) (c0.x + oxA - camX);
+                  float ya0 = (float) (c0.y + oyA - camY);
+                  float za0 = (float) (c0.z + ozA - camZ);
+                  float xb0 = (float) (c0.x + oxB - camX);
+                  float yb0 = (float) (c0.y + oyB - camY);
+                  float zb0 = (float) (c0.z + ozB - camZ);
+                  float xa1 = (float) (c1.x + oxA - camX);
+                  float ya1 = (float) (c1.y + oyA - camY);
+                  float za1 = (float) (c1.z + ozA - camZ);
+                  float xb1 = (float) (c1.x + oxB - camX);
+                  float yb1 = (float) (c1.y + oyB - camY);
+                  float zb1 = (float) (c1.z + ozB - camZ);
 
-        // Inside-facing winding (normals point toward the axis).
-        addVertex(vc, pose, xb0, yb0, zb0, u1, v0, a0, light, overlay);
-        addVertex(vc, pose, xa0, ya0, za0, u0, v0, a0, light, overlay);
-        addVertex(vc, pose, xa1, ya1, za1, u0, v1, a1, light, overlay);
-        addVertex(vc, pose, xb1, yb1, zb1, u1, v1, a1, light, overlay);
-      }
-    }
-    bufferSource.endBatch(renderType);
+                  // Inside-facing winding (normals point toward the axis).
+                  addVertex(vc, pose, xb0, yb0, zb0, u1, v0, a0, light, overlay);
+                  addVertex(vc, pose, xa0, ya0, za0, u0, v0, a0, light, overlay);
+                  addVertex(vc, pose, xa1, ya1, za1, u0, v1, a1, light, overlay);
+                  addVertex(vc, pose, xb1, yb1, zb1, u1, v1, a1, light, overlay);
+                }
+              }
+            });
 
     // Purple rings — shown through the purple phase, gone at the instant purple→red cut.
     if (purpleA > 0f) {
-      drawPurpleRings(pose, bufferSource, camX, camY, camZ, purpleA, seconds);
+      ctx.submitNodeCollector()
+          .submitCustomGeometry(
+              poseStack,
+              RenderTypes.eyes(SCREEN_TEXTURE),
+              (pose, vc) -> drawPurpleRings(vc, pose, camX, camY, camZ, purpleA, seconds));
     }
     // Stars — persist through both phases, but stars whose angle falls under a red stripe fade
     // out as the red phase comes in (redA), so no stars show on the stripes.
-    drawStars(pose, bufferSource, camX, camY, camZ, 1f, seconds, redA);
+    ctx.submitNodeCollector()
+        .submitCustomGeometry(
+            poseStack,
+            RenderTypes.eyes(STAR_TEXTURE),
+            (pose, vc) -> drawStars(vc, pose, camX, camY, camZ, 1f, seconds, redA));
     // Red phase — thin solid-red stripes radiating around the wall, gaps left black.
     if (redA > 0f) {
-      drawWedgePanels(pose, bufferSource, camX, camY, camZ, redA, seconds);
+      ctx.submitNodeCollector()
+          .submitCustomGeometry(
+              poseStack,
+              RenderTypes.eyes(SCREEN_TEXTURE),
+              (pose, vc) -> drawWedgePanels(vc, pose, camX, camY, camZ, redA, seconds));
     }
   }
 
@@ -414,8 +425,8 @@ public final class SpaceMountainTunnelRenderer {
    * for both rotations rather than cancelling them.
    */
   private static void drawStars(
+      VertexConsumer vc,
       PoseStack.Pose pose,
-      BufferSource bufferSource,
       float camX,
       float camY,
       float camZ,
@@ -424,9 +435,7 @@ public final class SpaceMountainTunnelRenderer {
       float redA) {
     if (alphaMul <= 0f) return;
     double starRadius = RADIUS - STAR_INSET;
-    RenderType starType = RenderTypes.eyes(STAR_TEXTURE);
-    VertexConsumer vc = bufferSource.getBuffer(starType);
-    int light = LightTexture.FULL_BRIGHT;
+    int light = LightCoordsUtil.FULL_BRIGHT;
     int overlay = OverlayTexture.NO_OVERLAY;
     float h = STAR_HALF_SIZE;
     double ax = AXIS.x, ay = AXIS.y, az = AXIS.z;
@@ -485,7 +494,6 @@ public final class SpaceMountainTunnelRenderer {
       addQuadVertex(vc, pose, trX, trY, trZ, 1f, 1f, starAlpha, light, overlay);
       addQuadVertex(vc, pose, brX, brY, brZ, 1f, 0f, starAlpha, light, overlay);
     }
-    bufferSource.endBatch(starType);
   }
 
   /**
@@ -495,8 +503,8 @@ public final class SpaceMountainTunnelRenderer {
    * endpoints so the scroll wrap is never visible as a pop.
    */
   private static void drawPurpleRings(
+      VertexConsumer vc,
       PoseStack.Pose pose,
-      BufferSource bufferSource,
       float camX,
       float camY,
       float camZ,
@@ -504,9 +512,7 @@ public final class SpaceMountainTunnelRenderer {
       double seconds) {
     if (alpha <= 0f) return;
     double ringRadius = RADIUS - RING_INSET;
-    RenderType type = RenderTypes.eyes(SCREEN_TEXTURE);
-    VertexConsumer vc = bufferSource.getBuffer(type);
-    int light = LightTexture.FULL_BRIGHT;
+    int light = LightCoordsUtil.FULL_BRIGHT;
     int overlay = OverlayTexture.NO_OVERLAY;
 
     // scroll wraps within one RING_SPACING; numRings covers the tunnel plus a margin so a ring is
@@ -523,7 +529,6 @@ public final class SpaceMountainTunnelRenderer {
         drawRingBand(vc, pose, sCenter, ringRadius, bandAlpha, camX, camY, camZ, light, overlay);
       }
     }
-    bufferSource.endBatch(type);
   }
 
   /** One thin purple band wrapping the circumference at axial position {@code sCenter}. */
@@ -626,8 +631,8 @@ public final class SpaceMountainTunnelRenderer {
   }
 
   private static void drawWedgePanels(
+      VertexConsumer vc,
       PoseStack.Pose pose,
-      BufferSource bufferSource,
       float camX,
       float camY,
       float camZ,
@@ -635,9 +640,7 @@ public final class SpaceMountainTunnelRenderer {
       double seconds) {
     if (alpha <= 0f) return;
     double r = RADIUS - WEDGE_INSET;
-    RenderType type = RenderTypes.eyes(SCREEN_TEXTURE);
-    VertexConsumer vc = bufferSource.getBuffer(type);
-    int light = LightTexture.FULL_BRIGHT;
+    int light = LightCoordsUtil.FULL_BRIGHT;
     int overlay = OverlayTexture.NO_OVERLAY;
     double rotation = Math.toRadians(WEDGE_ROTATION_DEG_PER_SEC) * seconds;
     double slot = (Math.PI * 2.0) / WEDGE_COUNT;
@@ -685,7 +688,6 @@ public final class SpaceMountainTunnelRenderer {
         }
       }
     }
-    bufferSource.endBatch(type);
   }
 
   private static void addColorVertex(

@@ -13,7 +13,7 @@
   "config.not-riding-alert.group.strategyHub": "Strategy Hub",
   "config.not-riding-alert.spaceMountainGroup": "Space Mountain",
   "config.not-riding-alert.spaceMountainEnhancements": "Space Mountain Enhancements",
-  "config.not-riding-alert.spaceMountainEnhancements.tooltip": "Master toggle for all Space Mountain / Hyperspace Mountain client modifications: the dome cleanup, tunnel screen effect, coaster track, dome starfield, and hidden show props. Turn off to ride with vanilla visuals.",
+  "config.not-riding-alert.spaceMountainEnhancements.tooltip": "Master toggle for all Space Mountain / Hyperspace Mountain client modifications: the dome cleanup, tunnel screen effect, coaster track, dome starfield, and hidden show props. Requires SmoothCoasters; without it, the ride stays fully vanilla.",
   "config.not-riding-alert.coasterTiltMultiplier": "Coaster Tilt",
   "config.not-riding-alert.coasterTiltMultiplier.tooltip": "Scales the camera lean SmoothCoasters applies in coaster turns. 1.00× is the unchanged stock tilt; 2.00× doubles the lean for a more intense ride; below 1.00× eases it off, and 0.00× rides level. Applies to every coaster SmoothCoasters tilts. Read live, so the slider is the tuning knob. (No effect without the SmoothCoasters mod.)",
   "config.not-riding-alert.globalEnable": "Enable the mod",

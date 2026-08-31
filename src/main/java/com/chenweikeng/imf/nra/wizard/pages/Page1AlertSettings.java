@@ -10,6 +10,7 @@ import java.util.List;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.resources.language.I18n;
+import net.minecraft.locale.Language;
 import net.minecraft.network.chat.ClickEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
@@ -172,7 +173,7 @@ public class Page1AlertSettings extends WizardPage {
       }
     }
     String subtitleKey = "subtitles." + currentId;
-    if (I18n.exists(subtitleKey)) {
+    if (Language.getInstance().has(subtitleKey)) {
       return capitalizeEachWord(I18n.get(subtitleKey));
     }
     return "minecraft:" + currentId;

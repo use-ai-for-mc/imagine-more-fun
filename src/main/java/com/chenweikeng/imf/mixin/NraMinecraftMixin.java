@@ -11,10 +11,19 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(Minecraft.class)
 public class NraMinecraftMixin {
-  @Inject(method = "setWindowActive", at = @At("HEAD"), cancellable = true)
-  private void imf$onSetWindowActive(boolean bl, CallbackInfo ci) {
+  /**
+   * Keep the game from opening its pause screen when IMF deliberately releases the cursor during a
+   * ride. Window focus itself must still be recorded by vanilla: Minecraft 26.2's TextInputManager
+   * relies on Window.isFocused() to stop changing the system IME after the user switches to another
+   * application.
+   */
+  @Inject(
+      method = "pauseIfInactive",
+      at = @At(value = "INVOKE", target = "Lnet/minecraft/client/Minecraft;pauseGame(Z)V"),
+      cancellable = true)
+  private void imf$suppressPauseAfterAutomaticCursorRelease(CallbackInfo ci) {
     GameState state = GameState.getInstance();
-    if (!bl && (state.isAutomaticallyReleasedCursor() || state.isWithinWindowRestoreGrace())) {
+    if (state.isAutomaticallyReleasedCursor() || state.isWithinWindowRestoreGrace()) {
       ci.cancel();
     }
   }
@@ -30,11 +39,11 @@ public class NraMinecraftMixin {
       return;
     }
     Minecraft client = (Minecraft) (Object) this;
-    if (client.player == null || client.screen != null) {
+    if (client.player == null || client.gui.screen() != null) {
       return;
     }
     while (client.options.keyAdvancements.consumeClick()) {
-      client.setScreen(RideReportScreen.createLive(null));
+      client.setScreenAndShow(RideReportScreen.createLive(null));
     }
   }
 }

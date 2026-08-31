@@ -18,6 +18,7 @@ import com.chenweikeng.imf.nra.handler.ConfigReminderHandler;
 import com.chenweikeng.imf.nra.handler.DayTimeHandler;
 import com.chenweikeng.imf.nra.handler.FireworkViewingHandler;
 import com.chenweikeng.imf.nra.handler.HibernationHandler;
+import com.chenweikeng.imf.nra.handler.ImagineFunWindowIconHandler;
 import com.chenweikeng.imf.nra.handler.MonkeycraftAutograbOverlayRenderer;
 import com.chenweikeng.imf.nra.handler.ReminderHandler;
 import com.chenweikeng.imf.nra.handler.ScoreboardHandler;
@@ -50,15 +51,14 @@ import com.chenweikeng.imf.nra.wizard.WizardScreen;
 import com.mojang.brigadier.CommandDispatcher;
 import java.util.concurrent.CompletableFuture;
 import net.fabricmc.api.ClientModInitializer;
-import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
+import net.fabricmc.fabric.api.client.command.v2.ClientCommands;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
 import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
-import net.fabricmc.fabric.api.client.rendering.v1.world.WorldRenderEvents;
 import net.minecraft.client.Minecraft;
 import net.minecraft.resources.Identifier;
 import org.slf4j.Logger;
@@ -98,6 +98,7 @@ public class NotRidingAlertClient implements ClientModInitializer {
     ClientPlayConnectionEvents.JOIN.register(
         (handler, sender, client) -> {
           ServerState.onJoin(client);
+          ImagineFunWindowIconHandler.onJoin(client);
           client.execute(RidePlanNudge::showMessageIfPending);
           if (ServerState.isImagineFunServer()) {
             RideStatsSourceCoordinator.onJoin(client);
@@ -112,8 +113,8 @@ public class NotRidingAlertClient implements ClientModInitializer {
               && TutorialManager.getInstance().shouldStartTutorial()) {
             client.execute(
                 () -> {
-                  if (client.screen == null) {
-                    client.setScreen(new WizardScreen());
+                  if (client.gui.screen() == null) {
+                    client.setScreenAndShow(new WizardScreen());
                   }
                 });
           }
@@ -121,6 +122,7 @@ public class NotRidingAlertClient implements ClientModInitializer {
 
     ClientPlayConnectionEvents.DISCONNECT.register(
         (handler, client) -> {
+          ImagineFunWindowIconHandler.onDisconnect(client);
           RideStatsSourceCoordinator.onDisconnect();
           SessionTracker.getInstance().onSessionEnd();
           OpenAudioMcService.getInstance().onLeaveServer();
@@ -140,14 +142,6 @@ public class NotRidingAlertClient implements ClientModInitializer {
           registerNraCommand(dispatcher);
           registerOaCommand(dispatcher);
           registerRideReportCommand(dispatcher);
-        });
-
-    WorldRenderEvents.AFTER_ENTITIES.register(
-        context -> {
-          if (!ServerState.isImagineFunServer()) {
-            return;
-          }
-          AutograbRegionRenderer.render(context);
         });
 
     Identifier beforeChatId =
@@ -300,32 +294,32 @@ public class NotRidingAlertClient implements ClientModInitializer {
 
   private static void registerNraCommand(CommandDispatcher<FabricClientCommandSource> dispatcher) {
     dispatcher.register(
-        ClientCommandManager.literal("imf")
+        ClientCommands.literal("imf")
             .executes(
                 context -> {
                   Minecraft client = Minecraft.getInstance();
                   client.execute(
                       () -> {
-                        client.setScreen(new ProfileManagementScreen(client.screen));
+                        client.setScreenAndShow(new ProfileManagementScreen(client.gui.screen()));
                       });
                   return 1;
                 })
             .then(
-                ClientCommandManager.literal("setup")
+                ClientCommands.literal("setup")
                     .executes(
                         context -> {
                           TutorialManager.getInstance().resetTutorial();
                           Minecraft client = Minecraft.getInstance();
                           client.execute(
                               () -> {
-                                client.setScreen(new WizardScreen());
+                                client.setScreenAndShow(new WizardScreen());
                               });
                           return 1;
                         }))
             .then(
-                ClientCommandManager.literal("profile")
+                ClientCommands.literal("profile")
                     .then(
-                        ClientCommandManager.argument(
+                        ClientCommands.argument(
                                 "profileName",
                                 com.mojang.brigadier.arguments.StringArgumentType.greedyString())
                             .suggests(
@@ -349,16 +343,16 @@ public class NotRidingAlertClient implements ClientModInitializer {
 
   private static void registerOaCommand(CommandDispatcher<FabricClientCommandSource> dispatcher) {
     dispatcher.register(
-        ClientCommandManager.literal("oa")
+        ClientCommands.literal("oa")
             .then(
-                ClientCommandManager.literal("connect")
+                ClientCommands.literal("connect")
                     .executes(
                         context -> {
                           OpenAudioMcService.getInstance().connectViaCommand();
                           return 1;
                         }))
             .then(
-                ClientCommandManager.literal("disconnect")
+                ClientCommands.literal("disconnect")
                     .executes(
                         context -> {
                           CompletableFuture.runAsync(
@@ -366,14 +360,14 @@ public class NotRidingAlertClient implements ClientModInitializer {
                           return 1;
                         }))
             .then(
-                ClientCommandManager.literal("reconnect")
+                ClientCommands.literal("reconnect")
                     .executes(
                         context -> {
                           OpenAudioMcService.getInstance().reconnectWithFallback();
                           return 1;
                         }))
             .then(
-                ClientCommandManager.literal("volume")
+                ClientCommands.literal("volume")
                     .executes(
                         context -> {
                           OpenAudioMcService service = OpenAudioMcService.getInstance();
@@ -388,10 +382,11 @@ public class NotRidingAlertClient implements ClientModInitializer {
                                 () ->
                                     client
                                         .gui
-                                        .getChat()
-                                        .addMessage(
+                                        .chatListener()
+                                        .handleSystemMessage(
                                             net.minecraft.network.chat.Component.literal(
-                                                "\u00A76\u2728 \u00A7e[IMF] \u00A7f" + msg)));
+                                                "\u00A76\u2728 \u00A7e[IMF] \u00A7f" + msg),
+                                            false));
                           }
                           return 1;
                         })));
@@ -400,7 +395,7 @@ public class NotRidingAlertClient implements ClientModInitializer {
   private static void registerRideReportCommand(
       CommandDispatcher<FabricClientCommandSource> dispatcher) {
     dispatcher.register(
-        ClientCommandManager.literal("ridereport")
+        ClientCommands.literal("ridereport")
             .executes(
                 context -> {
                   Minecraft client = Minecraft.getInstance();
@@ -415,12 +410,12 @@ public class NotRidingAlertClient implements ClientModInitializer {
                             return;
                           }
                         }
-                        client.setScreen(RideReportScreen.createLive(client.screen));
+                        client.setScreenAndShow(RideReportScreen.createLive(client.gui.screen()));
                       });
                   return 1;
                 })
             .then(
-                ClientCommandManager.argument(
+                ClientCommands.argument(
                         "date", com.mojang.brigadier.arguments.StringArgumentType.word())
                     .executes(
                         context -> {
@@ -439,7 +434,8 @@ public class NotRidingAlertClient implements ClientModInitializer {
                                     return;
                                   }
                                 }
-                                client.setScreen(new RideReportScreen(client.screen, date));
+                                client.setScreenAndShow(
+                                    new RideReportScreen(client.gui.screen(), date));
                               });
                           return 1;
                         })));

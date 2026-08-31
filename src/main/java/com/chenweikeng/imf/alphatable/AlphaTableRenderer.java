@@ -4,7 +4,7 @@ import com.chenweikeng.imf.mixin.ImfScreenInvoker;
 import java.net.URI;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.network.chat.ClickEvent;
@@ -69,7 +69,7 @@ public final class AlphaTableRenderer {
 
   /** Called from the {@code AbstractContainerScreen} render TAIL hook. */
   public static void renderIfVisible(
-      GuiGraphics guiGraphics,
+      GuiGraphicsExtractor guiGraphics,
       Screen screen,
       int containerLeft,
       int containerTop,
@@ -119,7 +119,11 @@ public final class AlphaTableRenderer {
   }
 
   private static void render(
-      GuiGraphics guiGraphics, Font font, int screenWidth, int screenHeight, int containerRight) {
+      GuiGraphicsExtractor guiGraphics,
+      Font font,
+      int screenWidth,
+      int screenHeight,
+      int containerRight) {
     String[] lines = new String[LETTER_COUNT];
     int maxCellWidth = 0;
     for (int i = 0; i < LETTER_COUNT; i++) {
@@ -176,8 +180,7 @@ public final class AlphaTableRenderer {
           break;
         }
         int textX = gridContentX + col * (maxCellWidth + COLUMN_GAP);
-        guiGraphics.drawString(
-            font, lines[idx], textX, gridY + row * lineHeight, TEXT_COLOR, false);
+        guiGraphics.text(font, lines[idx], textX, gridY + row * lineHeight, TEXT_COLOR, false);
       }
     }
 
@@ -187,7 +190,7 @@ public final class AlphaTableRenderer {
     int linkX = x + (tableWidth - linksTotalWidth) / 2;
     for (int i = 0; i < LINKS.length; i++) {
       int width = linkWidths[i];
-      guiGraphics.drawString(font, LINKS[i].component(), linkX, linkY, TEXT_COLOR, false);
+      guiGraphics.text(font, LINKS[i].component(), linkX, linkY, TEXT_COLOR, false);
       LINK_RECTS[i][0] = linkX;
       LINK_RECTS[i][1] = linkY;
       LINK_RECTS[i][2] = linkX + width;

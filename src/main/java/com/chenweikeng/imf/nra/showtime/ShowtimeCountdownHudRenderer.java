@@ -6,7 +6,7 @@ import com.chenweikeng.imf.nra.showtime.ShowtimeCountdownController.CountdownSna
 import com.chenweikeng.imf.nra.util.TimeFormatUtil;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 /** Draws the active show countdown just left of the crosshair. */
 public final class ShowtimeCountdownHudRenderer {
@@ -19,7 +19,7 @@ public final class ShowtimeCountdownHudRenderer {
 
   private ShowtimeCountdownHudRenderer() {}
 
-  public static void render(GuiGraphics context, DeltaTracker tickCounter) {
+  public static void render(GuiGraphicsExtractor context, DeltaTracker tickCounter) {
     if (!ServerState.isImagineFunServer()) {
       return;
     }
@@ -56,8 +56,7 @@ public final class ShowtimeCountdownHudRenderer {
 
     int textX = boxX + PADDING;
     int textY = boxY + PADDING;
-    context.drawString(client.font, label, textX, textY, LABEL_COLOR, true);
-    context.drawString(
-        client.font, value, textX + client.font.width(label), textY, valueColor, true);
+    context.text(client.font, label, textX, textY, LABEL_COLOR, true);
+    context.text(client.font, value, textX + client.font.width(label), textY, valueColor, true);
   }
 }

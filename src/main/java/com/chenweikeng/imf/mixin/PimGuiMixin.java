@@ -6,8 +6,8 @@ import com.chenweikeng.imf.pim.screen.PinDetailHandler;
 import com.chenweikeng.imf.pim.screen.PinRarityHandler;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.Gui;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.Hud;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import org.spongepowered.asm.mixin.Mixin;
@@ -16,13 +16,13 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(Gui.class)
+@Mixin(Hud.class)
 public class PimGuiMixin {
   @Shadow private Minecraft minecraft;
 
-  @Inject(at = @At("HEAD"), method = "renderSlot", cancellable = true)
+  @Inject(at = @At("HEAD"), method = "extractSlot", cancellable = true)
   private void imf$onRenderSlot(
-      GuiGraphics guiGraphics,
+      GuiGraphicsExtractor guiGraphics,
       int i,
       int j,
       DeltaTracker deltaTracker,
@@ -90,7 +90,7 @@ public class PimGuiMixin {
   }
 
   private void imf$renderSlotWithColor(
-      GuiGraphics guiGraphics,
+      GuiGraphicsExtractor guiGraphics,
       int i,
       int j,
       DeltaTracker deltaTracker,
@@ -112,7 +112,7 @@ public class PimGuiMixin {
       guiGraphics.pose().translate(-(i + 8), -(j + 12));
     }
 
-    guiGraphics.renderItem(player, itemStack, i, j, k);
+    guiGraphics.item(player, itemStack, i, j, k);
 
     if (f > 0.0F) {
       guiGraphics.pose().popMatrix();
@@ -122,6 +122,6 @@ public class PimGuiMixin {
       guiGraphics.fill(i, j, i + 16, j + 16, fillAfterColor);
     }
 
-    guiGraphics.renderItemDecorations(this.minecraft.font, itemStack, i, j);
+    guiGraphics.itemDecorations(this.minecraft.font, itemStack, i, j);
   }
 }

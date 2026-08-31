@@ -226,7 +226,7 @@ public final class RideReportChatRenderer {
   }
 
   private static void sendLine(Minecraft client, Component component) {
-    client.player.displayClientMessage(component, false);
+    client.player.sendSystemMessage(component);
   }
 
   private static String formatDateFriendly(String dateStr) {

@@ -2,7 +2,7 @@ package com.chenweikeng.imf.nra.wizard.layout;
 
 import java.util.List;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 public record ColumnBlock(List<RenderBlock> blocks) implements RenderBlock {
 
@@ -16,7 +16,7 @@ public record ColumnBlock(List<RenderBlock> blocks) implements RenderBlock {
   }
 
   @Override
-  public void render(GuiGraphics graphics, int x, int y, int width, Minecraft client) {
+  public void render(GuiGraphicsExtractor graphics, int x, int y, int width, Minecraft client) {
     int currentY = y;
     for (RenderBlock block : blocks) {
       int blockHeight = block.getHeight(width, client);

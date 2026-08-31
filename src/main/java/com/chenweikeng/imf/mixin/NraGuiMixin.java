@@ -11,8 +11,8 @@ import java.util.List;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.Gui;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.gui.Hud;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.FontDescription;
 import net.minecraft.network.chat.MutableComponent;
@@ -28,7 +28,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-@Mixin(Gui.class)
+@Mixin(Hud.class)
 public abstract class NraGuiMixin {
   @Shadow @Final private Minecraft minecraft;
 
@@ -40,10 +40,10 @@ public abstract class NraGuiMixin {
   @Inject(
       at = @At("HEAD"),
       method =
-          "displayScoreboardSidebar(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/world/scores/Objective;)V",
+          "displayScoreboardSidebar(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/world/scores/Objective;)V",
       cancellable = true)
   private void imf$onRenderScoreboardSidebar(
-      GuiGraphics context, Objective objective, CallbackInfo ci) {
+      GuiGraphicsExtractor context, Objective objective, CallbackInfo ci) {
     if (!NotRidingAlertClient.isImagineFunServer()) {
       return;
     }
@@ -55,9 +55,10 @@ public abstract class NraGuiMixin {
   @Inject(
       at = @At("HEAD"),
       method =
-          "renderChat(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/client/DeltaTracker;)V",
+          "extractChat(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/DeltaTracker;)V",
       cancellable = true)
-  private void imf$onRenderChat(GuiGraphics context, DeltaTracker tickCounter, CallbackInfo ci) {
+  private void imf$onRenderChat(
+      GuiGraphicsExtractor context, DeltaTracker tickCounter, CallbackInfo ci) {
     if (!NotRidingAlertClient.isImagineFunServer()) {
       return;
     }
@@ -66,8 +67,8 @@ public abstract class NraGuiMixin {
     }
   }
 
-  @Inject(at = @At("HEAD"), method = "renderPlayerHealth", cancellable = true)
-  private void imf$onRenderPlayerHealth(GuiGraphics guiGraphics, CallbackInfo ci) {
+  @Inject(at = @At("HEAD"), method = "extractPlayerHealth", cancellable = true)
+  private void imf$onRenderPlayerHealth(GuiGraphicsExtractor guiGraphics, CallbackInfo ci) {
     if (!NotRidingAlertClient.isImagineFunServer()) {
       return;
     }
@@ -76,8 +77,8 @@ public abstract class NraGuiMixin {
     }
   }
 
-  @Inject(at = @At("HEAD"), method = "renderVehicleHealth", cancellable = true)
-  private void imf$onRenderVehicleHealth(GuiGraphics guiGraphics, CallbackInfo ci) {
+  @Inject(at = @At("HEAD"), method = "extractVehicleHealth", cancellable = true)
+  private void imf$onRenderVehicleHealth(GuiGraphicsExtractor guiGraphics, CallbackInfo ci) {
     if (!NotRidingAlertClient.isImagineFunServer()) {
       return;
     }
@@ -86,9 +87,9 @@ public abstract class NraGuiMixin {
     }
   }
 
-  @Inject(at = @At("HEAD"), method = "renderItemHotbar", cancellable = true)
+  @Inject(at = @At("HEAD"), method = "extractItemHotbar", cancellable = true)
   private void imf$onRenderItemHotbar(
-      GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
+      GuiGraphicsExtractor guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
     if (!NotRidingAlertClient.isImagineFunServer()) {
       return;
     }
@@ -102,20 +103,26 @@ public abstract class NraGuiMixin {
           @At(
               value = "INVOKE",
               target =
-                  "Lnet/minecraft/client/gui/contextualbar/ContextualBarRenderer;renderExperienceLevel(Lnet/minecraft/client/gui/GuiGraphics;Lnet/minecraft/client/gui/Font;I)V"),
-      method = "renderHotbarAndDecorations")
+                  "Lnet/minecraft/client/gui/contextualbar/ContextualBar;extractExperienceLevel(Lnet/minecraft/client/gui/GuiGraphicsExtractor;Lnet/minecraft/client/gui/Font;I)V"),
+      method = "extractHotbarAndDecorations")
   private void imf$redirectRenderExperienceLevel(
-      GuiGraphics guiGraphics, net.minecraft.client.gui.Font font, int level) {
+      GuiGraphicsExtractor guiGraphics, net.minecraft.client.gui.Font font, int level) {
     if (!NotRidingAlertClient.isImagineFunServer()
         || !ModConfig.currentSetting.hideExperienceLevel) {
-      net.minecraft.client.gui.contextualbar.ContextualBarRenderer.renderExperienceLevel(
-          guiGraphics, font, level);
+      Component text = Component.translatable("gui.experience.level", level);
+      int x = (guiGraphics.guiWidth() - font.width(text)) / 2;
+      int y = guiGraphics.guiHeight() - 24 - 9 - 2;
+      guiGraphics.text(font, text, x + 1, y, 0xFF000000, false);
+      guiGraphics.text(font, text, x - 1, y, 0xFF000000, false);
+      guiGraphics.text(font, text, x, y + 1, 0xFF000000, false);
+      guiGraphics.text(font, text, x, y - 1, 0xFF000000, false);
+      guiGraphics.text(font, text, x, y, 0xFF80FF20, false);
     }
   }
 
-  @Inject(at = @At("HEAD"), method = "renderCrosshair", cancellable = true)
+  @Inject(at = @At("HEAD"), method = "extractCrosshair", cancellable = true)
   private void imf$onRenderCrosshair(
-      GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
+      GuiGraphicsExtractor guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
     if (!NotRidingAlertClient.isImagineFunServer()) {
       return;
     }
@@ -144,9 +151,9 @@ public abstract class NraGuiMixin {
     ci.cancel();
   }
 
-  @Inject(at = @At("HEAD"), method = "renderTitle", cancellable = true)
+  @Inject(at = @At("HEAD"), method = "extractTitle", cancellable = true)
   private void imf$onRenderTitle(
-      GuiGraphics guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
+      GuiGraphicsExtractor guiGraphics, DeltaTracker deltaTracker, CallbackInfo ci) {
     if (!NotRidingAlertClient.isImagineFunServer()) {
       return;
     }
@@ -207,7 +214,7 @@ public abstract class NraGuiMixin {
         net.minecraft.util.FormattedCharSequence lineShadow = linesShadow.get(i);
         int lineWidth = font.width(lineShadow);
         int x = -lineWidth / 2;
-        guiGraphics.drawString(font, lineShadow, x, startY, shadowColor, false);
+        guiGraphics.text(font, lineShadow, x, startY, shadowColor, false);
         startY += lineHeight + lineSpacing;
       }
 
@@ -225,7 +232,7 @@ public abstract class NraGuiMixin {
       net.minecraft.util.FormattedCharSequence line = lines.get(i);
       int lineWidth = font.width(line);
       int x = -lineWidth / 2;
-      guiGraphics.drawString(font, line, x, startY, textColor, false);
+      guiGraphics.text(font, line, x, startY, textColor, false);
       startY += lineHeight + lineSpacing;
     }
 

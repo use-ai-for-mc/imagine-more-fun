@@ -62,6 +62,6 @@ public abstract class SkinCacheClientChunkCacheMixin {
   @Inject(method = "drop(Lnet/minecraft/world/level/ChunkPos;)V", at = @At("HEAD"))
   private void skincache$onChunkUnload(ChunkPos pos, CallbackInfo ci) {
     String worldName = this.level.dimension().identifier().toString();
-    PrewarmRegistry.invalidateChunk(worldName, pos.x, pos.z);
+    PrewarmRegistry.invalidateChunk(worldName, pos.x(), pos.z());
   }
 }

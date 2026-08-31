@@ -15,7 +15,7 @@ import java.util.Map;
 import java.util.UUID;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.BossHealthOverlay;
 import net.minecraft.client.gui.components.LerpingBossEvent;
 
@@ -57,7 +57,7 @@ public class StrategyHudRendererV1 {
 
   // ---- render ----
 
-  public static void render(GuiGraphics context, DeltaTracker tickCounter) {
+  public static void render(GuiGraphicsExtractor context, DeltaTracker tickCounter) {
     if (!NotRidingAlertClient.isImagineFunServer()) {
       return;
     }
@@ -68,7 +68,7 @@ public class StrategyHudRendererV1 {
     }
 
     // Suppress when a vanilla boss bar is visible.
-    BossHealthOverlay bossOverlay = client.gui.getBossOverlay();
+    BossHealthOverlay bossOverlay = client.gui.hud.getBossOverlay();
     Map<UUID, LerpingBossEvent> bossEvents =
         ((NraBossHealthOverlayAccessor) bossOverlay).getEvents();
     if (bossEvents != null && !bossEvents.isEmpty()) {
@@ -155,7 +155,7 @@ public class StrategyHudRendererV1 {
     int y = yStart + 2;
 
     if (hasError) {
-      context.drawString(client.font, "ERROR: " + currentError, xLeft, y, errorColor, false);
+      context.text(client.font, "ERROR: " + currentError, xLeft, y, errorColor, false);
       y += lineHeight;
     }
 
@@ -217,7 +217,7 @@ public class StrategyHudRendererV1 {
   // ---- V1-specific helpers ----
 
   private static void renderColumn(
-      GuiGraphics context,
+      GuiGraphicsExtractor context,
       Minecraft client,
       List<RideGoal> goals,
       RideName currentRide,
@@ -253,7 +253,7 @@ public class StrategyHudRendererV1 {
   }
 
   private static void renderColumnRight(
-      GuiGraphics context,
+      GuiGraphicsExtractor context,
       Minecraft client,
       List<RideGoal> goals,
       RideName currentRide,
@@ -289,7 +289,7 @@ public class StrategyHudRendererV1 {
   }
 
   private static void renderExtraRide(
-      GuiGraphics context,
+      GuiGraphicsExtractor context,
       Minecraft client,
       RideName ride,
       RideName currentRide,
@@ -318,11 +318,11 @@ public class StrategyHudRendererV1 {
     int color =
         StrategyHudBase.getColorForStatus(
             fr.getStatus(), colorNormal, colorRiding, colorAutograbbing, colorClosest);
-    context.drawString(client.font, text, x, y, color, false);
+    context.text(client.font, text, x, y, color, false);
   }
 
   private static void drawGoal(
-      GuiGraphics context,
+      GuiGraphicsExtractor context,
       Minecraft client,
       RideGoal goal,
       RideName currentRide,
@@ -345,7 +345,7 @@ public class StrategyHudRendererV1 {
         StrategyHudBase.getColorForStatus(
             fr.getStatus(), colorNormal, colorRiding, colorAutograbbing, colorClosest);
     int drawX = alignRight ? x - client.font.width(text) : x;
-    context.drawString(client.font, text, drawX, y, color, false);
+    context.text(client.font, text, drawX, y, color, false);
   }
 
   // ---- V1-specific layout (always two columns) ----

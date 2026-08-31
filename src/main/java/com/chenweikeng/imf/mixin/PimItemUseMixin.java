@@ -121,10 +121,9 @@ public class PimItemUseMixin {
 
       if (player != null) {
         player.connection.sendCommand("w pin");
-        player.displayClientMessage(
+        player.sendSystemMessage(
             Component.literal(
-                "§6✨ §e[IMF] §fAll pin traders visited! Returning to Westward Ho Trading Company."),
-            false);
+                "§6✨ §e[IMF] §fAll pin traders visited! Returning to Westward Ho Trading Company."));
         BossBarTracker.getInstance().disable();
         PimState.setEnabled(false);
         PimState.resetWarpPoint();
@@ -143,8 +142,7 @@ public class PimItemUseMixin {
 
       PimState.setActiveWarpPoint(warpPoint);
       player.connection.sendCommand("w " + warpPoint);
-      player.displayClientMessage(
-          Component.literal("§b➜ §e[IMF] §fWarping to §e" + locationName), false);
+      player.sendSystemMessage(Component.literal("§b➜ §e[IMF] §fWarping to §e" + locationName));
       PimClient.LOGGER.info("Pim: Warping to " + warpPoint);
       BossBarTracker.getInstance().enable();
       PimState.incrementWarpPoint();

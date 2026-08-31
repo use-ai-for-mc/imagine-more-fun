@@ -29,13 +29,13 @@ public final class ProfileCommandHandler {
       Component message =
           Component.literal("§6✨ §e[IMF] §fSwitched to profile: §e" + matchedProfile.name);
       if (client.player != null) {
-        client.player.displayClientMessage(message, false);
+        client.player.sendSystemMessage(message);
       }
       return 1;
     } else {
       Component message = Component.literal("§6✨ §e[IMF] §c⚠ Profile not found: §f" + profileName);
       if (client.player != null) {
-        client.player.displayClientMessage(message, false);
+        client.player.sendSystemMessage(message);
       }
       return 0;
     }

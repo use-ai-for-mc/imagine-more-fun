@@ -9,7 +9,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.function.Consumer;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.ObjectSelectionList;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
@@ -69,8 +69,8 @@ public class HistoryListWidget extends ObjectSelectionList<HistoryListWidget.Ent
     }
 
     @Override
-    public void renderContent(
-        GuiGraphics graphics, int mouseX, int mouseY, boolean hovered, float delta) {
+    public void extractContent(
+        GuiGraphicsExtractor graphics, int mouseX, int mouseY, boolean hovered, float delta) {
       boolean isSelected = getSelected() == this;
 
       int x = getContentX();
@@ -97,11 +97,11 @@ public class HistoryListWidget extends ObjectSelectionList<HistoryListWidget.Ent
       int textY = y + 4;
 
       String dateStr = formatDate(historyEntry.replacedAt);
-      graphics.drawString(minecraft.font, dateStr, textX, textY, DATE_COLOR, false);
+      graphics.text(minecraft.font, dateStr, textX, textY, DATE_COLOR, false);
 
       // Second line: brief diff description
       String desc = ConfigDiffSummary.describe(historyEntry.data);
-      graphics.drawString(minecraft.font, desc, textX, textY + 12, DESCRIPTION_COLOR, false);
+      graphics.text(minecraft.font, desc, textX, textY + 12, DESCRIPTION_COLOR, false);
 
       int totalButtonsWidth = BUTTON_WIDTH * 2 + BUTTON_SPACING;
       int buttonStartX = x + contentWidth - totalButtonsWidth - 4;

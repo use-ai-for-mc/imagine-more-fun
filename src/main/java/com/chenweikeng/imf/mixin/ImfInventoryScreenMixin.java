@@ -1,7 +1,7 @@
 package com.chenweikeng.imf.mixin;
 
 import com.chenweikeng.imf.pim.pinpack.PinPackOverlayRenderer;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
@@ -22,9 +22,13 @@ public abstract class ImfInventoryScreenMixin extends AbstractContainerScreen<In
     super(null, null, null);
   }
 
-  @Inject(at = @At("TAIL"), method = "render")
+  @Inject(at = @At("TAIL"), method = "extractRenderState")
   public void imf$renderPinPackOverlay(
-      GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTick, CallbackInfo ci) {
+      GuiGraphicsExtractor guiGraphics,
+      int mouseX,
+      int mouseY,
+      float partialTick,
+      CallbackInfo ci) {
     PinPackOverlayRenderer.renderIfVisible(
         guiGraphics,
         (Screen) (Object) this,

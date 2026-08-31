@@ -8,7 +8,7 @@ import com.chenweikeng.imf.nra.wizard.layout.VerticalAlignment;
 import java.util.List;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.ActiveTextCollector;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -305,12 +305,13 @@ public class WizardScreen extends Screen {
   }
 
   @Override
-  public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
+  public void extractRenderState(
+      GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
     if (currentPage != null && nextButton.visible == false && currentPage.readyToGoNext()) {
       Minecraft client = Minecraft.getInstance();
       client.execute(
           () -> {
-            client.setScreen(new WizardScreen(currentPageIndex));
+            client.setScreenAndShow(new WizardScreen(currentPageIndex));
           });
     }
 
@@ -319,19 +320,19 @@ public class WizardScreen extends Screen {
     renderBlocks(graphics);
     renderFooter(graphics);
 
-    super.render(graphics, mouseX, mouseY, delta);
+    super.extractRenderState(graphics, mouseX, mouseY, delta);
   }
 
-  private void renderHeader(GuiGraphics graphics) {
+  private void renderHeader(GuiGraphicsExtractor graphics) {
     graphics.fill(0, 0, width, HEADER_HEIGHT, HEADER_BG_COLOR);
 
     if (currentPage != null) {
-      graphics.drawCenteredString(
+      graphics.centeredText(
           font, currentPage.getTitle(), width / 2, (HEADER_HEIGHT - 8) / 2, TITLE_COLOR);
     }
   }
 
-  private void renderBlocks(GuiGraphics graphics) {
+  private void renderBlocks(GuiGraphicsExtractor graphics) {
     if (currentPage == null) {
       return;
     }
@@ -354,12 +355,12 @@ public class WizardScreen extends Screen {
     graphics.disableScissor();
   }
 
-  private void renderFooter(GuiGraphics graphics) {
+  private void renderFooter(GuiGraphicsExtractor graphics) {
     int footerY = height - FOOTER_HEIGHT;
     graphics.fill(0, footerY, width, height, FOOTER_BG_COLOR);
   }
 
-  private void renderDarkBackground(GuiGraphics graphics) {
+  private void renderDarkBackground(GuiGraphicsExtractor graphics) {
     graphics.fill(0, 0, this.width, this.height, 0xCC000000);
   }
 

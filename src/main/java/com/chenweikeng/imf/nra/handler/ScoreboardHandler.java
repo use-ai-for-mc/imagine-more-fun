@@ -143,14 +143,15 @@ public class ScoreboardHandler {
                                 .withClickEvent(new ClickEvent.RunCommand("imf"))))
             .append(Component.literal("§f later if you want."));
 
-    client.player.displayClientMessage(message, false);
+    client.player.sendSystemMessage(message);
   }
 
   private Objective getDisplayObjective(Scoreboard scoreboard, Minecraft client) {
     Objective objective = null;
     PlayerTeam playerTeam = scoreboard.getPlayersTeam(client.player.getScoreboardName());
     if (playerTeam != null) {
-      DisplaySlot displaySlot = DisplaySlot.teamColorToSlot(playerTeam.getColor());
+      DisplaySlot displaySlot =
+          playerTeam.getColor().map(color -> color.displaySlot()).orElse(null);
       if (displaySlot != null) {
         objective = scoreboard.getDisplayObjective(displaySlot);
       }

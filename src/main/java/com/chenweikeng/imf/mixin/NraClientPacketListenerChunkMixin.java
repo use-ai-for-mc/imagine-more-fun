@@ -22,7 +22,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
  * Level.getBlockState} and {@code LevelChunk.getBlockState}.
  *
  * <p>All three handlers run on the client packet-processor thread (same thread as {@code
- * Minecraft#tick}), so {@code chunk.setBlockState} and {@code levelRenderer.setSectionDirty} are
+ * Minecraft#tick}), so {@code chunk.setBlockState} and {@code levelExtractor.setSectionDirty} are
  * safe to call from {@code @At("TAIL")}.
  */
 @Mixin(ClientPacketListener.class)

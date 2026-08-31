@@ -9,13 +9,13 @@ import com.chenweikeng.imf.pim.screen.PinRarityHandler;
 import java.util.Map;
 import java.util.Set;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.client.gui.screens.inventory.ContainerScreen;
 import net.minecraft.client.gui.screens.inventory.InventoryScreen;
 import net.minecraft.client.gui.screens.inventory.ShulkerBoxScreen;
 import net.minecraft.world.entity.player.Inventory;
-import net.minecraft.world.inventory.ClickType;
+import net.minecraft.world.inventory.ContainerInput;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.ItemStack;
 import org.spongepowered.asm.mixin.Mixin;
@@ -28,8 +28,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 public class PimAbstractContainerScreenMixin {
   @Shadow protected int imageWidth;
 
-  @Inject(at = @At("HEAD"), method = "renderSlot", cancellable = true)
-  public void imf$onRenderSlot(GuiGraphics guiGraphics, Slot slot, int i, int j, CallbackInfo ci) {
+  @Inject(at = @At("HEAD"), method = "extractSlot", cancellable = true)
+  public void imf$onRenderSlot(
+      GuiGraphicsExtractor guiGraphics, Slot slot, int i, int j, CallbackInfo ci) {
     if (!PimClient.isImagineFunServer()) {
       return;
     }
@@ -139,12 +140,12 @@ public class PimAbstractContainerScreenMixin {
           if (!shouldBlink || System.nanoTime() % 1_000_000_000 < 500_000_000) {
             int m = slot.x + slot.y * this.imageWidth;
             if (slot.isFake()) {
-              guiGraphics.renderFakeItem(itemStack, k, l, m);
+              guiGraphics.fakeItem(itemStack, k, l, m);
             } else {
-              guiGraphics.renderItem(itemStack, k, l, m);
+              guiGraphics.item(itemStack, k, l, m);
             }
 
-            guiGraphics.renderItemDecorations(font, itemStack, k, l, null);
+            guiGraphics.itemDecorations(font, itemStack, k, l, null);
           }
           ci.cancel();
         }
@@ -204,7 +205,8 @@ public class PimAbstractContainerScreenMixin {
   }
 
   @Inject(at = @At("HEAD"), method = "slotClicked")
-  public void imf$onSlotClicked(Slot slot, int i, int j, ClickType clickType, CallbackInfo ci) {
+  public void imf$onSlotClicked(
+      Slot slot, int i, int j, ContainerInput clickType, CallbackInfo ci) {
     if (!PimClient.isImagineFunServer()) {
       return;
     }
@@ -250,7 +252,7 @@ public class PimAbstractContainerScreenMixin {
   }
 
   private void imf$renderItemWithFills(
-      GuiGraphics guiGraphics,
+      GuiGraphicsExtractor guiGraphics,
       Slot slot,
       ItemStack itemStack,
       Font font,
@@ -266,16 +268,16 @@ public class PimAbstractContainerScreenMixin {
 
     int m = slot.x + slot.y * this.imageWidth;
     if (slot.isFake()) {
-      guiGraphics.renderFakeItem(itemStack, k, l, m);
+      guiGraphics.fakeItem(itemStack, k, l, m);
     } else {
-      guiGraphics.renderItem(itemStack, k, l, m);
+      guiGraphics.item(itemStack, k, l, m);
     }
 
     if (fillAfterColor != null) {
       guiGraphics.fill(k, l, k + 16, l + 16, fillAfterColor);
     }
 
-    guiGraphics.renderItemDecorations(font, itemStack, k, l, null);
+    guiGraphics.itemDecorations(font, itemStack, k, l, null);
     ci.cancel();
   }
 }

@@ -4,7 +4,7 @@ import com.chenweikeng.imf.nra.config.ModConfig;
 import com.chenweikeng.imf.nra.config.profile.ProfileManager;
 import com.chenweikeng.imf.nra.config.profile.StoredProfile;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.input.MouseButtonEvent;
 
 public class CurrentSettingsEntry {
@@ -51,17 +51,17 @@ public class CurrentSettingsEntry {
 
   public void addWidgets(WidgetConsumer widgetConsumer) {}
 
-  public void render(GuiGraphics graphics, int mouseX, int mouseY) {
+  public void render(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
     graphics.fill(x, y, x + width, y + HEIGHT, BG_COLOR);
 
     int textX = x + 4;
     int textY = y + 2;
 
     String indicator = "\u25CF";
-    graphics.drawString(minecraft.font, indicator, textX, textY, ACTIVE_INDICATOR_COLOR, false);
+    graphics.text(minecraft.font, indicator, textX, textY, ACTIVE_INDICATOR_COLOR, false);
 
     textX += 14;
-    graphics.drawString(minecraft.font, "Current Settings", textX, textY, NAME_COLOR, false);
+    graphics.text(minecraft.font, "Current Settings", textX, textY, NAME_COLOR, false);
 
     StoredProfile matchingProfile =
         ProfileManager.getAllProfiles().stream()
@@ -70,10 +70,10 @@ public class CurrentSettingsEntry {
             .orElse(null);
 
     if (matchingProfile != null) {
-      graphics.drawString(
+      graphics.text(
           minecraft.font, "Same as a saved profile", textX, textY + 12, DESCRIPTION_COLOR, false);
     } else {
-      graphics.drawString(
+      graphics.text(
           minecraft.font,
           "Not linked to any saved profile",
           textX,

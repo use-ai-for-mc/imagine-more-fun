@@ -6,7 +6,7 @@ import com.chenweikeng.imf.nra.compat.MonkeycraftCompat;
 import com.chenweikeng.imf.nra.ride.AutograbHolder;
 import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.client.renderer.texture.TextureAtlasSprite;
 import net.minecraft.world.level.block.Blocks;
@@ -20,7 +20,7 @@ public final class MonkeycraftAutograbOverlayRenderer {
 
   private MonkeycraftAutograbOverlayRenderer() {}
 
-  public static void render(GuiGraphics context, DeltaTracker tickCounter) {
+  public static void render(GuiGraphicsExtractor context, DeltaTracker tickCounter) {
     Minecraft client = Minecraft.getInstance();
     if (!shouldRender(client)) {
       return;
@@ -40,9 +40,10 @@ public final class MonkeycraftAutograbOverlayRenderer {
 
     TextureAtlasSprite portalSprite =
         client
-            .getBlockRenderer()
-            .getBlockModelShaper()
-            .getParticleIcon(Blocks.NETHER_PORTAL.defaultBlockState());
+            .getModelManager()
+            .getBlockStateModelSet()
+            .getParticleMaterial(Blocks.NETHER_PORTAL.defaultBlockState())
+            .sprite();
     context.blitSprite(
         RenderPipelines.GUI_TEXTURED,
         portalSprite,

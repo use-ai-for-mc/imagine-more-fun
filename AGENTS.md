@@ -35,13 +35,13 @@ Deploy only when the user explicitly asks:
 
 The script rebuilds the macOS and Windows native helpers, runs checks, verifies the JAR, clears
 cached helper binaries, removes superseded mod JARs, and atomically swaps the current JAR into the
-PrismLauncher `ImagineFun` instance. Never replace the deployed JAR with plain `cp`; a running JVM
-may still hold the prior JAR inode open. See
+matching PrismLauncher instance (the local default is `26.2`). Never replace the deployed JAR with
+plain `cp`; a running JVM may still hold the prior JAR inode open. See
 [`docs/operations/RELEASE_AND_DEPLOY.md`](docs/operations/RELEASE_AND_DEPLOY.md).
 
 ## Architecture at a glance
 
-ImagineMoreFun is a client-side Fabric 1.21.11 mod for `*.imaginefun.net`. `ImfClient` is the single
+ImagineMoreFun is a client-side Fabric 26.2 mod for `*.imaginefun.net`. `ImfClient` is the single
 Fabric entrypoint. It runs storage migration, registers Space Mountain helpers, initializes NRA,
 PIM, and SkinCache, then initializes Canoe Helper.
 
@@ -79,5 +79,6 @@ as implementation instructions.
 - Cloth Config: required configuration UI.
 - ModMenu: optional, compile-only integration.
 - Monkeycraft API: optional, compile-only; calls must remain guarded by `MonkeycraftCompat`.
+- SmoothCoasters: optional runtime integration through the `@Pseudo` camera-tilt mixin.
 - Native WebView/status helpers: built from `native/` and embedded under
   `src/main/resources/native/` during release builds.

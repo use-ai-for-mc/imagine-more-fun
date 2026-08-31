@@ -10,8 +10,8 @@ Every feature only activates while you are connected to an `*.imaginefun.net` se
 
 ## Requirements
 
-- Minecraft **1.21.11** with the **Fabric** loader
-- Java 21
+- Minecraft **26.2** with the **Fabric** loader
+- Java 25
 
 ## Features
 
@@ -32,6 +32,8 @@ Every feature only activates while you are connected to an `*.imaginefun.net` se
 
 ### Visuals
 
+- **ImagineFun application icon** — uses the ImagineFun logo in the macOS Dock or Windows taskbar
+  while connected, then restores the normal Minecraft icon on disconnect.
 - **Screen tweaks** — dim-while-riding, fullbright, modernized closed captions, and toggles to hide the scoreboard, chat, health bar, name tags, hotbar, XP level, and love-potion messages.
 - **Firework viewing** — alerts, time-of-day changes, and blindness are suppressed inside the firework area.
 - **Space Mountain enhancements** — a client-side overlay for Space Mountain / Hyperspace Mountain rides: a cleaned-up dome, an animated launch-tunnel screen effect, the coaster track, a projected starfield, and hidden show props. On by default; a master toggle reverts to vanilla visuals.

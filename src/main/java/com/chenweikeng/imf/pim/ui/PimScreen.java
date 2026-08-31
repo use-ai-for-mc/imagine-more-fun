@@ -19,7 +19,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
@@ -112,7 +112,8 @@ public class PimScreen extends Screen {
   }
 
   @Override
-  public void render(GuiGraphics graphics, int mouseX, int mouseY, float delta) {
+  public void extractRenderState(
+      GuiGraphicsExtractor graphics, int mouseX, int mouseY, float delta) {
     // Dark background
     graphics.fill(0, 0, width, height, BG_COLOR);
 
@@ -129,7 +130,7 @@ public class PimScreen extends Screen {
     Component title =
         Component.literal("Pin Inventory Manager")
             .withStyle(ChatFormatting.BOLD, ChatFormatting.GOLD);
-    graphics.drawCenteredString(font, title, width / 2, PADDING + 8, 0xFFFFFFFF);
+    graphics.centeredText(font, title, width / 2, PADDING + 8, 0xFFFFFFFF);
 
     // Render tabs
     renderTabs(graphics, mouseX, mouseY);
@@ -138,10 +139,10 @@ public class PimScreen extends Screen {
     renderContent(graphics, contentX, contentWidth);
 
     // Render widgets (buttons)
-    super.render(graphics, mouseX, mouseY, delta);
+    super.extractRenderState(graphics, mouseX, mouseY, delta);
   }
 
-  private void renderTabs(GuiGraphics graphics, int mouseX, int mouseY) {
+  private void renderTabs(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
     int tabX = PADDING + 5;
     int tabY = PADDING + HEADER_HEIGHT;
     int tabWidth = SIDEBAR_WIDTH - 10;
@@ -159,13 +160,13 @@ public class PimScreen extends Screen {
 
       // Tab label
       int textColor = isSelected ? 0xFFFFFFFF : 0xFFAAAAAA;
-      graphics.drawCenteredString(font, tab.label, tabX + tabWidth / 2, tabY + 7, textColor);
+      graphics.centeredText(font, tab.label, tabX + tabWidth / 2, tabY + 7, textColor);
 
       tabY += TAB_HEIGHT + TAB_GAP;
     }
   }
 
-  private void renderContent(GuiGraphics graphics, int contentX, int contentWidth) {
+  private void renderContent(GuiGraphicsExtractor graphics, int contentX, int contentWidth) {
     int contentY = PADDING + HEADER_HEIGHT;
     int contentHeight = height - FOOTER_HEIGHT - contentY - PADDING;
 
@@ -173,14 +174,14 @@ public class PimScreen extends Screen {
     graphics.enableScissor(contentX, contentY, contentX + contentWidth, contentY + contentHeight);
 
     if (isLoading) {
-      graphics.drawCenteredString(
+      graphics.centeredText(
           font,
           "Loading...",
           contentX + contentWidth / 2,
           contentY + contentHeight / 2,
           0xFFFFFF00);
     } else if (contentLines.isEmpty()) {
-      graphics.drawCenteredString(
+      graphics.centeredText(
           font,
           "No data available",
           contentX + contentWidth / 2,
@@ -192,7 +193,7 @@ public class PimScreen extends Screen {
 
       for (ContentLine line : contentLines) {
         if (y + lineHeight > contentY && y < contentY + contentHeight) {
-          graphics.drawString(font, line.text, contentX + 10, y, line.color, false);
+          graphics.text(font, line.text, contentX + 10, y, line.color, false);
         }
         y += lineHeight;
       }
@@ -851,7 +852,7 @@ public class PimScreen extends Screen {
 
   @Override
   public void onClose() {
-    minecraft.setScreen(parent);
+    minecraft.setScreenAndShow(parent);
   }
 
   @Override

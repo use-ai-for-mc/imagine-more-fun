@@ -48,7 +48,7 @@ public class NraClientLevelMixin {
       if (ModConfig.currentSetting.silent) {
         Minecraft client = Minecraft.getInstance();
 
-        if ((client.screen instanceof WizardScreen)
+        if ((client.gui.screen() instanceof WizardScreen)
             && WizardActionHandler.currentlyPlaying != null
             && soundId.equals(WizardActionHandler.currentlyPlaying)) {
           return; // Don't suppress sounds when the wizard is open and indicates this sound should
