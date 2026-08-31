@@ -238,18 +238,8 @@ public final class SpaceMountainTunnelRenderer {
    * tunnel renders only while the player's axialDistance is inside [-AXIAL_TOLERANCE, length +
    * AXIAL_TOLERANCE] and radialDistance is within RADIUS + LATERAL_TOLERANCE.
    */
-  // Set to true to bypass EVERY gate including the ride-active check — the cylinder renders in
-  // any world (including SP) so you can fly to its world coords and inspect the geometry. Flip
-  // back to false during normal play.
-  private static final boolean DEBUG_ALWAYS_RENDER = false;
-
-  // When debugging, also render both winding orders so culling can't hide the cylinder regardless
-  // of which side of the wall the camera sits on.
-  private static final boolean DEBUG_DOUBLE_SIDED = false;
-
   private static boolean shouldRender(Minecraft mc) {
     if (mc.player == null) return false;
-    if (DEBUG_ALWAYS_RENDER) return true;
     if (!SpaceMountainOverride.isActive()) return false;
     Integer elapsed = CurrentRideHolder.getElapsedSeconds();
     if (elapsed == null
@@ -398,13 +388,6 @@ public final class SpaceMountainTunnelRenderer {
                   addVertex(vc, pose, xa0, ya0, za0, u0, v0, a0, light, overlay);
                   addVertex(vc, pose, xa1, ya1, za1, u0, v1, a1, light, overlay);
                   addVertex(vc, pose, xb1, yb1, zb1, u1, v1, a1, light, overlay);
-                  if (DEBUG_DOUBLE_SIDED) {
-                    // Outside-facing winding too — debug visibility from either side of the wall.
-                    addVertex(vc, pose, xa0, ya0, za0, u0, v0, a0, light, overlay);
-                    addVertex(vc, pose, xb0, yb0, zb0, u1, v0, a0, light, overlay);
-                    addVertex(vc, pose, xb1, yb1, zb1, u1, v1, a1, light, overlay);
-                    addVertex(vc, pose, xa1, ya1, za1, u0, v1, a1, light, overlay);
-                  }
                 }
               }
             });

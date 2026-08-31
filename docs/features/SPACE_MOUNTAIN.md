@@ -4,13 +4,10 @@
 
 `SpaceMountainOverride.isActive()` is the product gate. Enhancements activate only when:
 
-- compile-time `BAKING_MODE` is false;
+- the SmoothCoasters mod is loaded at runtime;
 - the `spaceMountainEnhancements` config toggle is enabled;
 - NRA's ImagineFun server gate is true; and
 - `CurrentRideHolder` reports Space Mountain or Hyperspace Mountain.
-
-Subsystem-local development preview switches exist for simulator tuning, but they are diagnostic
-APIs rather than a player-facing or release command surface.
 
 ## Registered subsystems
 

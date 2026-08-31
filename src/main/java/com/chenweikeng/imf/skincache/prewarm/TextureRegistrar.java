@@ -1,7 +1,6 @@
 package com.chenweikeng.imf.skincache.prewarm;
 
 import com.chenweikeng.imf.skincache.SkinCacheMod;
-import com.chenweikeng.imf.skincache.SkinCacheStats;
 import com.chenweikeng.imf.skincache.cache.TextureCache;
 import com.mojang.blaze3d.platform.NativeImage;
 import java.nio.file.Files;
@@ -49,16 +48,12 @@ public final class TextureRegistrar {
     }
 
     long elapsed = (System.nanoTime() - t0) / 1_000_000;
-    SkinCacheMod.log(
-        "[TextureRegistrar] registerAll: "
-            + success
-            + " registered, "
-            + skipped
-            + " skipped (no PNG), "
-            + failed
-            + " failed, "
-            + elapsed
-            + "ms");
+    SkinCacheMod.LOGGER.debug(
+        "[SkinCache] Bulk texture registration: {} registered, {} skipped, {} failed in {}ms",
+        success,
+        skipped,
+        failed,
+        elapsed);
   }
 
   /**
@@ -84,14 +79,9 @@ public final class TextureRegistrar {
       DynamicTexture texture = new DynamicTexture(textureId::toString, image);
       textureManager.register(textureId, texture);
       registered.put(idStr, Boolean.TRUE);
-      SkinCacheStats.texturesRegistered.incrementAndGet();
-      if (SkinCacheStats.DEBUG_PER_HASH) {
-        SkinCacheMod.log("[TextureRegistrar] Registered " + idStr);
-      }
       return true;
     } catch (Exception e) {
-      SkinCacheStats.textureRegisterFailed.incrementAndGet();
-      SkinCacheMod.log("[TextureRegistrar] FAILED to register " + idStr + ": " + e.getMessage());
+      SkinCacheMod.LOGGER.warn("[SkinCache] Failed to register texture {}", idStr, e);
       return false;
     }
   }

@@ -33,7 +33,6 @@
 		"NraSmoothCoastersRotationMixin",
 		"NraSoundOptionsScreenMixin",
 		"NraToastManagerMixin",
-		"NraWindowMixin",
 		"PimAbstractContainerScreenMixin",
 		"PimBossHealthOverlayMixin",
 		"PimClientPacketListenerMixin",
@@ -43,7 +42,6 @@
 		"PimScreenAccessor",
 		"SkinCacheClientChunkCacheMixin",
 		"SkinCacheCustomHeadLayerMixin",
-		"SkinCacheMinecraftMixin",
 		"SkinCacheSkinManagerMixin",
 		"SkinCacheSkinTextureDownloaderMixin",
 		"SkinCacheSkullBlockRendererMixin"

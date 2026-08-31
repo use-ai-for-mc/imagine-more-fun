@@ -58,16 +58,6 @@ public final class SpaceMountainStarRenderer {
   private static double[] starZ = new double[0];
   private static float[] starHalfSize = new float[0];
 
-  // The static "surface" star layer — baked dome-wall stars that never move, rendered alongside
-  // the SpaceMountainDiscoBall projection layer. On a real server it's gated by
-  // SpaceMountainOverride.isActive(); toggle at runtime via the bridge with setEnabled.
-  private static volatile boolean ENABLED = true;
-
-  // Dev-only single-player preview, mirroring SpaceMountainDiscoBall: lets the surface layer render
-  // in single-player (where isActive() is always false) for tuning against the SP simulator world.
-  // Bridge-only and not persisted, so an end-user's single-player world is never affected.
-  private static volatile boolean spDevPreview = false;
-
   static {
     loadAndPickStars();
   }
@@ -76,29 +66,6 @@ public final class SpaceMountainStarRenderer {
 
   public static void register() {
     LevelRenderEvents.COLLECT_SUBMITS.register(SpaceMountainStarRenderer::render);
-  }
-
-  public static void setEnabled(boolean enabled) {
-    ENABLED = enabled;
-    NotRidingAlertClient.LOGGER.debug("[SpaceMountainStarRenderer] enabled={}", enabled);
-  }
-
-  public static boolean isEnabled() {
-    return ENABLED;
-  }
-
-  /**
-   * Dev-only single-player preview — see {@link SpaceMountainDiscoBall#setSpDevPreview}. Lets the
-   * surface-star layer render in single-player for tuning against the SP simulator world.
-   */
-  public static void setSpDevPreview(boolean enabled) {
-    spDevPreview = enabled;
-    NotRidingAlertClient.LOGGER.debug("[SpaceMountainStarRenderer] spDevPreview={}", enabled);
-  }
-
-  /** Re-read dome_borders.bin and re-pick the stars — picks up a freshly re-baked borders file. */
-  public static void reload() {
-    loadAndPickStars();
   }
 
   /** dome_borders.bin from the config dir if present (a fresh bake), else the bundled resource. */
@@ -176,13 +143,10 @@ public final class SpaceMountainStarRenderer {
   }
 
   private static void render(LevelRenderContext ctx) {
-    if (!ENABLED || starX.length == 0) return;
+    if (starX.length == 0) return;
     Minecraft mc = Minecraft.getInstance();
     if (mc.player == null || mc.level == null) return;
-    // Production gate: route through the shared master switch like the other Space Mountain
-    // overlays. Dev exception: spDevPreview also renders in single-player (where isActive() is
-    // false) for tuning against the SP simulator world — see setSpDevPreview.
-    if (!SpaceMountainOverride.isActive() && !(mc.hasSingleplayerServer() && spDevPreview)) return;
+    if (!SpaceMountainOverride.isActive()) return;
     drawStars(ctx, mc);
   }
 

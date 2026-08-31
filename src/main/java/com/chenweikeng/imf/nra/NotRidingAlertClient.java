@@ -18,6 +18,7 @@ import com.chenweikeng.imf.nra.handler.ConfigReminderHandler;
 import com.chenweikeng.imf.nra.handler.DayTimeHandler;
 import com.chenweikeng.imf.nra.handler.FireworkViewingHandler;
 import com.chenweikeng.imf.nra.handler.HibernationHandler;
+import com.chenweikeng.imf.nra.handler.ImagineFunWindowIconHandler;
 import com.chenweikeng.imf.nra.handler.MonkeycraftAutograbOverlayRenderer;
 import com.chenweikeng.imf.nra.handler.ReminderHandler;
 import com.chenweikeng.imf.nra.handler.ScoreboardHandler;
@@ -97,6 +98,7 @@ public class NotRidingAlertClient implements ClientModInitializer {
     ClientPlayConnectionEvents.JOIN.register(
         (handler, sender, client) -> {
           ServerState.onJoin(client);
+          ImagineFunWindowIconHandler.onJoin(client);
           client.execute(RidePlanNudge::showMessageIfPending);
           if (ServerState.isImagineFunServer()) {
             RideStatsSourceCoordinator.onJoin(client);
@@ -120,6 +122,7 @@ public class NotRidingAlertClient implements ClientModInitializer {
 
     ClientPlayConnectionEvents.DISCONNECT.register(
         (handler, client) -> {
+          ImagineFunWindowIconHandler.onDisconnect(client);
           RideStatsSourceCoordinator.onDisconnect();
           SessionTracker.getInstance().onSessionEnd();
           OpenAudioMcService.getInstance().onLeaveServer();

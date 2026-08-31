@@ -66,3 +66,8 @@ native/windows/status-helper.exe
 
 # /dream code-review skill workspace — review artifacts, not mod source.
 .dream/
+
+# Local analysis tools and captured runtime logs.
+.codegraph/
+.opencode/
+logs/

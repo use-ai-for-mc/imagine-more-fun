@@ -31,9 +31,7 @@ import net.minecraft.world.level.chunk.LevelChunk;
  * target state while the ride gate is active. Originals are restored when the gate flips off.
  *
  * <p>The overlay collapses what used to be four separate runtime layers (PeopleMover bbox seal,
- * explicit cover positions, animation-suppress, knockout patch) into one offline-baked diff. To
- * change what the ride looks like, edit the SP simulator world, re-dump live + sp, and re-run
- * {@code debug-dumps/bake-overlay.py}.
+ * explicit cover positions, animation-suppress, knockout patch) into one offline-baked diff.
  *
  * <p>Chunk meshes are cached per section, so changes to stored block states don't repaint the world
  * automatically. {@link #init} watches the active flag every tick and forces a full re-mesh on
