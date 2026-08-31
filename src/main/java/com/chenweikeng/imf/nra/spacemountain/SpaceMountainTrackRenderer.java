@@ -93,10 +93,6 @@ public final class SpaceMountainTrackRenderer {
   private static double[] strutVertY = new double[0];
   private static double[] strutVertZ = new double[0];
 
-  // Track rendering enabled by default. Toggle off via the debug bridge:
-  // java.import("...SpaceMountainTrackRenderer"):setEnabled(false)
-  private static volatile boolean ENABLED = true;
-
   static {
     loadAndBuild();
   }
@@ -105,15 +101,6 @@ public final class SpaceMountainTrackRenderer {
 
   public static void register() {
     WorldRenderEvents.AFTER_ENTITIES.register(SpaceMountainTrackRenderer::render);
-  }
-
-  public static void setEnabled(boolean enabled) {
-    ENABLED = enabled;
-    NotRidingAlertClient.LOGGER.debug("[SpaceMountainTrackRenderer] enabled={}", enabled);
-  }
-
-  public static boolean isEnabled() {
-    return ENABLED;
   }
 
   private static void loadAndBuild() {
@@ -309,7 +296,6 @@ public final class SpaceMountainTrackRenderer {
   }
 
   private static void render(WorldRenderContext ctx) {
-    if (!ENABLED) return;
     if (sampleCount < 2) return;
     Minecraft mc = Minecraft.getInstance();
     if (mc.player == null || mc.level == null) return;

@@ -41,7 +41,6 @@ class HelperSession:
         environment_overrides: dict[str, str] | None = None,
     ) -> None:
         environment = dict(os.environ)
-        environment.pop("IMF_AUDIO_DIAGNOSTICS", None)
         if environment_overrides:
             environment.update(environment_overrides)
         self.process = subprocess.Popen(

@@ -309,7 +309,6 @@ class WebViewManager: NSObject, WKNavigationDelegate, WKUIDelegate {
     let window: NSWindow
     let consoleHandler = ConsoleMessageHandler()
     let audioInjectionMode: AudioInjectionMode
-    let audioDiagnosticsEnabled: Bool
     private var destroyed = false
     private var shutdownCompletion: (() -> Void)?
     private let GPUProcessIDsBeforeWebView: Set<Int32>
@@ -330,7 +329,6 @@ class WebViewManager: NSObject, WKNavigationDelegate, WKUIDelegate {
     override init() {
         GPUProcessIDsBeforeWebView = webKitGPUProcessIDs()
         audioInjectionMode = AudioInjectionMode.selected()
-        audioDiagnosticsEnabled = ProcessInfo.processInfo.environment["IMF_AUDIO_DIAGNOSTICS"] == "1"
         let config = WKWebViewConfiguration()
         // Java launches one helper process per IMF session, which is the effective isolation
         // boundary on modern macOS (custom WKProcessPool instances have had no effect since 12.0).
@@ -1349,202 +1347,7 @@ class WebViewManager: NSObject, WKNavigationDelegate, WKUIDelegate {
               }
             })();
             """, injectionTime: .atDocumentStart, forMainFrameOnly: false)
-        // Temporary diagnostics for duplicate media events and late playback. All state is weak.
-        let audioDiagnostics = WKUserScript(source: """
-            (function () {
-              if (window.__nra_audio_trace) return;
-              window.__nra_audio_trace = true;
 
-              var traceStartedAt = performance.now();
-              function trace(message) {
-                var full = '[IMF-AUDIO-TRACE +' + Math.round(performance.now() - traceStartedAt)
-                  + 'ms] ' + message;
-                try {
-                  window.webkit.messageHandlers.nativeLog.postMessage({level: 'trace', message: full});
-                } catch (e) {}
-              }
-              function hashText(value) {
-                var text = String(value || '');
-                var hash = 2166136261;
-                for (var i = 0; i < text.length; i++) {
-                  hash ^= text.charCodeAt(i);
-                  hash = Math.imul(hash, 16777619);
-                }
-                return (hash >>> 0).toString(16).padStart(8, '0');
-              }
-              function numberOrDash(value) {
-                return typeof value === 'number' && isFinite(value)
-                  ? Math.round(value * 1000) / 1000 : '-';
-              }
-
-              // Summarize Socket.IO media packets without logging signed URLs or credentials.
-              function inspectRelay(raw, transport) {
-                if (typeof raw !== 'string') return;
-                raw.split('\\u001e').forEach(function (frame) {
-                  var arrayStart = frame.indexOf('[');
-                  if (arrayStart < 0) return;
-                  var packet;
-                  try { packet = JSON.parse(frame.slice(arrayStart)); } catch (e) { return; }
-                  if (!Array.isArray(packet) || packet[0] !== 'data' || !packet[1]) return;
-                  var envelope = packet[1];
-                  var type = String(envelope.type || '').split('.').pop();
-                  var payload = envelope.payload || {};
-                  if (type === 'ClientCreateMediaPayload') {
-                    var media = payload.media || {};
-                    var startTime = Date.parse(media.startInstant || '');
-                    var startAgeMs = Number.isFinite(startTime) ? Date.now() - startTime : NaN;
-                    trace('RELAY ' + transport + ' CREATE id=' + String(media.mediaId)
-                      + ' src=' + hashText(media.source) + ' loop=' + !!media.loop
-                      + ' pickup=' + !!media.doPickup
-                      + ' volume=' + numberOrDash(media.volume)
-                      + ' muteSpeakers=' + !!media.muteSpeakers
-                      + ' muteRegions=' + !!media.muteRegions
-                      + ' offsetMs=' + numberOrDash(media.startAtMillis)
-                      + ' startAgeMs=' + numberOrDash(startAgeMs)
-                      + ' fadeMs=' + numberOrDash(media.fadeTime));
-                  } else if (type === 'ClientDestroyMediaPayload') {
-                    trace('RELAY ' + transport + ' DESTROY id=' + String(payload.soundId || '-')
-                      + ' all=' + !!payload.all + ' fadeMs=' + numberOrDash(payload.fadeTime));
-                  } else if (type === 'ClientUpdateMediaPayload') {
-                    var options = payload.mediaOptions || {};
-                    trace('RELAY ' + transport + ' UPDATE id=' + String(options.target || '-')
-                      + ' volume=' + numberOrDash(options.volume)
-                      + ' speed=' + numberOrDash(options.speed));
-                  } else if (type === 'ClientVolumePayload') {
-                    trace('RELAY ' + transport + ' MASTER_VOLUME value=' + numberOrDash(payload.volume));
-                  }
-                });
-              }
-
-              if (window.__nra_add_relay_observer) {
-                window.__nra_add_relay_observer(function (raw) { inspectRelay(raw, 'relay'); });
-              }
-
-              var mediaIds = new WeakMap();
-              var mediaStates = new WeakMap();
-              var pageEndedHandlers = new WeakMap();
-              var diagnosticEndedHandlers = new WeakSet();
-              var diagnosticCallbacks = new WeakMap();
-              var nextMediaId = 1;
-              function mediaId(media) {
-                var id = mediaIds.get(media);
-                if (!id) {
-                  id = nextMediaId++;
-                  mediaIds.set(media, id);
-                  trace('MEDIA_OBSERVED media#' + id + ' tag=' + String(media.tagName || 'AUDIO'));
-                }
-                return id;
-              }
-              function sourceHash(media) {
-                return hashText(media.currentSrc || media.src || media.getAttribute('src') || '');
-              }
-              function summary(media) {
-                var handlers = pageEndedHandlers.get(media);
-                return 'media#' + mediaId(media) + ' src=' + sourceHash(media)
-                  + ' time=' + numberOrDash(media.currentTime)
-                  + ' volume=' + numberOrDash(media.volume)
-                  + ' muted=' + !!media.muted + ' paused=' + !!media.paused
-                  + ' detached=' + !document.contains(media)
-                  + ' endedHandlers=' + (handlers ? handlers.size : 0);
-              }
-              function stateFor(media) {
-                var state = mediaStates.get(media);
-                if (!state) {
-                  state = {};
-                  mediaStates.set(media, state);
-                }
-                return state;
-              }
-
-              var nativeAddEventListener = HTMLMediaElement.prototype.addEventListener;
-              var nativeRemoveEventListener = HTMLMediaElement.prototype.removeEventListener;
-              HTMLMediaElement.prototype.addEventListener = function (type, listener, options) {
-                if (this.tagName === 'AUDIO' && type === 'ended' && listener
-                    && !diagnosticEndedHandlers.has(listener)) {
-                  var handlers = pageEndedHandlers.get(this);
-                  if (!handlers) {
-                    handlers = new Set();
-                    pageEndedHandlers.set(this, handlers);
-                  }
-                  handlers.add(listener);
-                  trace('ENDED_HANDLER_ADD ' + summary(this));
-                }
-                return nativeAddEventListener.call(this, type, listener, options);
-              };
-              HTMLMediaElement.prototype.removeEventListener = function (type, listener, options) {
-                if (this.tagName === 'AUDIO' && type === 'ended' && listener
-                    && !diagnosticEndedHandlers.has(listener)) {
-                  var handlers = pageEndedHandlers.get(this);
-                  if (handlers) {
-                    handlers.delete(listener);
-                    trace('ENDED_HANDLER_REMOVE ' + summary(this));
-                    if (!handlers.size) pageEndedHandlers.delete(this);
-                  }
-                }
-                return nativeRemoveEventListener.call(this, type, listener, options);
-              };
-
-              function attachEvents(media) {
-                if (diagnosticCallbacks.has(media)) return;
-                var callbacks = {};
-                ['ended', 'emptied', 'error', 'abort'].forEach(function (type) {
-                  callbacks[type] = function () { trace(type.toUpperCase() + ' ' + summary(media)); };
-                  diagnosticEndedHandlers.add(callbacks[type]);
-                  window.__nra_add_tracked_media_listener(media, type, callbacks[type]);
-                });
-                diagnosticCallbacks.set(media, callbacks);
-              }
-
-              var nativePlay = HTMLMediaElement.prototype.play;
-              HTMLMediaElement.prototype.play = function () {
-                if (this.tagName === 'AUDIO') {
-                  attachEvents(this);
-                  trace('PLAY ' + summary(this));
-                }
-                var result = nativePlay.apply(this, arguments);
-                if (this.tagName === 'AUDIO' && result && typeof result.catch === 'function') {
-                  var media = this;
-                  result.catch(function (error) {
-                    trace('PLAY_REJECTED ' + summary(media) + ' error=' + String(error));
-                  });
-                }
-                return result;
-              };
-              var nativePause = HTMLMediaElement.prototype.pause;
-              HTMLMediaElement.prototype.pause = function () {
-                if (this.tagName === 'AUDIO') trace('PAUSE ' + summary(this));
-                return nativePause.apply(this, arguments);
-              };
-
-              function observeProperty(name) {
-                var descriptor = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, name);
-                if (!descriptor || !descriptor.set) return;
-                Object.defineProperty(HTMLMediaElement.prototype, name, {
-                  get: descriptor.get,
-                  set: function (value) {
-                    var state = stateFor(this);
-                    descriptor.set.call(this, value);
-                    if (this.tagName !== 'AUDIO') return;
-                    var current = this[name];
-                    var shouldLog = name !== 'volume'
-                      || state.volume === undefined
-                      || (state.volume <= 0) !== (current <= 0)
-                      || Math.abs(state.volume - current) >= 0.1;
-                    state[name] = current;
-                    var rendered = name === 'src' ? hashText(current) : String(current);
-                    if (shouldLog) trace('SET_' + name.toUpperCase() + '=' + rendered
-                      + ' ' + summary(this));
-                  },
-                  configurable: descriptor.configurable,
-                  enumerable: descriptor.enumerable
-                });
-              }
-              observeProperty('src');
-              observeProperty('volume');
-              observeProperty('muted');
-              trace('diagnostics installed');
-            })();
-            """, injectionTime: .atDocumentStart, forMainFrameOnly: false)
         // Legacy-minimum is the controlled A/B mode: retain only the old WeakMap GainNode fix and
         // avoid all hooks into play/src/listeners/WebSocket. It intentionally cannot count
         // detached media; GPU footprint, prolonged telemetry loss, and process-generation
@@ -2329,9 +2132,6 @@ class WebViewManager: NSObject, WKNavigationDelegate, WKUIDelegate {
         case .managedLifecycle:
             config.userContentController.addUserScript(audioVolumeFix)
             config.userContentController.addUserScript(staleMediaPlayGuard)
-            if audioDiagnosticsEnabled {
-                config.userContentController.addUserScript(audioDiagnostics)
-            }
         }
 
         // Create an offscreen window (1x1 pixel, hidden)

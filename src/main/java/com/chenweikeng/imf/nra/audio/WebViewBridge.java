@@ -458,7 +458,7 @@ public class WebViewBridge implements AutoCloseable {
         String msg = OpenAudioMcService.sanitizeLogMessage(response.optString("message", ""));
         // Diagnostic streams stay behind DEBUG so an accidentally enabled observation mode cannot
         // flood production INFO logs.
-        if (msg.startsWith("[IMF-AUDIO-TRACE ") || msg.startsWith("[IMF-AUDIO-OBSERVE ")) {
+        if (msg.startsWith("[IMF-AUDIO-OBSERVE ")) {
           LOGGER.debug("{}", msg);
         } else if ("error".equals(level) || "uncaught".equals(level) || "rejection".equals(level)) {
           LOGGER.warn("[JS {}] {}", level, msg);
