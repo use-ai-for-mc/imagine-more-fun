@@ -37,11 +37,11 @@ host-gated independently of NRA's `globalEnable` setting.
 
 `RideStatsSourceCoordinator` owns lifetime ride-count ingestion. ImagineFunUtils 0.0.9 is optional:
 when present, the coordinator reflectively loads the isolated `ImagineFunUtilsRideDataSource` and
-prefers `getSessionRides()` snapshots; when absent or incompatible, the original `/ridestats`
-container parser remains active. A transient API failure keeps the last known counts and leaves the
-legacy parser available until the current connection receives a successful API snapshot. Stable
-server ride IDs map through `RideName.fromApiId()`; display names and IMF short names are not API
-identifiers.
+prefers `getSessionRides()` snapshots for automatic synchronization. An explicit `/ridestats`
+request remains authoritative after API startup, so its container data can immediately reconcile a
+count when the API snapshot lags around ride completion. A transient API failure keeps the last
+known counts. Stable server ride IDs map through `RideName.fromApiId()`; display names and IMF short
+names are not API identifiers.
 
 If the initial ImagineFunUtils handshake does not establish an API session, the isolated bridge
 re-sends that handshake after 5, 15, and 35 seconds from joining, then stops. A session update

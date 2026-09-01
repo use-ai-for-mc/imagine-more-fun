@@ -72,9 +72,15 @@ public final class RideStatsSourceCoordinator {
     return apiSnapshotReady;
   }
 
-  /** Legacy menu data remains accepted until this connection has a successful API snapshot. */
+  /**
+   * Manual /ridestats data remains authoritative even after a successful API snapshot.
+   *
+   * <p>The API is the preferred automatic source, but it can lag behind the in-game statistics menu
+   * around a ride completion. Keeping the menu parser active lets an explicit /ridestats request
+   * immediately reconcile the local count.
+   */
   public static boolean shouldCaptureLegacyRideStats() {
-    return !apiSnapshotReady;
+    return true;
   }
 
   public static void markApiSnapshotReady() {
