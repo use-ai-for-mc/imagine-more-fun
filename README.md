@@ -4,14 +4,36 @@ A quality-of-life mod for the **ImagineFun** Minecraft server. It adds a ride tr
 
 Every feature only activates while you are connected to an `*.imaginefun.net` server. On any other server, or in single-player, the mod stays dormant.
 
-> **Replaces Not Riding Alert and Pim!**
+**Current release:** [ImagineMoreFun 3.4.0](https://github.com/use-ai-for-mc/imagine-more-fun/releases/tag/v3.4.0) for Minecraft 26.2
+
+> **Replaces Not Riding Alert, Pim!, and SkinCache**
 >
-> ImagineMoreFun merges the **Not Riding Alert** and **Pim!** mods into one — it already does everything those two did. Remove both before installing ImagineMoreFun; running it alongside either one will conflict. Your existing Not Riding Alert settings are imported automatically on first launch.
+> ImagineMoreFun merges all three mods into one. Remove their standalone jars before installing
+> ImagineMoreFun; Fabric will reject an installation containing both versions. Existing Not Riding
+> Alert settings are imported automatically on first launch, while PIM compatibility files and the
+> existing skin cache remain in their original locations.
+
+## Installation
+
+1. Install Minecraft 26.2 with Fabric Loader 0.19.3 or newer.
+2. Add Fabric API and Cloth Config using the compatible versions listed below.
+3. Download [`imaginemorefun-3.4.0.jar`](https://github.com/use-ai-for-mc/imagine-more-fun/releases/download/v3.4.0/imaginemorefun-3.4.0.jar) and place it in the instance's `mods` folder.
+4. Remove any standalone Not Riding Alert, Pim!, or SkinCache jars, then fully restart Minecraft.
 
 ## Requirements
 
-- Minecraft **26.2** with the **Fabric** loader
-- Java 25
+- Minecraft **26.2**
+- Java **25** or newer
+- Fabric Loader **0.19.3** or newer
+- Fabric API **0.157.0+26.2** or newer
+- Cloth Config **26.2.155** or newer
+
+### Optional integrations
+
+- **ImagineFunUtils 0.0.9 or newer** — recommended for automatic server-backed ride-count synchronization; a manual `/ridestats` lookup remains authoritative.
+- **Mod Menu** — exposes ImagineMoreFun's configuration screen through the standard mod list.
+- **SmoothCoasters 26.2-v1 or newer** — enables the live coaster-camera tilt integration.
+- **MonkeyCraft** — enables MonkeyCraft-aware autograb and waiting-state helpers.
 
 ## Features
 
