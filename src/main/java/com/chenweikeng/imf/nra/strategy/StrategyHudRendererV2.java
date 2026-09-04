@@ -570,23 +570,18 @@ public class StrategyHudRendererV2 {
       text = "Autograbbing " + ride.getDisplayName() + "...";
     } else {
       RideGoal goal = StrategyCalculator.getGoalForRide(ride);
-      Integer elapsed = CurrentRideHolder.getElapsedSeconds();
+      Integer remaining = CurrentRideHolder.remainingSeconds();
       Integer progress = CurrentRideHolder.getCurrentProgressPercent();
 
       StringBuilder sb = new StringBuilder();
       sb.append("Riding ");
       sb.append(ride.getDisplayName());
 
-      if (progress != null && elapsed != null) {
-        int totalSeconds = ride.getRideTime();
-        int remainingSeconds = totalSeconds - elapsed;
-        if (remainingSeconds < 0) {
-          remainingSeconds = 0;
-        }
+      if (progress != null && remaining != null) {
         sb.append(" (");
         sb.append(progress);
         sb.append("% ");
-        sb.append(StrategyHudBase.formatStrategyDuration(remainingSeconds));
+        sb.append(StrategyHudBase.formatStrategyDuration(remaining));
         sb.append(" left)");
       } else if (progress != null) {
         sb.append(" (").append(progress).append("%)");

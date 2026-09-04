@@ -46,4 +46,19 @@ public class CurrentRideHolder {
   public static void setElapsedSeconds(Integer seconds) {
     elapsedSeconds = seconds;
   }
+
+  public static Integer remainingSeconds() {
+    return remainingSeconds(currentRide, elapsedSeconds);
+  }
+
+  public static Integer remainingSeconds(RideName ride, Integer elapsed) {
+    if (ride == null || elapsed == null) {
+      return null;
+    }
+    int rideTime = ride.getRideTime();
+    if (rideTime <= 0) {
+      return null;
+    }
+    return Math.max(0, rideTime - elapsed);
+  }
 }

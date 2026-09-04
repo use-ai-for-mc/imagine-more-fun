@@ -23,6 +23,7 @@ a dated validation record to make it look current.
 | Build, local release, Prism deployment, runtime-load boundary | [`operations/RELEASE_AND_DEPLOY.md`](operations/RELEASE_AND_DEPLOY.md) |
 | OpenAudioMC lifecycle or native helper | [`features/OPENAUDIO_LIFECYCLE.md`](features/OPENAUDIO_LIFECYCLE.md) |
 | Daily ride plan or Daily Objectives integration | [`features/DAILY_RIDE_PLAN.md`](features/DAILY_RIDE_PLAN.md) |
+| Quest collectible outlines and red/blue beams | [`features/QUEST_COLLECTIBLES.md`](features/QUEST_COLLECTIBLES.md) |
 | Space/Hyperspace Mountain rendering, audio, resources, tilt | [`features/SPACE_MOUNTAIN.md`](features/SPACE_MOUNTAIN.md) |
 | PIM UI, persistence, handlers, calculation and trading | [`features/PIM.md`](features/PIM.md) |
 

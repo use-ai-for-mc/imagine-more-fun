@@ -85,11 +85,10 @@ public final class StatusBarController {
       Integer percent = CurrentRideHolder.getCurrentProgressPercent();
       return percent == null ? NO_TIMING_PLACEHOLDER : percent + "%";
     }
-    Integer elapsed = CurrentRideHolder.getElapsedSeconds();
-    if (elapsed == null) {
+    Integer remaining = CurrentRideHolder.remainingSeconds();
+    if (remaining == null) {
       return NO_TIMING_PLACEHOLDER;
     }
-    int remaining = Math.max(0, currentRide.getRideTime() - elapsed);
     return TimeFormatUtil.formatDuration(remaining);
   }
 
