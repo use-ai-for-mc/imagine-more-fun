@@ -23,6 +23,8 @@ import com.chenweikeng.imf.nra.handler.MonkeycraftAutograbOverlayRenderer;
 import com.chenweikeng.imf.nra.handler.ReminderHandler;
 import com.chenweikeng.imf.nra.handler.ScoreboardHandler;
 import com.chenweikeng.imf.nra.handler.SystemAttentionHandler;
+import com.chenweikeng.imf.nra.quest.QuestCollectibleBeamRenderer;
+import com.chenweikeng.imf.nra.quest.QuestCollectibleGlow;
 import com.chenweikeng.imf.nra.report.DailyReport;
 import com.chenweikeng.imf.nra.report.DailyReportGenerator;
 import com.chenweikeng.imf.nra.report.DailyRideSnapshot;
@@ -94,6 +96,7 @@ public class NotRidingAlertClient implements ClientModInitializer {
     RideStatsSourceCoordinator.initialize();
     LOGGER.info("Not Riding Alert client initialized");
     AutograbRegionRenderer.register();
+    QuestCollectibleBeamRenderer.register();
 
     ClientPlayConnectionEvents.JOIN.register(
         (handler, sender, client) -> {
@@ -183,6 +186,7 @@ public class NotRidingAlertClient implements ClientModInitializer {
   }
 
   private void onClientTick(Minecraft client) {
+    QuestCollectibleGlow.tick(client);
     if (!ServerState.isImagineFunServer()) {
       return;
     }
@@ -230,9 +234,9 @@ public class NotRidingAlertClient implements ClientModInitializer {
     }
 
     // ---- per-tick handlers ----
+    scoreboardHandler.track(client);
     HibernationHandler.getInstance().track(client, currentTick);
     configReminderHandler.track(client, currentTick);
-    scoreboardHandler.track(client);
     ClosestRideHolder.update(client);
     advanceNoticeHandler.tick(client);
     reminderHandler.track(client, currentTick);
@@ -279,6 +283,7 @@ public class NotRidingAlertClient implements ClientModInitializer {
     RideReportNotifier.getInstance().reset();
     OtherPlayerStatsTracker.getInstance().reset();
     AutograbHolder.resetLocationCache();
+    QuestCollectibleGlow.reset();
 
     // UI / cursor
     ClosedCaptionHolder.getInstance().clear();

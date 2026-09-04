@@ -6,6 +6,7 @@ import com.chenweikeng.imf.pim.trader.PinTraderLocation;
 import com.chenweikeng.imf.pim.trader.PinTraderRegistry;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.UUID;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
@@ -16,6 +17,20 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.phys.Vec3;
 
 public class BossBarTracker {
+  // Pin Trader's SHA-256 UUID (generated with Python):
+  //   import hashlib, uuid
+  //   name = 'Pin Trader'
+  //   namespace = uuid.UUID('6ba7b810-9dad-11d1-80b4-00c04fd430c8')
+  //   data = namespace.bytes + name.encode('utf-8')
+  //   sha256 = hashlib.sha256(data).digest()
+  //   uuid_bytes = sha256[:16]
+  //   uuid_bytes = bytearray(uuid_bytes)
+  //   uuid_bytes[6] = (uuid_bytes[6] & 0x0F) | 0x50
+  //   uuid_bytes[8] = (uuid_bytes[8] & 0x3F) | 0x80
+  //   print(uuid.UUID(bytes=uuid_bytes))
+  public static final UUID PIN_TRADER_BOSS_ID =
+      UUID.fromString("aefee8e1-9557-5602-811d-f9ae0f4b4303");
+
   private static final double CLOSE_DISTANCE = 3.0;
   private static final long NEXT_TRADER_DISPLAY_TIME_MS = 3000;
   private static final long SWITCH_COOLDOWN_MS = 1000;

@@ -13,6 +13,7 @@ import net.minecraft.client.Minecraft;
 public class HibernationHandler {
   private static final int CANCELLATION_DELAY_TICKS = 60;
   private static final int MESSAGE_UPDATE_INTERVAL_TICKS = 20;
+  private static final long NOTIFICATION_RESCHEDULE_THRESHOLD_MS = 2000;
   private static HibernationHandler instance;
 
   private RideName previousCurrentRide = null;
@@ -21,9 +22,9 @@ public class HibernationHandler {
   private boolean hibernationActive = false;
   private boolean wasHibernationEligibleRide = false;
 
-  private long rideStartEpochMs = -1;
   private int currentRideTimeSeconds = -1;
   private long lastMessageUpdateTick = -1;
+  private long scheduledFireAtEpochMs = -1;
   private boolean previousHibernationSetting = true;
 
   private HibernationHandler() {}
@@ -74,6 +75,10 @@ public class HibernationHandler {
       executeCancellation();
     }
 
+    if (currentRide != null && wasHibernationEligibleRide) {
+      maybeRescheduleCompletionNotification(currentRide);
+    }
+
     if (hibernationActive && currentRideTimeSeconds > 0) {
       if (currentTick - lastMessageUpdateTick >= MESSAGE_UPDATE_INTERVAL_TICKS) {
         updateHibernationMessage();
@@ -96,15 +101,9 @@ public class HibernationHandler {
 
     currentRideTimeSeconds = ride.getRideTime();
     lastMessageUpdateTick = -1;
+    scheduledFireAtEpochMs = -1;
 
     Integer progressPercent = CurrentRideHolder.getCurrentProgressPercent();
-    if (progressPercent != null && progressPercent > 0 && currentRideTimeSeconds > 0) {
-      int elapsedSeconds = (progressPercent * currentRideTimeSeconds) / 100;
-      rideStartEpochMs = System.currentTimeMillis() - (elapsedSeconds * 1000L);
-    } else {
-      rideStartEpochMs = System.currentTimeMillis();
-    }
-
     int initialProgress = progressPercent != null ? progressPercent : 0;
 
     if (hibernationEnabled) {
@@ -112,7 +111,7 @@ public class HibernationHandler {
       hibernationActive = true;
     }
 
-    scheduleRideCompletionNotification(ride);
+    maybeRescheduleCompletionNotification(ride);
   }
 
   private void onRideEnd(long currentTick) {
@@ -121,9 +120,9 @@ public class HibernationHandler {
       hibernationActive = false;
     }
 
-    rideStartEpochMs = -1;
     currentRideTimeSeconds = -1;
     lastMessageUpdateTick = -1;
+    scheduledFireAtEpochMs = -1;
 
     if (wasHibernationEligibleRide) {
       rideEndTick = currentTick;
@@ -133,46 +132,45 @@ public class HibernationHandler {
 
   private void updateHibernationMessage() {
     RideName currentRide = CurrentRideHolder.getCurrentRide();
-    if (currentRide == null || currentRideTimeSeconds <= 0 || rideStartEpochMs < 0) {
+    if (currentRide == null || currentRideTimeSeconds <= 0) {
       return;
     }
 
-    long elapsedMs = System.currentTimeMillis() - rideStartEpochMs;
-    int elapsedSeconds = (int) (elapsedMs / 1000);
-    int progressPercent = Math.min(100, (elapsedSeconds * 100) / currentRideTimeSeconds);
-
-    String message = buildHibernationMessage(currentRide, progressPercent);
-    MonkeycraftCompat.setHibernationMessage(message);
+    Integer progressPercent = CurrentRideHolder.getCurrentProgressPercent();
+    int progress = progressPercent != null ? progressPercent : 0;
+    MonkeycraftCompat.setHibernationMessage(buildHibernationMessage(currentRide, progress));
   }
 
   private String buildHibernationMessage(RideName ride, int progressPercent) {
     StringBuilder sb = new StringBuilder();
     sb.append("Riding ").append(ride.getDisplayName());
+    sb.append(" (").append(progressPercent).append("%)");
 
-    if (currentRideTimeSeconds > 0 && rideStartEpochMs > 0) {
-      long elapsedMs = System.currentTimeMillis() - rideStartEpochMs;
-      int elapsedSeconds = (int) (elapsedMs / 1000);
-      int remainingSeconds = Math.max(0, currentRideTimeSeconds - elapsedSeconds);
-
-      sb.append(" (").append(progressPercent).append("%)\n");
+    Integer remainingSeconds = CurrentRideHolder.remainingSeconds();
+    if (remainingSeconds != null) {
+      sb.append("\n");
       sb.append(TimeFormatUtil.formatDuration(remainingSeconds)).append(" left");
     }
 
     return sb.toString();
   }
 
-  private void scheduleRideCompletionNotification(RideName ride) {
-    int rideTimeSeconds = ride.getRideTime();
-    if (rideTimeSeconds >= 99999 || rideStartEpochMs < 0) {
+  private void maybeRescheduleCompletionNotification(RideName ride) {
+    Integer remainingSeconds = CurrentRideHolder.remainingSeconds();
+    if (remainingSeconds == null || ride.getRideTime() >= 99999) {
       return;
     }
 
-    long fireAtEpochMs = rideStartEpochMs + ((long) rideTimeSeconds * 1000);
+    long fireAtEpochMs = System.currentTimeMillis() + remainingSeconds * 1000L;
+    if (scheduledFireAtEpochMs >= 0
+        && Math.abs(fireAtEpochMs - scheduledFireAtEpochMs)
+            <= NOTIFICATION_RESCHEDULE_THRESHOLD_MS) {
+      return;
+    }
 
-    String title = "Ride finished";
-    String body = buildNotificationBody(ride);
-
-    MonkeycraftCompat.setTimedNotification(fireAtEpochMs, title, body, true, ride.getDisplayName());
+    MonkeycraftCompat.setTimedNotification(
+        fireAtEpochMs, "Ride finished", buildNotificationBody(ride), true, ride.getDisplayName());
+    scheduledFireAtEpochMs = fireAtEpochMs;
   }
 
   private String buildNotificationBody(RideName ride) {
@@ -215,8 +213,8 @@ public class HibernationHandler {
     pendingCancellation = false;
     hibernationActive = false;
     wasHibernationEligibleRide = false;
-    rideStartEpochMs = -1;
     currentRideTimeSeconds = -1;
     lastMessageUpdateTick = -1;
+    scheduledFireAtEpochMs = -1;
   }
 }

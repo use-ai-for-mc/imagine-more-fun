@@ -31,6 +31,13 @@ Important lifecycle owner: `NotRidingAlertClient` registers connection, tick, HU
 command, and shutdown callbacks. Disconnect cleanup belongs there or in the subsystem method it
 calls; do not add a second uncoordinated lifecycle owner.
 
+NRA also owns quest collectible detection and highlighting. It registers the beam renderer,
+maintains targets on client ticks, and clears them on disconnect. Particle hooks observe on the
+client thread; highlights require a server quest boss bar displaying a distance and exclude PIM's local guidance bar.
+While that bar is present and matching collectible dust is being rendered, the client sky is forced
+to midnight; fullbright must not restore daytime.
+See [`features/QUEST_COLLECTIBLES.md`](features/QUEST_COLLECTIBLES.md).
+
 `ImagineFunWindowIconHandler` applies the ImagineFun logo to the macOS Dock or Windows taskbar on
 an ImagineFun connection and restores the version-appropriate Minecraft icon on disconnect. It is
 host-gated independently of NRA's `globalEnable` setting.

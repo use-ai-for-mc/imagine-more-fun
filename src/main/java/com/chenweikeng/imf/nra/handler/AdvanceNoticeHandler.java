@@ -34,13 +34,11 @@ public class AdvanceNoticeHandler {
       return;
     }
 
-    Integer elapsed = CurrentRideHolder.getElapsedSeconds();
-    int rideTime = currentRide.getRideTime();
-    if (elapsed == null || rideTime <= 0) {
+    Integer remaining = CurrentRideHolder.remainingSeconds();
+    if (remaining == null) {
       return;
     }
 
-    int remaining = rideTime - elapsed;
     if (remaining <= advanceSeconds) {
       alreadyNotified = true;
       playRideCompleteSound(client);
