@@ -7,6 +7,7 @@ import com.mojang.blaze3d.platform.CompareOp;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.math.Axis;
+import java.util.List;
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderContext;
 import net.fabricmc.fabric.api.client.rendering.v1.level.LevelRenderEvents;
 import net.minecraft.client.Minecraft;
@@ -21,7 +22,7 @@ import net.minecraft.util.ARGB;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 
-/** Renders one through-wall beacon beam from the collectible dust centroid. */
+/** Renders through-wall beacon beams from collectible dust and NPC quest markers. */
 public final class QuestCollectibleBeamRenderer {
   private static final double RENDER_DISTANCE = 300.0;
   private static final double RENDER_DISTANCE_SQUARED = RENDER_DISTANCE * RENDER_DISTANCE;
@@ -77,18 +78,15 @@ public final class QuestCollectibleBeamRenderer {
 
   private static void render(LevelRenderContext context) {
     Minecraft client = Minecraft.getInstance();
-    Vec3 origin = QuestCollectibleGlow.beamOrigin();
-    if (origin == null || client.level == null) {
+    if (client.level == null) {
+      return;
+    }
+    List<Vec3> origins = QuestCollectibleGlow.beamOrigins();
+    if (origins.isEmpty()) {
       return;
     }
 
     Vec3 camera = context.levelState().cameraRenderState.pos;
-    double dx = origin.x - camera.x;
-    double dz = origin.z - camera.z;
-    if (dx * dx + dz * dz > RENDER_DISTANCE_SQUARED) {
-      return;
-    }
-
     float partialTick = client.getDeltaTracker().getGameTimeDeltaPartialTick(false);
     float animationTime = Math.floorMod(client.level.getGameTime(), 40L) + partialTick;
     int beamColor =
@@ -96,11 +94,18 @@ public final class QuestCollectibleBeamRenderer {
             ? RED_BEAM_COLOR
             : BLUE_BEAM_COLOR;
     PoseStack poseStack = context.poseStack();
-    poseStack.pushPose();
-    poseStack.translate(dx, -camera.y, dz);
-    submitBeam(
-        poseStack, context.submitNodeCollector(), animationTime, (float) origin.y, beamColor);
-    poseStack.popPose();
+    SubmitNodeCollector collector = context.submitNodeCollector();
+    for (Vec3 origin : origins) {
+      double dx = origin.x - camera.x;
+      double dz = origin.z - camera.z;
+      if (dx * dx + dz * dz > RENDER_DISTANCE_SQUARED) {
+        continue;
+      }
+      poseStack.pushPose();
+      poseStack.translate(dx, -camera.y, dz);
+      submitBeam(poseStack, collector, animationTime, (float) origin.y, beamColor);
+      poseStack.popPose();
+    }
   }
 
   /** Reimplementation of the vanilla beacon geometry using no-depth-test render pipelines. */

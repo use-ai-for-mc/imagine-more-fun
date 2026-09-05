@@ -25,6 +25,7 @@ import com.chenweikeng.imf.nra.handler.ScoreboardHandler;
 import com.chenweikeng.imf.nra.handler.SystemAttentionHandler;
 import com.chenweikeng.imf.nra.quest.QuestCollectibleBeamRenderer;
 import com.chenweikeng.imf.nra.quest.QuestCollectibleGlow;
+import com.chenweikeng.imf.nra.quest.QuestEdgeGlowRenderer;
 import com.chenweikeng.imf.nra.report.DailyReport;
 import com.chenweikeng.imf.nra.report.DailyReportGenerator;
 import com.chenweikeng.imf.nra.report.DailyRideSnapshot;
@@ -183,6 +184,13 @@ public class NotRidingAlertClient implements ClientModInitializer {
           monkeycraftAutograbOverlayId,
           MonkeycraftAutograbOverlayRenderer::render);
     }
+
+    Identifier questEdgeGlowId =
+        Identifier.fromNamespaceAndPath(NotRidingAlertClient.MOD_ID, "quest_edge_glow");
+    if (questEdgeGlowId != null) {
+      HudElementRegistry.attachElementBefore(
+          VanillaHudElements.CHAT, questEdgeGlowId, QuestEdgeGlowRenderer::render);
+    }
   }
 
   private void onClientTick(Minecraft client) {
@@ -284,6 +292,7 @@ public class NotRidingAlertClient implements ClientModInitializer {
     OtherPlayerStatsTracker.getInstance().reset();
     AutograbHolder.resetLocationCache();
     QuestCollectibleGlow.reset();
+    QuestEdgeGlowRenderer.reset();
 
     // UI / cursor
     ClosedCaptionHolder.getInstance().clear();

@@ -31,10 +31,12 @@ Important lifecycle owner: `NotRidingAlertClient` registers connection, tick, HU
 command, and shutdown callbacks. Disconnect cleanup belongs there or in the subsystem method it
 calls; do not add a second uncoordinated lifecycle owner.
 
-NRA also owns quest collectible detection and highlighting. It registers the beam renderer,
-maintains targets on client ticks, and clears them on disconnect. Particle hooks observe on the
+NRA also owns quest collectible detection and highlighting. It registers the beam renderer and
+the quest edge-glow HUD, which derives direction every frame from the current camera and nearest
+beam origin while retaining the boss-bar distance gate. NRA maintains targets on client ticks, and clears them on disconnect. Particle hooks observe on the
 client thread; highlights require a server quest boss bar displaying a distance and exclude PIM's local guidance bar.
-While that bar is present and matching collectible dust is being rendered, the client sky is forced
+While that bar is present and matching collectible dust is being rendered or a talk-to-NPC
+exclamation-mark is loaded, the client sky is forced
 to midnight; fullbright must not restore daytime.
 See [`features/QUEST_COLLECTIBLES.md`](features/QUEST_COLLECTIBLES.md).
 

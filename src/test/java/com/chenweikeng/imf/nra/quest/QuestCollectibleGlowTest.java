@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.chenweikeng.imf.pim.tracker.BossBarTracker;
+import java.util.List;
 import java.util.UUID;
 import net.minecraft.core.particles.DustParticleOptions;
 import net.minecraft.network.chat.Component;
@@ -108,13 +109,25 @@ class QuestCollectibleGlowTest {
   }
 
   @Test
-  void beamOriginAveragesRenderedDustRatherThanStandBases() {
-    Vec3 origin =
-        QuestCollectibleGlow.averageDust(
-            new double[] {254.6, 254.8}, new double[] {65.0, 65.2}, new double[] {-536.5, -536.3});
-    assertEquals(254.7, origin.x, 0.0001);
-    assertEquals(65.1, origin.y, 0.0001);
-    assertEquals(-536.4, origin.z, 0.0001);
+  void beamOriginSelectsNearestTrackedEntityInsteadOfMovingDust() {
+    Vec3 observer = new Vec3(0, 64, 0);
+    Vec3 nearest = new Vec3(3, 100, 4);
+    assertEquals(
+        nearest,
+        QuestCollectibleGlow.nearestHorizontalOrigin(
+            List.of(new Vec3(20, 0, 0), nearest, new Vec3(0, -100, 8)), observer));
+    assertEquals(null, QuestCollectibleGlow.nearestHorizontalOrigin(List.of(), observer));
+  }
+
+  @Test
+  void beamOriginTieBreakDoesNotDependOnEntityIterationOrder() {
+    Vec3 left = new Vec3(-5, 66, 0);
+    Vec3 right = new Vec3(5, 66, 0);
+    Vec3 observer = Vec3.ZERO;
+    assertEquals(
+        left, QuestCollectibleGlow.nearestHorizontalOrigin(List.of(left, right), observer));
+    assertEquals(
+        left, QuestCollectibleGlow.nearestHorizontalOrigin(List.of(right, left), observer));
   }
 
   @Test
@@ -144,5 +157,25 @@ class QuestCollectibleGlowTest {
     assertFalse(QuestCollectibleGlow.isDustNearHead(0, 3.76, 0, 0, 0, 0));
     assertTrue(QuestCollectibleGlow.isDustNearHead(0, -0.75, 0, 0, 0, 0));
     assertFalse(QuestCollectibleGlow.isDustNearHead(0, -0.76, 0, 0, 0, 0));
+  }
+
+  @Test
+  void matchesLiveYodaExclamationMarkItem() {
+    assertTrue(QuestCollectibleGlow.isNpcMarkerItem("minecraft:iron_pickaxe", "Brickhead", 125));
+    assertFalse(QuestCollectibleGlow.isNpcMarkerItem("minecraft:iron_pickaxe", "Brickhead", 124));
+    assertFalse(
+        QuestCollectibleGlow.isNpcMarkerItem("minecraft:diamond_pickaxe", "Brickhead", 125));
+    assertFalse(QuestCollectibleGlow.isNpcMarkerItem("minecraft:iron_pickaxe", "Item", 125));
+    assertFalse(QuestCollectibleGlow.isNpcMarkerItem("minecraft:iron_pickaxe", null, 125));
+  }
+
+  @Test
+  void pairsNpcMarkerAboveUnnamedRemotePlayer() {
+    assertTrue(QuestCollectibleGlow.isPairedNpcMarker(411.5, 68.75, 880.5, 411.5, 66.0, 880.5));
+    assertTrue(QuestCollectibleGlow.isPairedNpcMarker(0, 2.25, 0, 0, 0, 0));
+    assertTrue(QuestCollectibleGlow.isPairedNpcMarker(0, 3.25, 0, 0, 0, 0));
+    assertFalse(QuestCollectibleGlow.isPairedNpcMarker(0, 2.24, 0, 0, 0, 0));
+    assertFalse(QuestCollectibleGlow.isPairedNpcMarker(0, 3.26, 0, 0, 0, 0));
+    assertFalse(QuestCollectibleGlow.isPairedNpcMarker(0.36, 2.75, 0, 0, 0, 0));
   }
 }
