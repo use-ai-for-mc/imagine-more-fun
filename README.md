@@ -4,7 +4,7 @@ A quality-of-life mod for the **ImagineFun** Minecraft server. It adds a ride tr
 
 Every feature only activates while you are connected to an `*.imaginefun.net` server. On any other server, or in single-player, the mod stays dormant.
 
-**Current release:** [ImagineMoreFun 3.5.0](https://github.com/use-ai-for-mc/imagine-more-fun/releases/tag/v3.5.0) for Minecraft 26.2
+**Current release:** [ImagineMoreFun 3.4.1](https://github.com/use-ai-for-mc/imagine-more-fun/releases/tag/v3.4.1) for Minecraft 26.2
 
 > **Replaces Not Riding Alert, Pim!, and SkinCache**
 >
@@ -17,7 +17,7 @@ Every feature only activates while you are connected to an `*.imaginefun.net` se
 
 1. Install Minecraft 26.2 with Fabric Loader 0.19.3 or newer.
 2. Add Fabric API and Cloth Config using the compatible versions listed below.
-3. Download [`imaginemorefun-3.5.0.jar`](https://github.com/use-ai-for-mc/imagine-more-fun/releases/download/v3.5.0/imaginemorefun-3.5.0.jar) and place it in the instance's `mods` folder.
+3. Download [`imaginemorefun-3.4.1.jar`](https://github.com/use-ai-for-mc/imagine-more-fun/releases/download/v3.4.1/imaginemorefun-3.4.1.jar) and place it in the instance's `mods` folder.
 4. Remove any standalone Not Riding Alert, Pim!, or SkinCache jars, then fully restart Minecraft.
 
 ## Requirements
