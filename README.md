@@ -4,7 +4,7 @@ A quality-of-life mod for the **ImagineFun** Minecraft server. It adds a ride tr
 
 Every feature only activates while you are connected to an `*.imaginefun.net` server. On any other server, or in single-player, the mod stays dormant.
 
-**Current release:** [ImagineMoreFun 3.4.0](https://github.com/use-ai-for-mc/imagine-more-fun/releases/tag/v3.4.0) for Minecraft 26.2
+**Current release:** [ImagineMoreFun 3.5.0](https://github.com/use-ai-for-mc/imagine-more-fun/releases/tag/v3.5.0) for Minecraft 26.2
 
 > **Replaces Not Riding Alert, Pim!, and SkinCache**
 >
@@ -17,7 +17,7 @@ Every feature only activates while you are connected to an `*.imaginefun.net` se
 
 1. Install Minecraft 26.2 with Fabric Loader 0.19.3 or newer.
 2. Add Fabric API and Cloth Config using the compatible versions listed below.
-3. Download [`imaginemorefun-3.4.0.jar`](https://github.com/use-ai-for-mc/imagine-more-fun/releases/download/v3.4.0/imaginemorefun-3.4.0.jar) and place it in the instance's `mods` folder.
+3. Download [`imaginemorefun-3.5.0.jar`](https://github.com/use-ai-for-mc/imagine-more-fun/releases/download/v3.5.0/imaginemorefun-3.5.0.jar) and place it in the instance's `mods` folder.
 4. Remove any standalone Not Riding Alert, Pim!, or SkinCache jars, then fully restart Minecraft.
 
 ## Requirements
@@ -59,6 +59,7 @@ Every feature only activates while you are connected to an `*.imaginefun.net` se
 - **Screen tweaks** — dim-while-riding, fullbright, modernized closed captions, and toggles to hide the scoreboard, chat, health bar, name tags, hotbar, XP level, and love-potion messages.
 - **Firework viewing** — alerts, time-of-day changes, and blindness are suppressed inside the firework area.
 - **Space Mountain enhancements** — a client-side overlay for Space Mountain / Hyperspace Mountain rides: a cleaned-up dome, an animated launch-tunnel screen effect, the coaster track, a projected starfield, and hidden show props. On by default; a master toggle reverts to vanilla visuals.
+- **Quest collectible guidance** — while a server quest shows a distance, outlines identified props and NPC markers, draws a through-wall beam, a purple radar crescent within 300 blocks, and forces night while those targets are visible.
 
 ### Pin collecting
 

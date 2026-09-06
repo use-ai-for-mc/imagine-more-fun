@@ -11,6 +11,11 @@ import org.junit.jupiter.api.Test;
 
 class QuestGlowDirectionTest {
   @Test
+  void usesTheSamePurpleAsTheAutograbOverlay() {
+    assertEquals(0x8A00FF, QuestEdgeGlowRenderer.TINT_RGB);
+  }
+
+  @Test
   void matchesPimSymbolOrderClockwiseFromForward() {
     assertArrayEquals(
         new String[] {"⬆", "↗", "➡", "↘", "⬇", "↙", "⬅", "↖"}, QuestGlowDirection.SYMBOLS);
