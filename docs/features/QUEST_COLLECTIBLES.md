@@ -8,13 +8,13 @@ The title must start with `Quest: ` and end in a parenthesized nonnegative integ
 distance, optionally followed by a direction arrow. The arrow uses the same eight symbols PIM
 writes on its local pin-trader bar, clockwise from the player's forward: `⬆↗➡↘⬇↙⬅↖`.
 While that distance bar is present and its reported distance is at most 300 blocks (inclusive),
-`QuestEdgeGlowRenderer` draws a deep-blue (`#064B9A`) crescent: a large circle minus an
+`QuestEdgeGlowRenderer` draws a purple (`#8A00FF`, matching the autograb overlay) crescent: a large circle minus an
 oppositely offset smaller circle, clipped to the screen. Both circles use actual GUI-pixel radii;
 the outer circle extends beyond the screen corners. Along the target bearing the crescent reaches
 inward by roughly one quarter of the screen dimension. The inner arc fades over the innermost 35%
 of that depth, retaining a broad saturated region. There are no rectangular layout anchors or
 radial spot textures. Non-overlapping column spans follow the analytic circle boundaries. Three
-low-contrast blue range arcs are clipped into the crescent to add a subtle radar-screen texture.
+low-contrast light-purple range arcs are clipped into the crescent to add a subtle radar-screen texture.
 Peak opacity breathes between 45% and 75% over four seconds. The crescent disappears above 300
 blocks, when the distance bar disappears, or when no valid beam targets remain. This range limit
 applies only to the HUD; entity outlines, beams, and the night-sky gate retain their existing rules.

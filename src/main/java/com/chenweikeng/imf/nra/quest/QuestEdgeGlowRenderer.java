@@ -6,14 +6,14 @@ import net.minecraft.client.DeltaTracker;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 
-/** Deep-blue radar crescent driven by camera-relative quest beam positions. */
+/** Purple radar crescent driven by camera-relative quest beam positions. */
 public final class QuestEdgeGlowRenderer {
   static final float PULSE_BASE = 0.60F;
   static final float PULSE_AMPLITUDE = 0.15F;
   static final double PULSE_SECONDS = 4.0;
   static final float SOLID_FRACTION = 0.65F;
-  static final int TINT_RGB = 0x064B9A;
-  static final int RADAR_LINE_RGB = 0x2B8FE6;
+  static final int TINT_RGB = 0x8A00FF;
+  static final int RADAR_LINE_RGB = 0xC45CFF;
   static final float RADAR_LINE_OPACITY = 0.22F;
   static final double[] RADAR_RING_RADII = {0.45, 0.70, 0.95};
 
