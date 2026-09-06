@@ -3,6 +3,7 @@ package com.chenweikeng.imf.nra.handler;
 import com.chenweikeng.imf.nra.GameState;
 import com.chenweikeng.imf.nra.ServerState;
 import com.chenweikeng.imf.nra.config.ModConfig;
+import com.chenweikeng.imf.nra.quest.QuestCollectibleGlow;
 import com.chenweikeng.imf.nra.spacemountain.SpaceMountainOverride;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.multiplayer.ClientLevel;
@@ -17,6 +18,10 @@ public class DayTimeHandler {
     }
 
     if (FireworkViewingHandler.getInstance().isViewingFirework()) {
+      return;
+    }
+
+    if (QuestCollectibleGlow.shouldForceNight()) {
       return;
     }
 

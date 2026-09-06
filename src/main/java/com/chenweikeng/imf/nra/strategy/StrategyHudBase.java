@@ -116,15 +116,10 @@ public final class StrategyHudBase {
     RideStatus status = RideStatus.NORMAL;
 
     if (currentRide != null && ride == currentRide) {
-      Integer elapsed = CurrentRideHolder.getElapsedSeconds();
+      Integer remaining = CurrentRideHolder.remainingSeconds();
       Integer progress = CurrentRideHolder.getCurrentProgressPercent();
-      if (elapsed != null && progress != null) {
-        int totalSeconds = ride.getRideTime();
-        int remainingSeconds = totalSeconds - elapsed;
-        if (remainingSeconds < 0) {
-          remainingSeconds = 0;
-        }
-        String timeLeft = formatStrategyDuration(remainingSeconds);
+      if (remaining != null && progress != null) {
+        String timeLeft = formatStrategyDuration(remaining);
         rideName += " (" + progress + "%, " + timeLeft + " left)";
       } else if (progress != null) {
         rideName += " (" + progress + "%)";

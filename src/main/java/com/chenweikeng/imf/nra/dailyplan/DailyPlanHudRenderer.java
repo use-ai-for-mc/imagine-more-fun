@@ -478,10 +478,9 @@ public final class DailyPlanHudRenderer {
 
     if (currentRide != null) {
       Integer progress = CurrentRideHolder.getCurrentProgressPercent();
-      Integer elapsed = CurrentRideHolder.getElapsedSeconds();
+      Integer remaining = CurrentRideHolder.remainingSeconds();
       StringBuilder sb = new StringBuilder("\u25B6 ").append(currentRide.getDisplayName());
-      if (progress != null && elapsed != null) {
-        int remaining = Math.max(0, currentRide.getRideTime() - elapsed);
+      if (progress != null && remaining != null) {
         sb.append(" \u00B7 ")
             .append(progress)
             .append("% \u00B7 ")
