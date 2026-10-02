@@ -71,6 +71,27 @@ address. Routine GPU and media-health samples remain active for threshold decisi
 DEBUG. INFO/WARN is reserved for connection state changes, telemetry availability transitions,
 threshold crossings, and helper recovery/recycle actions.
 
+## MonkeyCraft native audio handoff
+
+The optional Monkeycraft integration listens for an `openaudiomc` INFO_PACKET with a boolean
+`active`. While true, `OpenAudioMcService` invalidates pending startup, closes the desktop helper,
+and suppresses connect offers, server-ended recovery, and delayed auto-connect tasks. It preserves
+the user's connection intent and volume. False schedules a fresh desktop session only when that
+intent is still enabled; a user who had desktop audio off remains off.
+
+The mobile app reports ownership before navigation and releases it after teardown, including
+failed connection or refresh. A Monkeycraft transport disconnect does not automatically release:
+the mobile WebView can continue playing in the background. The existing explicit desktop connect
+action clears the process-local ownership latch when manual recovery is needed. Desktop process
+restart is not a durable ownership protocol and still needs a cross-device acceptance case.
+External browser audio does not report this native ownership field.
+
+Local 2026-09-21 validation used real Minecraft and an iOS diagnostic simulator: one minute of
+mobile ownership, including a controlled transport reconnect, did not restart the desktop helper;
+explicit mobile disconnect restored the previous desired connection and unchanged volume. Startup
+JUnit cases cover suppression and keeping a previously disabled desktop session off. This does not
+establish physical-device audibility, normal mobile GUI, or process-crash/restart acceptance.
+
 ## Longer-term migration
 
 Pure audio should eventually stop depending on a browser engine. A safe migration requires first

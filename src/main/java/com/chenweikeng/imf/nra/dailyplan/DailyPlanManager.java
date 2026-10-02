@@ -3,6 +3,7 @@ package com.chenweikeng.imf.nra.dailyplan;
 import com.chenweikeng.imf.nra.config.ModConfig;
 import com.chenweikeng.imf.nra.ride.RideCountManager;
 import com.chenweikeng.imf.nra.ride.RideName;
+import com.chenweikeng.imf.nra.ride.SeasonalRideSchedule;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -41,7 +42,12 @@ public final class DailyPlanManager {
     }
     boolean pruned = false;
     if (cached != null) {
-      pruned = pruneHiddenRideLayers(cached);
+      if (today.toString().equals(cached.date)) {
+        pruned =
+            DailyPlanSeasonalRides.updatePlan(
+                cached, today, RideCountManager.getInstance()::getRideCount);
+      }
+      pruned |= pruneHiddenRideLayers(cached);
       pruned |= pruneReachedGoalNodes(cached);
     }
 
@@ -480,7 +486,8 @@ public final class DailyPlanManager {
       return false;
     }
     for (DailyPlanNode node : layer.nodes) {
-      if (node != null && hiddenRides.contains(node.ride)) {
+      if (node != null
+          && SeasonalRideSchedule.isHidden(RideName.fromMatchString(node.ride), hiddenRides)) {
         return true;
       }
     }
@@ -499,11 +506,7 @@ public final class DailyPlanManager {
       if (ride == RideName.UNKNOWN) {
         continue;
       }
-      int baseline = 0;
-      if (layer.baselineCounts != null) {
-        baseline = layer.baselineCounts.getOrDefault(node.ride, 0);
-      }
-      if (counts.getRideCount(ride) > baseline) {
+      if (DailyPlanRideProgress.progress(ride, layer.baselineCounts, counts::getRideCount) > 0) {
         return true;
       }
     }

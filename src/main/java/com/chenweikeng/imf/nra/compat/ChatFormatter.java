@@ -1,6 +1,5 @@
 package com.chenweikeng.imf.nra.compat;
 
-import com.chenweikeng.imf.nra.CursorManager;
 import com.chenweikeng.monkeycraft_api.v1.ChatMessageResult;
 import com.chenweikeng.monkeycraft_api.v1.IncomingChatContext;
 import com.chenweikeng.monkeycraft_api.v1.OutgoingChatContext;
@@ -22,10 +21,6 @@ final class ChatFormatter {
     Component message = context.getMessage();
     String senderUuid = context.getSenderUuid();
     String senderName = context.getSenderName();
-
-    if (message == CursorManager.DYNAMIC_FPS_COMPATIBILITY_MESSAGE) {
-      return ChatMessageResult.DENY;
-    }
 
     return processIncomingMessage(context, message, senderUuid, senderName);
   }

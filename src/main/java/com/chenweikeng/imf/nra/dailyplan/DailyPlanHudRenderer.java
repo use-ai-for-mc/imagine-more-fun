@@ -311,8 +311,7 @@ public final class DailyPlanHudRenderer {
     RideName ride = RideName.fromMatchString(node.ride);
     int progress;
     if (layer.baselineCounts != null) {
-      int baseline = layer.baselineCounts.getOrDefault(node.ride, 0);
-      int delta = Math.max(0, counts.getRideCount(ride) - baseline);
+      int delta = DailyPlanRideProgress.progress(ride, layer.baselineCounts, counts::getRideCount);
       progress = Math.min(delta, node.k);
     } else {
       // Future / gated layer — show no progress until it activates.
@@ -323,7 +322,10 @@ public final class DailyPlanHudRenderer {
     NodeLayout layout = new NodeLayout();
     layout.isDone = node.completed;
     layout.blink =
-        !isSpecialQuest && highlightRide != null && !layout.isDone && ride == highlightRide;
+        !isSpecialQuest
+            && highlightRide != null
+            && !layout.isDone
+            && (ride == highlightRide || DailyPlanRideProgress.companion(ride) == highlightRide);
     boolean isPartial = !layout.isDone && progress > 0;
 
     if (layout.isDone) {

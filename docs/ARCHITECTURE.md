@@ -52,6 +52,24 @@ count when the API snapshot lags around ride completion. A transient API failure
 known counts. Stable server ride IDs map through `RideName.fromApiId()`; display names and IMF short
 names are not API identifiers.
 
+The same isolated bridge feeds connection-local `ServerRideState` from `RIDE_STATUS` events.
+Once a status event has arrived, `ScoreboardHandler` publishes that event's stable ride ID and
+server start timestamp instead of the sidebar name; an end event clears the current ride even
+while a stale sidebar remains visible. Join/disconnect clears this authority. Before the first
+event, or without ImagineFunUtils, the sidebar remains the fallback. Shared truncated prefixes
+such as `Haunted Mansi...` and `Guardians of th...` resolve to `UNKNOWN`, rather than guessing the
+ordinary variant. Seasonal identity follows each server event, without dates or persistent
+seasonal switches; lifetime counts remain separate by their existing API IDs. Coordinate-based
+nearest-ride suggestions and Strategy Hub recommendations follow the user's calendar via
+`SeasonalRideSchedule`: October uses Monsters After Dark, and October 1 through January 15 uses
+Haunted Mansion Holiday. That schedule is a planning assumption, not evidence of server availability.
+Local ride-plan family tasks accept positive count deltas from either version while lifetime
+counts remain separate. See [`features/DAILY_RIDE_PLAN.md`](features/DAILY_RIDE_PLAN.md).
+
+Neither Guardians of the Galaxy variant currently has an autograb region in
+`autograb-regions.json`, per the user's request for this version. Their server
+ride identity and count tracking remain enabled. TOT retains its own `retro` region.
+
 If the initial ImagineFunUtils handshake does not establish an API session, the isolated bridge
 re-sends that handshake after 5, 15, and 35 seconds from joining, then stops. A session update
 cancels pending retries immediately; cached counts and the legacy parser remain available if all
@@ -138,6 +156,21 @@ main exception:
   later logical session.
 
 See [`features/OPENAUDIO_LIFECYCLE.md`](features/OPENAUDIO_LIFECYCLE.md) before changing recovery.
+
+Monkeycraft's optional `INFO_PACKET` integration accepts the `openaudiomc` title and a boolean
+`active` field. Native mobile ownership stops the desktop bridge and all automatic startup/recovery
+while preserving connection intent and volume. Release resumes only a previously desired desktop
+connection. Transport loss does not release ownership: mobile audio can survive locking or a brief
+network interruption. The existing explicit desktop connect action can take ownership back after a
+mobile crash. This latch is process-local; desktop-restart interaction still requires cross-device
+acceptance. Browser external audio does not participate. Recovery tasks recheck ownership while
+holding the service monitor before dispatching a new connection.
+
+The 2026-09-21 local build was tested with real Minecraft 26.2 and the iOS 26.5 diagnostic simulator:
+desktop remained stopped for approximately one minute including a controlled Monkeycraft socket
+loss, then returned to the original desired connection and volume after mobile explicit disconnect.
+This is service-level runtime evidence, not a physical-device audibility or normal GUI result.
+Evidence: `../monkeycraft/outputs/closeout-2026-09-21/audio-*-samples*.json` from the repository parent.
 
 ## Verification boundary
 

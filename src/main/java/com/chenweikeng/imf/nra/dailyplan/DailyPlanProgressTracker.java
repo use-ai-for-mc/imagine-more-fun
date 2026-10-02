@@ -46,7 +46,7 @@ public final class DailyPlanProgressTracker {
             // Special daily-quest sentinel — no ride count to baseline against.
             continue;
           }
-          layer.baselineCounts.put(node.ride, counts.getRideCount(r));
+          DailyPlanRideProgress.captureBaseline(layer.baselineCounts, r, counts::getRideCount);
         }
         anyChanged = true;
       }
@@ -60,8 +60,8 @@ public final class DailyPlanProgressTracker {
         if (ride == RideName.UNKNOWN) {
           continue;
         }
-        int baseline = layer.baselineCounts.getOrDefault(node.ride, 0);
-        int delta = counts.getRideCount(ride) - baseline;
+        int delta =
+            DailyPlanRideProgress.progress(ride, layer.baselineCounts, counts::getRideCount);
 
         if (delta >= node.k) {
           node.completed = true;
@@ -92,8 +92,8 @@ public final class DailyPlanProgressTracker {
         if (ride == RideName.UNKNOWN) {
           continue;
         }
-        int baseline = layer.baselineCounts.getOrDefault(node.ride, 0);
-        int delta = counts.getRideCount(ride) - baseline;
+        int delta =
+            DailyPlanRideProgress.progress(ride, layer.baselineCounts, counts::getRideCount);
         if (delta >= node.k) {
           node.completed = true;
           anyChanged = true;

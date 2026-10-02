@@ -177,6 +177,47 @@ class OpenAudioMcServiceStartupTest {
     }
   }
 
+  @Test
+  void phoneOwnershipSuppressesOffersAndRecoveryButPreservesDesktopIntent(@TempDir Path tempDir) {
+    OpenAudioMcService service = serviceWithoutHelper(tempDir);
+    try {
+      service.autoConnectOnJoin();
+      service.setRemoteAudioActive(true);
+      service.connect("https://session.openaudiomc.net#REMOTE-TEST");
+      service.onServerEndedSession();
+      service.onServerAlreadyConnected();
+      service.onLeaveServer();
+      assertTrue(service.isRemoteAudioActive());
+      assertFalse(service.isActive());
+      assertFalse(service.isPendingCommandConnect());
+      assertFalse(service.shouldManageServerAudioEvents());
+      assertTrue(service.shouldConnectOnJoin(false));
+      service.setRemoteAudioActive(false);
+      assertFalse(service.isRemoteAudioActive());
+      assertTrue(service.shouldManageServerAudioEvents());
+    } finally {
+      service.dispose();
+    }
+  }
+
+  @Test
+  void phoneReleaseDoesNotEnableDesktopAudioThatWasOff(@TempDir Path tempDir) {
+    OpenAudioMcService service = serviceWithoutHelper(tempDir);
+    try {
+      service.setRemoteAudioActive(true);
+      service.setRemoteAudioActive(false);
+      assertFalse(service.shouldManageServerAudioEvents());
+      service.autoConnectOnJoin();
+      service.setRemoteAudioActive(true);
+      service.disconnectViaCommand();
+      service.setRemoteAudioActive(false);
+      assertFalse(service.shouldManageServerAudioEvents());
+      assertFalse(service.shouldConnectOnJoin(false));
+    } finally {
+      service.dispose();
+    }
+  }
+
   private static OpenAudioMcService serviceWithoutHelper(Path tempDir) {
     return new OpenAudioMcService(
         new AudioVolumeStore(

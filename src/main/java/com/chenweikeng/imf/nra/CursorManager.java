@@ -1,7 +1,6 @@
 package com.chenweikeng.imf.nra;
 
 import com.chenweikeng.imf.nra.canoe.CanoeHelperClient;
-import com.chenweikeng.imf.nra.compat.MonkeycraftCompat;
 import com.chenweikeng.imf.nra.config.CursorReleaseTiming;
 import com.chenweikeng.imf.nra.config.ModConfig;
 import com.chenweikeng.imf.nra.config.WindowMinimizeTiming;
@@ -9,16 +8,10 @@ import com.chenweikeng.imf.nra.handler.WindowMinimizeHandler;
 import com.chenweikeng.imf.nra.ride.AutograbHolder;
 import com.chenweikeng.imf.nra.ride.CurrentRideHolder;
 import com.chenweikeng.imf.nra.ride.RideName;
-import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
-import org.lwjgl.glfw.GLFW;
 
 public class CursorManager {
-  public static final Component DYNAMIC_FPS_COMPATIBILITY_MESSAGE =
-      Component.literal(
-          "§6✨ §e[IMF] §fFor compatibility with Dynamic FPS, the window will not be minimized when MonkeyCraft client is connected.");
-
   private boolean wasRiding = false;
   private boolean wasOnVehicle = false;
   private boolean wasPassenger = false;
@@ -28,7 +21,6 @@ public class CursorManager {
   private long pendingZoneMinimizeTick = -1;
   private RideName previousAutograbRide = null;
   private long lastCanoeMessageTick = -Timing.CANOE_MESSAGE_COOLDOWN_TICKS;
-  private long lastDynamicFpsMessageTick = -Timing.DYNAMIC_FPS_MESSAGE_COOLDOWN_TICKS;
   private final WindowMinimizeHandler windowMinimizeHandler = WindowMinimizeHandler.getInstance();
 
   /**
@@ -166,24 +158,19 @@ public class CursorManager {
         };
 
     if (shouldMinimizeOnThisTick) {
-      if (MonkeycraftCompat.isClientConnected()
-          && FabricLoader.getInstance().isModLoaded("dynamic_fps")) {
-        sendDynamicFpsMessageIfNeeded(client);
-      } else {
-        if (shouldMinimizeOnZoneEntry && minimizeTiming == WindowMinimizeTiming.ON_ZONE_ENTRY) {
-          minimizedDuringAutograb = true;
-          if (ModConfig.currentSetting.showAutograbRegions
-              && pendingZoneMinimizeTick != -1
-              && client.player != null) {
-            state.armRubberBand(
-                client.player.getX(),
-                client.player.getY(),
-                client.player.getZ(),
-                pendingZoneMinimizeTick + 20);
-          }
+      if (shouldMinimizeOnZoneEntry && minimizeTiming == WindowMinimizeTiming.ON_ZONE_ENTRY) {
+        minimizedDuringAutograb = true;
+        if (ModConfig.currentSetting.showAutograbRegions
+            && pendingZoneMinimizeTick != -1
+            && client.player != null) {
+          state.armRubberBand(
+              client.player.getX(),
+              client.player.getY(),
+              client.player.getZ(),
+              pendingZoneMinimizeTick + 20);
         }
-        windowMinimizeHandler.minimizeWindow();
       }
+      windowMinimizeHandler.minimizeWindow();
       pendingZoneMinimizeTick = -1;
     }
 
@@ -206,20 +193,6 @@ public class CursorManager {
     }
     if (wasRiding && !isRiding) {
       windowMinimizeHandler.requestAttention();
-    }
-
-    // DynamicFPS + MonkeyCraft compatibility: keep window visible.
-    if (MonkeycraftCompat.isClientConnected()
-        && FabricLoader.getInstance().isModLoaded("dynamic_fps")) {
-      if (client.getWindow() != null) {
-        long handle = client.getWindow().handle();
-        boolean isMinimized =
-            GLFW.glfwGetWindowAttrib(handle, GLFW.GLFW_ICONIFIED) == GLFW.GLFW_TRUE;
-        if (isMinimized) {
-          windowMinimizeHandler.restoreWindow();
-          sendDynamicFpsMessageIfNeeded(client);
-        }
-      }
     }
   }
 
@@ -292,19 +265,6 @@ public class CursorManager {
     client.player.sendSystemMessage(message);
   }
 
-  private void sendDynamicFpsMessageIfNeeded(Minecraft client) {
-    if (client.player == null) {
-      return;
-    }
-    GameState state = GameState.getInstance();
-    if (state.getAbsoluteTickCounter() - lastDynamicFpsMessageTick
-        < Timing.DYNAMIC_FPS_MESSAGE_COOLDOWN_TICKS) {
-      return;
-    }
-    lastDynamicFpsMessageTick = state.getAbsoluteTickCounter();
-    client.player.sendSystemMessage(DYNAMIC_FPS_COMPATIBILITY_MESSAGE);
-  }
-
   public void reset() {
     wasRiding = false;
     wasOnVehicle = false;
@@ -316,6 +276,5 @@ public class CursorManager {
     GameState.getInstance().clearRubberBand();
     previousAutograbRide = null;
     lastCanoeMessageTick = -Timing.CANOE_MESSAGE_COOLDOWN_TICKS;
-    lastDynamicFpsMessageTick = -Timing.DYNAMIC_FPS_MESSAGE_COOLDOWN_TICKS;
   }
 }

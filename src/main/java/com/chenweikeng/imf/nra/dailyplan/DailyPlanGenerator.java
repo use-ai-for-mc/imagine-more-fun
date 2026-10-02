@@ -5,6 +5,7 @@ import com.chenweikeng.imf.nra.dailyplan.DailyPlanLayer.LayerType;
 import com.chenweikeng.imf.nra.ride.AutograbHolder;
 import com.chenweikeng.imf.nra.ride.RideCountManager;
 import com.chenweikeng.imf.nra.ride.RideName;
+import com.chenweikeng.imf.nra.ride.SeasonalRideSchedule;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -86,8 +87,12 @@ public final class DailyPlanGenerator {
     RideCountManager counts = RideCountManager.getInstance();
 
     List<RideName> eligible = new ArrayList<>();
-    for (RideName ride : RideName.sortedByDisplayName()) {
-      if (ModConfig.currentSetting.hiddenRides.contains(ride.toMatchString())) {
+    Set<RideName> seen = new HashSet<>();
+    LocalDate today = LocalDate.now();
+    for (RideName candidate : RideName.sortedByDisplayName()) {
+      RideName ride = SeasonalRideSchedule.forDate(candidate, today);
+      if (!seen.add(ride)) continue;
+      if (SeasonalRideSchedule.isHidden(ride, ModConfig.currentSetting.hiddenRides)) {
         continue;
       }
       if (onlyAutograbbing && !AutograbHolder.hasAutograb(ride)) {
@@ -204,6 +209,12 @@ public final class DailyPlanGenerator {
         if (atCapture != null) {
           Map<String, Integer> baseline = new HashMap<>();
           baseline.put(quest.rideMatchName, atCapture - quest.observedProgress);
+          DailyPlanRideProgress.captureBaseline(
+              baseline,
+              RideName.fromMatchString(quest.rideMatchName),
+              r ->
+                  snap.rideCountsAtCapture.getOrDefault(
+                      r.toMatchString(), RideCountManager.getInstance().getRideCount(r)));
           layer.baselineCounts = baseline;
         }
       }

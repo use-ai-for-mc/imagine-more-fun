@@ -2,9 +2,12 @@ package com.chenweikeng.imf.nra.compat;
 
 import com.chenweikeng.imf.ImfClient;
 import com.chenweikeng.imf.nra.NotRidingAlertClient;
+import com.chenweikeng.imf.nra.ride.CurrentRideHolder;
+import com.chenweikeng.imf.nra.ride.LastRideHolder;
 import com.chenweikeng.imf.nra.ride.RideCountManager;
 import com.chenweikeng.imf.nra.ride.RideName;
 import com.chenweikeng.imf.nra.ride.RideStatsSourceCoordinator;
+import com.chenweikeng.imf.nra.ride.ServerRideState;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Locale;
@@ -46,11 +49,22 @@ public final class ImagineFunUtilsRideDataSource implements RideStatsSourceCoord
         payload -> Minecraft.getInstance().execute(this::onApiSessionUpdated));
     ImagineFunClientEvents.RIDE_STATUS.register(
         payload -> {
-          if (!payload.riding()) {
-            Minecraft.getInstance()
-                .execute(
-                    () -> scheduleRefresh(System.currentTimeMillis() + RIDE_END_REFRESH_DELAY_MS));
-          }
+          Minecraft.getInstance()
+              .execute(
+                  () -> {
+                    if (!connected) {
+                      return;
+                    }
+                    ServerRideState.getInstance()
+                        .update(payload.rideId(), payload.riding(), payload.startedAtEpochMs());
+                    // Completion chat may arrive before the next scoreboard poll. Attribute it
+                    // to this payload, including when joining partway through a ride.
+                    LastRideHolder.setLastRide(RideName.fromApiId(payload.rideId()));
+                    CurrentRideHolder.setCurrentRide(ServerRideState.getInstance().getRide());
+                    if (!payload.riding()) {
+                      scheduleRefresh(System.currentTimeMillis() + RIDE_END_REFRESH_DELAY_MS);
+                    }
+                  });
         });
   }
 

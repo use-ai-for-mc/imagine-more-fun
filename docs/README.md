@@ -37,6 +37,9 @@ redirect for the retired Red Car Trolley page, not engineering documentation.
 
 ## Dated validation evidence
 
+- [`validation/SEASONAL_RIDE_IDENTITY_2026-10-02.md`](validation/SEASONAL_RIDE_IDENTITY_2026-10-02.md):
+  Holiday and Monsters After Dark status IDs, sidebar misidentification, separate counts,
+  correction evidence, and Guardians autograb removal.
 - [`validation/IMAGINEFUN_RIDE_IDS_2026-07.md`](validation/IMAGINEFUN_RIDE_IDS_2026-07.md):
   ImagineFunUtils 0.0.8 ride lifecycle observations.
 - [`validation/IMAGINEFUN_API_SESSION_CAPTURE_2026-08-22.md`](validation/IMAGINEFUN_API_SESSION_CAPTURE_2026-08-22.md):

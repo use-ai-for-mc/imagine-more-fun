@@ -263,8 +263,8 @@ public enum RideName {
   }
 
   /**
-   * Matches a truncated ride name (e.g. "Mr Toad's Wild R" or "Mr Toad's Wild R...") to the closest
-   * RideName. Handles "..." suffix and prefix like "⏐ ". Returns UNKNOWN if no match.
+   * Matches an unambiguous truncated ride name. Handles "..." suffix and prefix like "⏐ ". Shared
+   * prefixes cannot distinguish seasonal variants and return UNKNOWN.
    */
   public static RideName fromTruncatedString(String s) {
     if (s == null) return UNKNOWN;
@@ -275,19 +275,19 @@ public enum RideName {
     // Remove leading pipe (handle both ASCII | and Unicode full-width |)
     if (cleaned.startsWith("| ")) cleaned = cleaned.substring(2).trim();
     // Remove "..." suffix (truncation)
-    if (cleaned.endsWith("...")) cleaned = cleaned.substring(0, cleaned.length() - 3).trim();
+    boolean truncated = cleaned.endsWith("...");
+    if (truncated) cleaned = cleaned.substring(0, cleaned.length() - 3).trim();
     // Exact match first
     cleaned = cleaned.trim();
     RideName exact = fromMatchString(cleaned);
-    if (exact != UNKNOWN) return exact;
+    if (!truncated && exact != UNKNOWN) return exact;
     // Find displayName that starts with cleaned (truncated match)
     RideName best = UNKNOWN;
-    int bestLen = Integer.MAX_VALUE;
     for (RideName r : values()) {
       if (r == UNKNOWN) continue;
-      if (r.matchName.startsWith(cleaned) && r.matchName.length() < bestLen) {
+      if (r.matchName.startsWith(cleaned)) {
+        if (best != UNKNOWN) return UNKNOWN;
         best = r;
-        bestLen = r.matchName.length();
       }
     }
     // Special case for Rise of the Resistance (sidebar shows "Rise of the Resistance" without "Star

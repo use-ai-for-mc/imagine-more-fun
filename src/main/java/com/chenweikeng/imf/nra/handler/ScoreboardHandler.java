@@ -4,6 +4,7 @@ import com.chenweikeng.imf.nra.ServerState;
 import com.chenweikeng.imf.nra.ride.CurrentRideHolder;
 import com.chenweikeng.imf.nra.ride.LastRideHolder;
 import com.chenweikeng.imf.nra.ride.RideName;
+import com.chenweikeng.imf.nra.ride.ServerRideState;
 import com.chenweikeng.imf.nra.wizard.TutorialManager;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -81,6 +82,12 @@ public class ScoreboardHandler {
 
     Scoreboard scoreboard = client.level.getScoreboard();
     Objective objective = getDisplayObjective(scoreboard, client);
+    ServerRideState serverRide = ServerRideState.getInstance();
+    if (serverRide.isAuthoritative()) {
+      scoreboardEmpty = objective == null;
+      publishRide(serverRide.getRide(), serverRide.elapsedSeconds(System.currentTimeMillis()));
+      return;
+    }
     if (objective == null) {
       scoreboardEmpty = true;
       if (ticksUntilNextReminder > 0 && ticksUntilNextReminder <= 200) {
@@ -200,30 +207,27 @@ public class ScoreboardHandler {
       }
     }
 
-    if (currentRidePrefix == null) {
-      CurrentRideHolder.setCurrentRide(null);
-    } else {
-      RideName resolved = RideName.fromTruncatedString(currentRidePrefix);
-      CurrentRideHolder.setCurrentRide(resolved);
-      LastRideHolder.setLastRide(resolved);
+    RideName resolved =
+        currentRidePrefix == null ? null : RideName.fromTruncatedString(currentRidePrefix);
+    int elapsed = parseTimeString(timePrefix);
+    publishRide(resolved, elapsed >= 0 ? elapsed : null);
+  }
 
+  private void publishRide(RideName resolved, Integer elapsed) {
+    CurrentRideHolder.setCurrentRide(resolved);
+    if (resolved != null) {
+      LastRideHolder.setLastRide(resolved);
       if (resolved == RideName.DAVY_CROCKETTS_EXPLORER_CANOES) {
         // Canoe progress is published by CanoeHelperClient from the boat's position on the
         // reference track. Don't overwrite it here, but do clear elapsedSeconds — the canoe ride
         // has no fixed duration so an elapsed-based reading is meaningless.
         CurrentRideHolder.setElapsedSeconds(null);
-      } else if (timePrefix != null) {
-        int elapsed = parseTimeString(timePrefix);
-        if (elapsed >= 0) {
-          int rideTimeSeconds = resolved.getRideTime();
-          if (rideTimeSeconds > 0) {
-            int percent = Math.min(100, Math.max(0, (elapsed * 100) / rideTimeSeconds));
-            CurrentRideHolder.setCurrentProgressPercent(percent);
-            CurrentRideHolder.setElapsedSeconds(elapsed);
-          } else {
-            CurrentRideHolder.setCurrentProgressPercent(null);
-            CurrentRideHolder.setElapsedSeconds(null);
-          }
+      } else if (elapsed != null) {
+        int rideTimeSeconds = resolved.getRideTime();
+        if (rideTimeSeconds > 0) {
+          int percent = (int) Math.min(100L, Math.max(0L, (elapsed * 100L) / rideTimeSeconds));
+          CurrentRideHolder.setCurrentProgressPercent(percent);
+          CurrentRideHolder.setElapsedSeconds(elapsed);
         } else {
           CurrentRideHolder.setCurrentProgressPercent(null);
           CurrentRideHolder.setElapsedSeconds(null);

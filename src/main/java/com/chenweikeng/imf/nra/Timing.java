@@ -8,7 +8,6 @@ public final class Timing {
   public static final int REMINDER_INTERVAL_TICKS = 300;
   public static final int HUD_UPDATE_INTERVAL_TICKS = 40;
   public static final int CANOE_MESSAGE_COOLDOWN_TICKS = 200;
-  public static final int DYNAMIC_FPS_MESSAGE_COOLDOWN_TICKS = 12000;
   // Small delay after entering the autograb zone before minimizing the window,
   // so the player has a moment to walk away from the risky border of the zone.
   public static final int ZONE_ENTRY_MINIMIZE_DELAY_TICKS = 5;

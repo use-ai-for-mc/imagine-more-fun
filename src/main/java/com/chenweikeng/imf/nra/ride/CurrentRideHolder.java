@@ -3,8 +3,8 @@ package com.chenweikeng.imf.nra.ride;
 import com.chenweikeng.imf.nra.handler.ClosedCaptionHolder;
 
 /**
- * Holds the currently ridden ride from the scoreboard sidebar. Null when the "Current Ride" block
- * is not shown (player not riding).
+ * Holds the currently ridden ride from server status events, with a scoreboard fallback. Null when
+ * the player is not riding.
  */
 public class CurrentRideHolder {
   private static RideName currentRide = null;

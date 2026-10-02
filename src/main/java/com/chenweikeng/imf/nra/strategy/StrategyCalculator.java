@@ -5,9 +5,13 @@ import com.chenweikeng.imf.nra.config.SortingRules;
 import com.chenweikeng.imf.nra.ride.AutograbHolder;
 import com.chenweikeng.imf.nra.ride.RideCountManager;
 import com.chenweikeng.imf.nra.ride.RideName;
+import com.chenweikeng.imf.nra.ride.SeasonalRideSchedule;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class StrategyCalculator {
   private static final List<Integer> BASE_GOALS = List.of(1, 10, 100, 500);
@@ -26,7 +30,11 @@ public class StrategyCalculator {
     boolean onlyAutograbbing = ModConfig.currentSetting.onlyAutograbbing;
 
     // Calculate goals for each ride
-    for (RideName ride : RideName.sortedByDisplayName()) {
+    Set<RideName> seen = new HashSet<>();
+    LocalDate today = LocalDate.now();
+    for (RideName candidate : RideName.sortedByDisplayName()) {
+      RideName ride = SeasonalRideSchedule.forDate(candidate, today);
+      if (!seen.add(ride)) continue;
 
       // Skip non-autograbbing rides if onlyAutograbbing is enabled
       if (onlyAutograbbing && !AutograbHolder.hasAutograb(ride)) {
@@ -34,7 +42,7 @@ public class StrategyCalculator {
       }
 
       // Skip hidden rides
-      if (ModConfig.currentSetting.hiddenRides.contains(ride.toMatchString())) {
+      if (SeasonalRideSchedule.isHidden(ride, ModConfig.currentSetting.hiddenRides)) {
         continue;
       }
 

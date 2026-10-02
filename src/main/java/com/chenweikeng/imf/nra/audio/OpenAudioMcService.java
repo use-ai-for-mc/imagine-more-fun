@@ -176,6 +176,7 @@ public class OpenAudioMcService {
   // Network/server disconnects tear down resources but preserve this intent for the next JOIN.
   // Only an explicit audio disconnect or Minecraft shutdown clears it.
   private volatile boolean connectionDesired;
+  private volatile boolean remoteAudioActive;
   private volatile int currentVolume = -1;
   private final AudioVolumeStore volumeStore;
   private final AudioVolumeState volumeState;
@@ -310,6 +311,7 @@ public class OpenAudioMcService {
     // WebViewBridge.start() below launches a process and can wait 30 seconds for WKWebView; holding
     // this lock across that wait blocks render-thread chat handling and therefore mouse input.
     synchronized (this) {
+      if (remoteAudioActive) return;
       boolean explicitlyRequested = sessionOfferTracker.accept();
       cancelSessionOfferTimeoutTask();
       long now = System.currentTimeMillis();
@@ -447,6 +449,7 @@ public class OpenAudioMcService {
   public void reconnect() {
     String reconnectUrl;
     synchronized (this) {
+      if (remoteAudioActive) return;
       reconnectUrl = savedSessionUrl;
       if (reconnectUrl == null) {
         return;
@@ -519,7 +522,8 @@ public class OpenAudioMcService {
    *       bounded retry that falls back to waiting for the server timeout.
    * </ul>
    */
-  public void onServerAlreadyConnected() {
+  public synchronized void onServerAlreadyConnected() {
+    if (remoteAudioActive) return;
     if (isConnected) {
       ReminderHandler.getInstance().setAudioConnected(true);
       onServerConfirmedConnection();
@@ -551,6 +555,7 @@ public class OpenAudioMcService {
    * terminated the session, so reconnecting with the same URL won't help.
    */
   public synchronized void onServerEndedSession() {
+    if (remoteAudioActive) return;
     // This callback is routed only while automatic or manual audio connection is desired. Preserve
     // that intent across the server-owned session boundary so a fresh signed URL is always
     // requested, including when /oa connect was used while the global config switch is off.
@@ -572,6 +577,7 @@ public class OpenAudioMcService {
    */
   public synchronized void autoConnectOnJoin() {
     connectionDesired = true;
+    if (remoteAudioActive) return;
     ensureScheduler();
     if (autoConnectTask != null) {
       autoConnectTask.cancel(false);
@@ -582,14 +588,15 @@ public class OpenAudioMcService {
               synchronized (OpenAudioMcService.this) {
                 autoConnectTask = null;
                 if (!connectionDesired
+                    || remoteAudioActive
                     || isActive
                     || startingBridge != null
                     || sessionOfferTracker.isPending()
                     || pendingRecoveryTask != null) {
                   return;
                 }
+                connectViaCommand();
               }
-              connectViaCommand();
             },
             AUTO_CONNECT_DELAY_MS,
             TimeUnit.MILLISECONDS);
@@ -612,6 +619,7 @@ public class OpenAudioMcService {
    * ChatListenerMixin will detect the URL and call connect() automatically.
    */
   public synchronized void connectViaCommand() {
+    remoteAudioActive = false;
     connectionDesired = true;
     if (isActive && isConnected) {
       notifyUser("Already connected to audio.");
@@ -713,10 +721,30 @@ public class OpenAudioMcService {
     return sessionOfferTracker.isPending();
   }
 
+  public synchronized void setRemoteAudioActive(boolean active) {
+    if (remoteAudioActive == active) return;
+    remoteAudioActive = active;
+    if (active) {
+      startingBridge = null;
+      terminateSession("monkeycraft-audio-handoff");
+      recoveryAttempts = 0;
+    } else if (connectionDesired) {
+      scheduleFreshSessionRequest("monkeycraft-audio-return", 1000);
+    }
+  }
+
+  public boolean isRemoteAudioActive() {
+    return remoteAudioActive;
+  }
+
   /** Whether server audio lifecycle messages and offered session URLs belong to IMF. */
   public boolean shouldManageServerAudioEvents() {
-    return AudioRecoveryPolicy.shouldMaintainSession(
-        connectionDesired, isActive, sessionOfferTracker.isPending(), pendingRecoveryTask != null);
+    return !remoteAudioActive
+        && AudioRecoveryPolicy.shouldMaintainSession(
+            connectionDesired,
+            isActive,
+            sessionOfferTracker.isPending(),
+            pendingRecoveryTask != null);
   }
 
   static boolean shouldIgnoreStartupOffer(
@@ -1339,15 +1367,15 @@ public class OpenAudioMcService {
             () -> {
               synchronized (OpenAudioMcService.this) {
                 pendingRecoveryTask = null;
-                if (!connectionDesired) {
+                if (!connectionDesired || remoteAudioActive) {
                   LOGGER.info(
                       "Skipping fresh audio session because connection is no longer desired"
                           + " (reason={})",
                       reason);
                   return;
                 }
+                connectViaCommand();
               }
-              connectViaCommand();
             },
             delayMs,
             TimeUnit.MILLISECONDS);

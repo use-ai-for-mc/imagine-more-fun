@@ -22,6 +22,27 @@ celebrations on completion. The strategy HUD yields while the daily-plan HUD is 
 - `DailyPlanCelebration` owns completion sounds and particles. Routine completion is intentionally
   not mirrored as noisy chat output.
 
+Per the user's calendar, local plan candidates use Monsters After Dark (`gotgmad`) throughout
+October, and Mission Breakout otherwise. Haunted Mansion Holiday (`hmh`) is used from October 1
+through January 15 inclusive, and ordinary Haunted Mansion otherwise. Dates follow the existing
+local-day plan clock. Each family appears once, and enabling either version in Rides settings
+keeps that family eligible; hiding both excludes it. The "only autograbbing" filter still applies,
+so both Guardians variants are excluded under that filter after their region removal.
+
+The same mapping updates unfinished locally generated nodes in today's stored plan. Completed
+history and names of imported server Daily Objectives are not rewritten. For local plan completion,
+both HM/HMH and both Guardians versions are interchangeable: progress sums positive count deltas
+from separate baselines for both variants, and either actual ride highlights the family's task.
+This also applies to imported ride-objective nodes inside the local plan; it does not change server
+objective completion. Existing baselines gain a missing companion baseline at the current count,
+so historical rides are not retroactively awarded. Calendar label changes retain family progress.
+
+Strategy Hub recommendations and nearest-ride suggestions use the same calendar, deduplicate each
+family, and read the displayed version's independent lifetime count. The actual current riding row
+continues to follow server status identity. The calendar is a user-specified planning assumption,
+not a server open/closed signal. The inspected session-rides API provides historical statistics
+without an availability flag.
+
 ## Persistence
 
 | Path | Owner |

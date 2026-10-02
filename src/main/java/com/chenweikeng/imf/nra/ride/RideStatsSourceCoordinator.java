@@ -45,6 +45,7 @@ public final class RideStatsSourceCoordinator {
   }
 
   public static void onJoin(Minecraft client) {
+    ServerRideState.getInstance().reset();
     apiSnapshotReady = false;
     if (apiBridge != null) {
       apiBridge.onJoin(client);
@@ -52,6 +53,7 @@ public final class RideStatsSourceCoordinator {
   }
 
   public static void onDisconnect() {
+    ServerRideState.getInstance().reset();
     apiSnapshotReady = false;
     if (apiBridge != null) {
       apiBridge.onDisconnect();
