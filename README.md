@@ -17,7 +17,7 @@ Every feature only activates while you are connected to an `*.imaginefun.net` se
 
 1. Install Minecraft 26.2 with Fabric Loader 0.19.3 or newer.
 2. Add Fabric API and Cloth Config using the compatible versions listed below.
-3. Download [`imaginemorefun-3.4.3.jar`](https://github.com/use-ai-for-mc/imagine-more-fun/releases/download/v3.4.3/imaginemorefun-3.4.3.jar) and place it in the instance's `mods` folder.
+3. Download `imaginemorefun-3.4.3.jar` and place it in the instance's `mods` folder.
 4. Remove any standalone Not Riding Alert, Pim!, or SkinCache jars, then fully restart Minecraft.
 
 ## Requirements
